@@ -1,0 +1,255 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+import '../models/order_model.dart';
+import '../models/requirement_model.dart';
+import '../services/order_service.dart';
+import '../services/requirement_service.dart';
+
+class CartScreen extends StatelessWidget {
+  const CartScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final requirementService = RequirementService();
+    final orderService = OrderService();
+
+    const bool isPI = true;
+    const String piName = 'Sandip';
+    const String currentUserName = 'Sandip';
+
+    Color statusColor(String status) {
+      switch (status.toLowerCase()) {
+        case 'approved':
+          return Colors.greenAccent;
+        case 'rejected':
+          return Colors.redAccent;
+        case 'ordered':
+          return const Color(0xFF14B8A6);
+        default:
+          return Colors.orangeAccent;
+      }
+    }
+
+    String statusText(RequirementModel req) {
+      switch (req.status.toLowerCase()) {
+        case 'approved':
+          return 'Approved';
+        case 'rejected':
+          return 'Rejected';
+        case 'ordered':
+          return 'Order placed';
+        default:
+          return 'Waiting for approval';
+      }
+    }
+
+    Future<void> updateStatus({
+      required String docId,
+      required String status,
+    }) async {
+      await requirementService.updateRequirementStatus(
+        docId: docId,
+        status: status,
+        approvedBy: piName,
+      );
+    }
+
+    Future<void> placeOrder(RequirementModel req) async {
+      final order = OrderModel(
+  id: '',
+  requirementId: req.id,
+  chemicalName: req.chemicalName,
+  cas: req.cas,
+  brand: req.brand,
+  quantity: req.quantity,
+  orderedBy: currentUserName,
+  orderedAt: Timestamp.now(),
+  status: 'ordered',
+  receivedBy: '',
+  deliveredAt: null,
+  inventoryAdded: false,
+);
+
+      await orderService.addOrder(order);
+
+      await requirementService.markRequirementOrdered(
+        docId: req.id,
+        updatedBy: currentUserName,
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Cart',
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+      body: StreamBuilder<List<RequirementModel>>(
+        stream: requirementService.getRequirements(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          final list = snapshot.data!;
+
+          if (list.isEmpty) {
+            return const Center(
+              child: Text(
+                'No requirements yet',
+                style: TextStyle(color: Colors.white70),
+              ),
+            );
+          }
+
+          return ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: list.length,
+            itemBuilder: (context, index) {
+              final req = list[index];
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.06),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      req.chemicalName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15.5,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'CAS: ${req.cas.isEmpty ? "-" : req.cas}',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Brand: ${req.brand.isEmpty ? "-" : req.brand}',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Qty: ${req.quantity.isEmpty ? "-" : req.quantity}',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Requested by: ${req.userName.isEmpty ? "-" : req.userName}',
+                      style: const TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      statusText(req),
+                      style: TextStyle(
+                        color: statusColor(req.status),
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (req.approvedBy.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Updated by: ${req.approvedBy}',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                    ],
+                    if (isPI && req.status.toLowerCase() == 'pending') ...[
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                await updateStatus(
+                                  docId: req.id,
+                                  status: 'approved',
+                                );
+
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Requirement approved'),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Approve'),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                await updateStatus(
+                                  docId: req.id,
+                                  status: 'rejected',
+                                );
+
+                                if (!context.mounted) return;
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Requirement rejected'),
+                                  ),
+                                );
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.redAccent,
+                                foregroundColor: Colors.white,
+                              ),
+                              child: const Text('Reject'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (req.status.toLowerCase() == 'approved') ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () async {
+                            await placeOrder(req);
+
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Order placed successfully'),
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF14B8A6),
+                            foregroundColor: Colors.white,
+                          ),
+                          child: const Text('Place Order'),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}

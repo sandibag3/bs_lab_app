@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "474972096952",
+    "project_id": "bs-lab-app",
+    "storage_bucket": "bs-lab-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:474972096952:android:4ef84537ffc88f3d44674d",
+        "android_client_info": {
+          "package_name": "com.example.bs_lab_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBXtf2TYAGtLbp0Gl3yMrrWPO1te_oHQYk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
