@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'import_inventory_screen.dart';
 
@@ -91,8 +92,8 @@ class MoreScreen extends StatelessWidget {
             buildOptionCard(
               context: context,
               icon: Icons.file_upload_rounded,
-              title: 'Import Inventory CSV',
-              subtitle: 'Import your Google Sheet CSV into Firestore.',
+              title: 'Import Inventory Excel',
+subtitle: 'Import your cleaned .xlsx inventory file into Firestore.',
               onTap: () {
                 Navigator.push(
                   context,
