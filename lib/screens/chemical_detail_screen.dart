@@ -95,6 +95,68 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
+  Widget buildFunctionalGroupChips(String groups) {
+  if (groups.trim().isEmpty) return const SizedBox();
+
+  final list = groups
+      .split(',')
+      .map((e) => e.trim())
+      .where((e) => e.isNotEmpty)
+      .toList();
+
+  return Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Functional Groups',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: list.map((group) {
+            return GestureDetector(
+              onTap: () {
+                Navigator.pop(context, group);
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0x2214B8A6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  group,
+                  style: const TextStyle(
+                    color: Color(0xFF14B8A6),
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    ),
+  );
+}
+
   Widget detailBox({
     required String label,
     required String value,
@@ -351,7 +413,6 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             ],
           ),
           const SizedBox(height: 14),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),
@@ -369,9 +430,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
               ),
             ),
           ),
-
           const SizedBox(height: 14),
-
           twoColumnDetailBox(
             leftLabel: 'Molecular Formula',
             leftValue: p.molecularFormula,
@@ -381,28 +440,24 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             rightIcon: Icons.monitor_weight_outlined,
           ),
           const SizedBox(height: 10),
-
           detailBox(
             label: 'PubChem CID',
             value: p.cid,
             icon: Icons.tag_rounded,
           ),
           const SizedBox(height: 10),
-
           detailBox(
             label: 'InChIKey',
             value: p.inchiKey,
             icon: Icons.vpn_key_outlined,
           ),
           const SizedBox(height: 10),
-
           detailBox(
             label: 'IUPAC Name',
             value: p.iupacName,
             icon: Icons.menu_book_rounded,
           ),
           const SizedBox(height: 10),
-
           detailBox(
             label: 'Canonical SMILES',
             value: p.canonicalSmiles,
@@ -448,37 +503,34 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 🔥 LABEL ON TOP (highlighted)
-Container(
-  padding: const EdgeInsets.symmetric(
-    horizontal: 12,
-    vertical: 5,
-  ),
-  decoration: BoxDecoration(
-    color: const Color(0x2214B8A6),
-    borderRadius: BorderRadius.circular(12),
-  ),
-  child: Text(
-    c.label,
-    style: const TextStyle(
-      color: Color(0xFF14B8A6),
-      fontWeight: FontWeight.bold,
-      fontSize: 13,
-    ),
-  ),
-),
-
-const SizedBox(height: 10),
-
-// 🔥 CHEMICAL NAME BELOW
-Text(
-  c.chemicalName,
-  style: const TextStyle(
-    color: Colors.white,
-    fontSize: 19,
-    fontWeight: FontWeight.bold,
-  ),
-),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0x2214B8A6),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        c.label,
+                        style: const TextStyle(
+                          color: Color(0xFF14B8A6),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      c.chemicalName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 19,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
                     Text(
                       'CAS: ${c.cas}',
                       style: const TextStyle(color: Colors.white60),
@@ -492,56 +544,57 @@ Text(
                 ),
               ),
 
-              sectionTitle('Bottles'),
+              const SizedBox(height: 14),
+              buildFunctionalGroupChips(c.functionalGroups),
 
+              sectionTitle('Bottles'),
               ...List.generate(
                 bottles.length,
                 (i) => bottleCard(bottles[i], i),
               ),
 
               sectionTitle('PubChem'),
-
               FutureBuilder<PubChemChemicalDetails?>(
-  future: pubChemFuture,
-  builder: (context, snapshot) {
-    if (snapshot.connectionState == ConnectionState.waiting) {
-      return chemistryLoadingCard();
-    }
+                future: pubChemFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return chemistryLoadingCard();
+                  }
 
-    if (snapshot.hasError) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          'PubChem error: ${snapshot.error}',
-          style: const TextStyle(color: Colors.white70),
-        ),
-      );
-    }
+                  if (snapshot.hasError) {
+                    return Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        'PubChem error: ${snapshot.error}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    );
+                  }
 
-    if (!snapshot.hasData || snapshot.data == null) {
-      return Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Text(
-          c.cas.trim().isEmpty
-              ? 'No CAS number available for PubChem lookup.'
-              : 'No PubChem data found for CAS: ${c.cas.trim()}',
-          style: const TextStyle(color: Colors.white70),
-        ),
-      );
-    }
+                  if (!snapshot.hasData || snapshot.data == null) {
+                    return Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        c.cas.trim().isEmpty
+                            ? 'No CAS number available for PubChem lookup.'
+                            : 'No PubChem data found for CAS: ${c.cas.trim()}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    );
+                  }
 
-    final p = snapshot.data!;
-    return pubChemDetailsCard(p);
-  },
-)
+                  final p = snapshot.data!;
+                  return pubChemDetailsCard(p);
+                },
+              ),
             ],
           );
         },

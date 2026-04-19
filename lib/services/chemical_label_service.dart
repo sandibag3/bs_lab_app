@@ -62,18 +62,24 @@ class ChemicalLabelService {
     required String prefix,
   }) async {
     final query = await _firestore
-        .collection('chemicals')
-        .where('prefix', isEqualTo: prefix)
-        .orderBy('serialNumber', descending: true)
-        .limit(1)
+        .collection('inventory') // fixed from chemicals -> inventory
+        .where('label', isGreaterThanOrEqualTo: '$prefix-')
+        .where('label', isLessThan: '$prefix-\uf8ff')
         .get();
 
     int nextNumber = 1;
 
-    if (query.docs.isNotEmpty) {
-      final data = query.docs.first.data();
-      final lastNumber = (data['serialNumber'] ?? 0) as int;
-      nextNumber = lastNumber + 1;
+    for (final doc in query.docs) {
+      final data = doc.data();
+      final label = (data['label'] ?? '').toString().trim();
+
+      final match = RegExp('^${RegExp.escape(prefix)}-(\\d+)\$').firstMatch(label);
+      if (match != null) {
+        final number = int.tryParse(match.group(1) ?? '0') ?? 0;
+        if (number >= nextNumber) {
+          nextNumber = number + 1;
+        }
+      }
     }
 
     return {

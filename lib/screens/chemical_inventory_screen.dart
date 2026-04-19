@@ -11,12 +11,6 @@ enum InventorySortOption {
   availabilityFirst,
 }
 
-enum InventoryFilterOption {
-  all,
-  availableOnly,
-  finishedOnly,
-}
-
 class ChemicalInventoryScreen extends StatefulWidget {
   const ChemicalInventoryScreen({super.key});
 
@@ -29,9 +23,39 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   final TextEditingController _searchController = TextEditingController();
   final InventoryService inventoryService = InventoryService();
 
-  String searchText = '';
+  String searchQuery = '';
   InventorySortOption sortOption = InventorySortOption.nameAZ;
-  InventoryFilterOption filterOption = InventoryFilterOption.all;
+
+  String selectedAvailabilityFilter = 'All';
+  String? selectedLocationFilter;
+
+  final List<String> availabilityFilters = [
+    'All',
+    'Available',
+    'Low',
+    'Finished',
+  ];
+
+  final List<String> locationFilters = const [
+    'Yellow Cab',
+    'Acid Cabinet',
+    'Base Cabinet',
+    'Solvent Rack',
+    'Dry Solvent Rack',
+    'Deuterated Solvent Rack',
+    'Refrigerator',
+    'Freezer 1A',
+    'Freezer 1B',
+    'Freezer 1C',
+    'Freezer 1D',
+    'Freezer 1E',
+    'Desiccator',
+    'Glovebox',
+    'Drawer 1',
+    'Drawer 2',
+    'Drawer 3',
+    'Other',
+  ];
 
   @override
   void dispose() {
@@ -39,33 +63,53 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     super.dispose();
   }
 
-  List<List<ChemicalModel>> _applyFilter(List<List<ChemicalModel>> grouped) {
-    switch (filterOption) {
-      case InventoryFilterOption.availableOnly:
-        return grouped
-            .where((group) => group.any((c) => c.isAvailable))
-            .toList();
-      case InventoryFilterOption.finishedOnly:
-        return grouped
-            .where((group) => group.every((c) => c.isFinished))
-            .toList();
-      case InventoryFilterOption.all:
-        return grouped;
-    }
-  }
-
-  List<List<ChemicalModel>> _applySearch(List<List<ChemicalModel>> grouped) {
-    if (searchText.trim().isEmpty) return grouped;
-
-    final q = searchText.toLowerCase().trim();
-
+  List<List<ChemicalModel>> applyFilters(List<List<ChemicalModel>> grouped) {
     return grouped.where((group) {
-      return group.any((c) =>
-          c.label.toLowerCase().contains(q) ||
-          c.chemicalName.toLowerCase().contains(q) ||
-          c.cas.toLowerCase().contains(q) ||
-          c.brand.toLowerCase().contains(q) ||
-          c.location.toLowerCase().contains(q));
+      final main = group.first;
+
+      final query = searchQuery.toLowerCase().trim();
+
+      final matchesSearch = query.isEmpty ||
+          main.chemicalName.toLowerCase().contains(query) ||
+          main.cas.toLowerCase().contains(query) ||
+          main.label.toLowerCase().contains(query) ||
+          main.functionalGroups.toLowerCase().contains(query) ||
+          group.any((b) =>
+              b.brand.toLowerCase().contains(query) ||
+              b.location.toLowerCase().contains(query));
+
+      if (!matchesSearch) return false;
+
+      if (selectedAvailabilityFilter != 'All') {
+        final hasAvailable = group.any(
+          (b) => b.availability.toLowerCase().trim() == 'available',
+        );
+
+        final hasLow = group.any((b) {
+          final v = b.availability.toLowerCase().trim();
+          return v == 'low' || v.contains('about');
+        });
+
+        if (selectedAvailabilityFilter == 'Available' && !hasAvailable) {
+          return false;
+        }
+
+        if (selectedAvailabilityFilter == 'Low' && !hasLow) {
+          return false;
+        }
+
+        if (selectedAvailabilityFilter == 'Finished' &&
+            (hasAvailable || hasLow)) {
+          return false;
+        }
+      }
+
+      if (selectedLocationFilter != null) {
+        final match = group.any((b) => b.location == selectedLocationFilter);
+        if (!match) return false;
+      }
+
+      return true;
     }).toList();
   }
 
@@ -91,9 +135,16 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
           return aMain.label.toLowerCase().compareTo(bMain.label.toLowerCase());
 
         case InventorySortOption.locationAZ:
-          return aMain.location
-              .toLowerCase()
-              .compareTo(bMain.location.toLowerCase());
+          final aLocation = a
+              .map((e) => e.location.trim())
+              .where((e) => e.isNotEmpty)
+              .join(', ');
+          final bLocation = b
+              .map((e) => e.location.trim())
+              .where((e) => e.isNotEmpty)
+              .join(', ');
+
+          return aLocation.toLowerCase().compareTo(bLocation.toLowerCase());
 
         case InventorySortOption.availabilityFirst:
           final aAvailable = a.any((c) => c.isAvailable);
@@ -125,8 +176,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
       });
     }
 
-    groupedList = _applyFilter(groupedList);
-    groupedList = _applySearch(groupedList);
+    groupedList = applyFilters(groupedList);
     groupedList = _applySort(groupedList);
 
     return groupedList;
@@ -147,20 +197,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     }
   }
 
-  String filterLabel(InventoryFilterOption option) {
-    switch (option) {
-      case InventoryFilterOption.all:
-        return 'All';
-      case InventoryFilterOption.availableOnly:
-        return 'Available';
-      case InventoryFilterOption.finishedOnly:
-        return 'Finished';
-    }
-  }
-
  Widget buildGroupedChemicalCard(List<ChemicalModel> bottles) {
   final main = bottles.first;
-
   final int total = bottles.length;
 
   final locations = bottles
@@ -225,13 +263,20 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        onTap: () {
-          Navigator.push(
+        onTap: () async {
+          final selectedGroup = await Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => ChemicalDetailScreen(chemical: main),
             ),
           );
+
+          if (selectedGroup != null && selectedGroup is String) {
+            setState(() {
+              searchQuery = selectedGroup;
+              _searchController.text = selectedGroup;
+            });
+          }
         },
         child: Row(
           children: [
@@ -320,75 +365,132 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   );
 }
 
-  Widget buildControls() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<InventorySortOption>(
-                value: sortOption,
-                dropdownColor: const Color(0xFF1E293B),
+  Widget buildSortDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<InventorySortOption>(
+          value: sortOption,
+          dropdownColor: const Color(0xFF1E293B),
+          style: const TextStyle(color: Colors.white),
+          isExpanded: true,
+          items: InventorySortOption.values.map((option) {
+            return DropdownMenuItem(
+              value: option,
+              child: Text(
+                'Sort: ${sortLabel(option)}',
                 style: const TextStyle(color: Colors.white),
-                isExpanded: true,
-                items: InventorySortOption.values.map((option) {
-                  return DropdownMenuItem(
-                    value: option,
-                    child: Text(
-                      'Sort: ${sortLabel(option)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value == null) return;
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() {
+              sortOption = value;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget buildAvailabilityChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          ...availabilityFilters.map((filter) {
+            final isSelected = selectedAvailabilityFilter == filter;
+
+            return Padding(
+              padding: const EdgeInsets.only(right: 8),
+              child: ChoiceChip(
+                label: Text(filter),
+                selected: isSelected,
+                selectedColor: const Color(0xFF14B8A6),
+                backgroundColor: const Color(0xFF1E293B),
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : Colors.white70,
+                ),
+                onSelected: (_) {
                   setState(() {
-                    sortOption = value;
+                    selectedAvailabilityFilter = filter;
                   });
                 },
               ),
-            ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget buildLocationDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          value: selectedLocationFilter,
+          dropdownColor: const Color(0xFF1E293B),
+          style: const TextStyle(color: Colors.white),
+          isExpanded: true,
+          hint: const Text(
+            'Filter: Location',
+            style: TextStyle(color: Colors.white70),
           ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<InventoryFilterOption>(
-                value: filterOption,
-                dropdownColor: const Color(0xFF1E293B),
-                style: const TextStyle(color: Colors.white),
-                isExpanded: true,
-                items: InventoryFilterOption.values.map((option) {
-                  return DropdownMenuItem(
-                    value: option,
-                    child: Text(
-                      'Filter: ${filterLabel(option)}',
-                      style: const TextStyle(color: Colors.white),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  if (value == null) return;
-                  setState(() {
-                    filterOption = value;
-                  });
-                },
+          items: [
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text(
+                'Filter: All Locations',
+                style: TextStyle(color: Colors.white),
               ),
             ),
-          ),
+            ...locationFilters.map((location) {
+              return DropdownMenuItem<String?>(
+                value: location,
+                child: Text(
+                  location,
+                  style: const TextStyle(color: Colors.white),
+                ),
+              );
+            }),
+          ],
+          onChanged: (value) {
+            setState(() {
+              selectedLocationFilter = value;
+            });
+          },
         ),
-      ],
+      ),
+    );
+  }
+
+  Widget buildResetButton() {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: ActionChip(
+        label: const Text('Reset Filters'),
+        backgroundColor: Colors.redAccent,
+        labelStyle: const TextStyle(color: Colors.white),
+        onPressed: () {
+          setState(() {
+            searchQuery = '';
+            _searchController.clear();
+            selectedAvailabilityFilter = 'All';
+            selectedLocationFilter = null;
+            sortOption = InventorySortOption.nameAZ;
+          });
+        },
+      ),
     );
   }
 
@@ -415,12 +517,13 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                 controller: _searchController,
                 onChanged: (value) {
                   setState(() {
-                    searchText = value;
+                    searchQuery = value;
                   });
                 },
                 style: const TextStyle(color: Colors.white),
                 decoration: InputDecoration(
-                  hintText: 'Search by label, name, CAS, brand, or location',
+                  hintText:
+                      'Search name / CAS / label / functional group...',
                   hintStyle: const TextStyle(color: Colors.white54),
                   prefixIcon: const Icon(
                     Icons.search_rounded,
@@ -436,7 +539,17 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
               ),
             ),
             const SizedBox(height: 12),
-            buildControls(),
+            buildAvailabilityChips(),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(child: buildSortDropdown()),
+                const SizedBox(width: 10),
+                Expanded(child: buildLocationDropdown()),
+              ],
+            ),
+            const SizedBox(height: 12),
+            buildResetButton(),
             const SizedBox(height: 14),
             Expanded(
               child: StreamBuilder<List<ChemicalModel>>(

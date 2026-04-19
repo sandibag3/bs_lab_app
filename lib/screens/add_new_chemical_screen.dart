@@ -49,7 +49,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
   String? selectedLocation;
   String? selectedTexture;
-  String? selectedFunctionalGroup;
+  List<String> selectedFunctionalGroups = [];
+
+  int existingBottleCount = 0;
 
   final List<String> categories = [
     'General',
@@ -268,17 +270,40 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           : await inventoryService.findExistingByCas(cas);
 
       if (existing != null) {
+        final bottleCount = await inventoryService.getBottleCountByCas(cas);
+
         if (!mounted) return;
         setState(() {
           selectedEntryType = 'Existing Chemical';
+          existingBottleCount = bottleCount;
           labelController.text = existing.label;
           sheetTabController.text = existing.sheetTab;
-          selectedLocation = existing.location.isEmpty ? null : existing.location;
-          selectedTexture = existing.texture.isEmpty ? null : existing.texture;
-          selectedFunctionalGroup = existing.functionalGroups.isEmpty
-              ? null
-              : existing.functionalGroups;
 
+          selectedLocation = locationOptions.contains(existing.location)
+              ? existing.location
+              : null;
+
+          selectedTexture = textureOptions.contains(existing.texture)
+              ? existing.texture
+              : null;
+
+          if (existing.functionalGroups.isNotEmpty) {
+            final parsed = existing.functionalGroups
+                .split(',')
+                .map((e) => e.trim())
+                .where((e) => functionalGroupOptions.contains(e))
+                .toList();
+            selectedFunctionalGroups = parsed;
+          } else {
+            selectedFunctionalGroups = [];
+          }
+
+          if (formulaController.text.trim().isEmpty) {
+            formulaController.text = existing.formula;
+          }
+          if (molWtController.text.trim().isEmpty) {
+            molWtController.text = existing.molWt;
+          }
           if (catNumberController.text.trim().isEmpty) {
             catNumberController.text = existing.catNumber;
           }
@@ -287,6 +312,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         if (!mounted) return;
         setState(() {
           selectedEntryType = 'New Chemical';
+          existingBottleCount = 0;
+          selectedFunctionalGroups = [];
           sheetTabController.text = _getSheetTabFromSelection();
         });
 
@@ -354,6 +381,66 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     );
   }
 
+  Widget _buildFunctionalGroupSelector() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Functional Groups',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: functionalGroupOptions.map((group) {
+              final isSelected = selectedFunctionalGroups.contains(group);
+
+              return FilterChip(
+                label: Text(group),
+                selected: isSelected,
+                selectedColor: const Color(0xFF14B8A6),
+                backgroundColor: const Color(0xFF0F172A),
+                checkmarkColor: Colors.white,
+                labelStyle: TextStyle(
+                  color: isSelected ? Colors.white : Colors.white70,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                ),
+                side: BorderSide(
+                  color: isSelected
+                      ? const Color(0xFF14B8A6)
+                      : Colors.white12,
+                ),
+                onSelected: (selected) {
+                  setState(() {
+                    if (selected) {
+                      if (!selectedFunctionalGroups.contains(group)) {
+                        selectedFunctionalGroups.add(group);
+                      }
+                    } else {
+                      selectedFunctionalGroups.remove(group);
+                    }
+                  });
+                },
+              );
+            }).toList(),
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> submitChemicalEntry() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -372,7 +459,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       catNumber: catNumberController.text.trim(),
       arrivalDate: arrivalDateController.text.trim(),
       orderedBy: orderedByController.text.trim(),
-      functionalGroups: selectedFunctionalGroup ?? '',
+      functionalGroups: selectedFunctionalGroups.join(', '),
       sheetTab: sheetTabController.text.trim(),
     );
 
@@ -384,14 +471,12 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
     if (!mounted) return;
 
+    final message = selectedEntryType == 'Existing Chemical'
+        ? 'New bottle added under existing label ${labelController.text.trim()}'
+        : 'New chemical added to inventory';
+
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          selectedEntryType == 'Existing Chemical'
-              ? 'Existing chemical stock updated'
-              : 'Chemical added to inventory',
-        ),
-      ),
+      SnackBar(content: Text(message)),
     );
 
     Navigator.pop(context);
@@ -469,6 +554,22 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       ),
                     ),
                     const SizedBox(height: 14),
+                    if (isExisting)
+                      Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: const Color(0x2214B8A6),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          'Existing chemical found. Label ${labelController.text.trim()} will be reused and this entry will be saved as bottle ${existingBottleCount + 1}.',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    if (isExisting) const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       value: selectedCategory,
                       dropdownColor: const Color(0xFF1E293B),
@@ -494,7 +595,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                                 selectedCategory = value;
                                 selectedSubcategory = null;
                                 labelController.clear();
-                                sheetTabController.text = _getSheetTabFromSelection();
+                                sheetTabController.text =
+                                    _getSheetTabFromSelection();
                               });
 
                               await _generateLabelForNewChemical();
@@ -548,7 +650,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                         onChanged: (_) async {
                           if (!isExisting) {
                             setState(() {
-                              sheetTabController.text = _getSheetTabFromSelection();
+                              sheetTabController.text =
+                                  _getSheetTabFromSelection();
                             });
                             await _generateLabelForNewChemical();
                           }
@@ -570,7 +673,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                         controller: catalystMetalController,
                         readOnly: isExisting,
                         style: const TextStyle(color: Colors.white),
-                        decoration: inputDecoration('Catalyst Metal (Pd, Cu, Fe...)'),
+                        decoration:
+                            inputDecoration('Catalyst Metal (Pd, Cu, Fe...)'),
                         onChanged: (_) async {
                           if (!isExisting) {
                             await _generateLabelForNewChemical();
@@ -647,28 +751,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       },
                     ),
                     const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(
-                      value: selectedFunctionalGroup,
-                      dropdownColor: const Color(0xFF1E293B),
-                      style: const TextStyle(color: Colors.white),
-                      decoration: inputDecoration('Functional Group'),
-                      items: functionalGroupOptions
-                          .map(
-                            (item) => DropdownMenuItem<String>(
-                              value: item,
-                              child: Text(
-                                item,
-                                style: const TextStyle(color: Colors.white),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedFunctionalGroup = value;
-                        });
-                      },
-                    ),
+                    _buildFunctionalGroupSelector(),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       value: selectedTexture,
@@ -732,7 +815,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       ),
                       child: Text(
                         isExisting
-                            ? 'CAS already exists in inventory. Existing label is reused, and previous location / texture / functional group are loaded when available.'
+                            ? 'CAS already exists in inventory. Same label is reused, and this confirm step adds a new bottle under that chemical.'
                             : 'CAS is new to inventory. Category-based label generation is active. Functional category is prioritized over carbon-count category.',
                         style: const TextStyle(
                           color: Colors.white60,
@@ -771,9 +854,11 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        child: const Text(
-                          'Confirm Entry',
-                          style: TextStyle(fontSize: 15),
+                        child: Text(
+                          isExisting
+                              ? 'Add New Bottle'
+                              : 'Confirm Entry',
+                          style: const TextStyle(fontSize: 15),
                         ),
                       ),
                     ),

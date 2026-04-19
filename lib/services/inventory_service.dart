@@ -21,7 +21,6 @@ class InventoryService {
     });
   }
 
-  // 🔥 NEW FUNCTION (THIS WAS MISSING)
   Map<String, List<ChemicalModel>> groupByCas(List<ChemicalModel> chemicals) {
     final Map<String, List<ChemicalModel>> grouped = {};
 
@@ -46,6 +45,7 @@ class InventoryService {
     String? location,
     String? texture,
     String? functionalGroups,
+    String? availability,
   }) async {
     await inventoryRef.doc(docId).update({
       'quantity': quantity,
@@ -56,6 +56,7 @@ class InventoryService {
       'location': location,
       'texture': texture,
       'functionalGroups': functionalGroups,
+      'availability': availability,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
@@ -66,7 +67,7 @@ class InventoryService {
 
     final snapshot = await inventoryRef
         .where('cas', isEqualTo: cleanCas)
-        .limit(20)
+        .limit(50)
         .get();
 
     if (snapshot.docs.isEmpty) return null;
@@ -91,7 +92,7 @@ class InventoryService {
 
     final snapshot = await inventoryRef
         .where('cas', isEqualTo: cleanCas)
-        .limit(20)
+        .limit(50)
         .get();
 
     if (snapshot.docs.isEmpty) return null;
@@ -118,6 +119,33 @@ class InventoryService {
     });
 
     return docs.first;
+  }
+
+  Future<List<ChemicalModel>> getBottlesByCas(String cas) async {
+    final cleanCas = cas.trim();
+    if (cleanCas.isEmpty) return [];
+
+    final snapshot = await inventoryRef
+        .where('cas', isEqualTo: cleanCas)
+        .get();
+
+    final bottles = snapshot.docs
+        .map((doc) => ChemicalModel.fromFirestore(doc))
+        .toList();
+
+    bottles.sort((a, b) {
+      if (a.isAvailable != b.isAvailable) {
+        return a.isAvailable ? -1 : 1;
+      }
+      return a.label.compareTo(b.label);
+    });
+
+    return bottles;
+  }
+
+  Future<int> getBottleCountByCas(String cas) async {
+    final bottles = await getBottlesByCas(cas);
+    return bottles.length;
   }
 
   int carbonCountFromFormula(String formula) {
@@ -168,7 +196,78 @@ class InventoryService {
     return '$cleanPrefix-${maxSerial + 1}';
   }
 
-  // ===== OPTIONS =====
+  Future<String> generateNextLabel({
+    required String category,
+    String? subcategory,
+    String? formula,
+    String? catalystMetal,
+  }) async {
+    final prefix = getPrefix(
+      category: category,
+      subcategory: subcategory,
+      formula: formula,
+      catalystMetal: catalystMetal,
+    );
+
+    if (prefix == null || prefix.isEmpty) {
+      return 'Could not auto-generate';
+    }
+
+    return generateNextLabelByPrefix(prefix);
+  }
+
+  String? getPrefix({
+    required String category,
+    String? subcategory,
+    String? formula,
+    String? catalystMetal,
+  }) {
+    final c = category.trim().toLowerCase();
+    final s = subcategory?.trim().toLowerCase();
+
+    if (c == 'acid') return 'A';
+
+    if (c == 'base') {
+      if (s == 'organic') return 'OB';
+      if (s == 'inorganic') return 'IB';
+      return 'B';
+    }
+
+    if (c == 'salt') return 'S';
+
+    if (c == 'metal') return 'M';
+
+    if (c == 'catalyst') {
+      final metal = catalystMetal?.trim();
+      if (metal != null && metal.isNotEmpty) {
+        return _normalizeMetalPrefix(metal);
+      }
+      return 'CAT';
+    }
+
+    if (c == 'ligand') {
+      if (s == 'phosphine') return 'Phos';
+      if (s == 'n-donor' || s == 'nitrogen donor') return 'ND';
+      return 'L';
+    }
+
+    if (c == 'general') {
+      final count = carbonCountFromFormula(formula ?? '');
+      if (count > 0) return 'C$count';
+      return null;
+    }
+
+    return null;
+  }
+
+  String _normalizeMetalPrefix(String metal) {
+    final value = metal.trim();
+    if (value.isEmpty) return 'CAT';
+
+    if (value.length == 1) return value.toUpperCase();
+
+    return value[0].toUpperCase() + value.substring(1).toLowerCase();
+  }
 
   List<String> locationOptions = const [
     'Yellow Cab',
