@@ -21,6 +21,21 @@ class InventoryService {
     });
   }
 
+  // 🔥 NEW FUNCTION (THIS WAS MISSING)
+  Map<String, List<ChemicalModel>> groupByCas(List<ChemicalModel> chemicals) {
+    final Map<String, List<ChemicalModel>> grouped = {};
+
+    for (final chem in chemicals) {
+      final key = chem.cas.trim().isEmpty
+          ? 'name:${chem.chemicalName.toLowerCase()}'
+          : chem.cas.trim().toLowerCase();
+
+      grouped.putIfAbsent(key, () => []).add(chem);
+    }
+
+    return grouped;
+  }
+
   Future<void> updateChemicalStock({
     required String docId,
     required String quantity,
@@ -153,78 +168,7 @@ class InventoryService {
     return '$cleanPrefix-${maxSerial + 1}';
   }
 
-  Future<String> generateNextLabel({
-    required String category,
-    String? subcategory,
-    String? formula,
-    String? catalystMetal,
-  }) async {
-    final prefix = getPrefix(
-      category: category,
-      subcategory: subcategory,
-      formula: formula,
-      catalystMetal: catalystMetal,
-    );
-
-    if (prefix == null || prefix.isEmpty) {
-      return 'Could not auto-generate';
-    }
-
-    return generateNextLabelByPrefix(prefix);
-  }
-
-  String? getPrefix({
-    required String category,
-    String? subcategory,
-    String? formula,
-    String? catalystMetal,
-  }) {
-    final c = category.trim().toLowerCase();
-    final s = subcategory?.trim().toLowerCase();
-
-    if (c == 'acid') return 'A';
-
-    if (c == 'base') {
-      if (s == 'organic') return 'OB';
-      if (s == 'inorganic') return 'IB';
-      return 'B';
-    }
-
-    if (c == 'salt') return 'S';
-
-    if (c == 'metal') return 'M';
-
-    if (c == 'catalyst') {
-      final metal = catalystMetal?.trim();
-      if (metal != null && metal.isNotEmpty) {
-        return _normalizeMetalPrefix(metal);
-      }
-      return 'CAT';
-    }
-
-    if (c == 'ligand') {
-      if (s == 'phosphine') return 'Phos';
-      if (s == 'n-donor' || s == 'nitrogen donor') return 'ND';
-      return 'L';
-    }
-
-    if (c == 'general') {
-      final count = carbonCountFromFormula(formula ?? '');
-      if (count > 0) return 'C$count';
-      return null;
-    }
-
-    return null;
-  }
-
-  String _normalizeMetalPrefix(String metal) {
-    final value = metal.trim();
-    if (value.isEmpty) return 'CAT';
-
-    if (value.length == 1) return value.toUpperCase();
-
-    return value[0].toUpperCase() + value.substring(1).toLowerCase();
-  }
+  // ===== OPTIONS =====
 
   List<String> locationOptions = const [
     'Yellow Cab',

@@ -39,114 +39,97 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     super.dispose();
   }
 
-  List<ChemicalModel> _deduplicateByCas(List<ChemicalModel> chemicals) {
-    final Map<String, List<ChemicalModel>> grouped = {};
-
-    for (final chemical in chemicals) {
-      final key = chemical.normalizedCas.isEmpty
-          ? 'name:${chemical.normalizedName}'
-          : 'cas:${chemical.normalizedCas}';
-
-      grouped.putIfAbsent(key, () => []).add(chemical);
+  List<List<ChemicalModel>> _applyFilter(List<List<ChemicalModel>> grouped) {
+    switch (filterOption) {
+      case InventoryFilterOption.availableOnly:
+        return grouped
+            .where((group) => group.any((c) => c.isAvailable))
+            .toList();
+      case InventoryFilterOption.finishedOnly:
+        return grouped
+            .where((group) => group.every((c) => c.isFinished))
+            .toList();
+      case InventoryFilterOption.all:
+        return grouped;
     }
+  }
 
-    final List<ChemicalModel> result = [];
+  List<List<ChemicalModel>> _applySearch(List<List<ChemicalModel>> grouped) {
+    if (searchText.trim().isEmpty) return grouped;
 
-    for (final entry in grouped.entries) {
-      final items = entry.value;
+    final q = searchText.toLowerCase().trim();
 
-      items.sort((a, b) {
+    return grouped.where((group) {
+      return group.any((c) =>
+          c.label.toLowerCase().contains(q) ||
+          c.chemicalName.toLowerCase().contains(q) ||
+          c.cas.toLowerCase().contains(q) ||
+          c.brand.toLowerCase().contains(q) ||
+          c.location.toLowerCase().contains(q));
+    }).toList();
+  }
+
+  List<List<ChemicalModel>> _applySort(List<List<ChemicalModel>> grouped) {
+    final list = [...grouped];
+
+    list.sort((a, b) {
+      final aMain = a.first;
+      final bMain = b.first;
+
+      switch (sortOption) {
+        case InventorySortOption.nameAZ:
+          return aMain.chemicalName
+              .toLowerCase()
+              .compareTo(bMain.chemicalName.toLowerCase());
+
+        case InventorySortOption.nameZA:
+          return bMain.chemicalName
+              .toLowerCase()
+              .compareTo(aMain.chemicalName.toLowerCase());
+
+        case InventorySortOption.labelAZ:
+          return aMain.label.toLowerCase().compareTo(bMain.label.toLowerCase());
+
+        case InventorySortOption.locationAZ:
+          return aMain.location
+              .toLowerCase()
+              .compareTo(bMain.location.toLowerCase());
+
+        case InventorySortOption.availabilityFirst:
+          final aAvailable = a.any((c) => c.isAvailable);
+          final bAvailable = b.any((c) => c.isAvailable);
+
+          if (aAvailable != bAvailable) {
+            return aAvailable ? -1 : 1;
+          }
+
+          return aMain.chemicalName
+              .toLowerCase()
+              .compareTo(bMain.chemicalName.toLowerCase());
+      }
+    });
+
+    return list;
+  }
+
+  List<List<ChemicalModel>> processChemicals(List<ChemicalModel> rawChemicals) {
+    final groupedMap = inventoryService.groupByCas(rawChemicals);
+    var groupedList = groupedMap.values.toList();
+
+    for (final group in groupedList) {
+      group.sort((a, b) {
         if (a.isAvailable != b.isAvailable) {
           return a.isAvailable ? -1 : 1;
         }
         return a.label.compareTo(b.label);
       });
-
-      result.add(items.first);
     }
 
-    return result;
-  }
+    groupedList = _applyFilter(groupedList);
+    groupedList = _applySearch(groupedList);
+    groupedList = _applySort(groupedList);
 
-  List<ChemicalModel> _applyFilter(List<ChemicalModel> chemicals) {
-    switch (filterOption) {
-      case InventoryFilterOption.availableOnly:
-        return chemicals.where((c) => c.isAvailable).toList();
-      case InventoryFilterOption.finishedOnly:
-        return chemicals.where((c) => c.isFinished).toList();
-      case InventoryFilterOption.all:
-        return chemicals;
-    }
-  }
-
-  List<ChemicalModel> _applySearch(List<ChemicalModel> chemicals) {
-    if (searchText.trim().isEmpty) return chemicals;
-
-    final q = searchText.toLowerCase().trim();
-
-    return chemicals.where((c) {
-      return c.label.toLowerCase().contains(q) ||
-          c.chemicalName.toLowerCase().contains(q) ||
-          c.cas.toLowerCase().contains(q) ||
-          c.brand.toLowerCase().contains(q) ||
-          c.location.toLowerCase().contains(q);
-    }).toList();
-  }
-
-  List<ChemicalModel> _applySort(List<ChemicalModel> chemicals) {
-    final list = [...chemicals];
-
-    switch (sortOption) {
-      case InventorySortOption.nameAZ:
-        list.sort((a, b) =>
-            a.chemicalName.toLowerCase().compareTo(b.chemicalName.toLowerCase()));
-        break;
-      case InventorySortOption.nameZA:
-        list.sort((a, b) =>
-            b.chemicalName.toLowerCase().compareTo(a.chemicalName.toLowerCase()));
-        break;
-      case InventorySortOption.labelAZ:
-        list.sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
-        break;
-      case InventorySortOption.locationAZ:
-        list.sort((a, b) =>
-            a.location.toLowerCase().compareTo(b.location.toLowerCase()));
-        break;
-      case InventorySortOption.availabilityFirst:
-        list.sort((a, b) {
-          if (a.isAvailable != b.isAvailable) {
-            return a.isAvailable ? -1 : 1;
-          }
-          return a.chemicalName
-              .toLowerCase()
-              .compareTo(b.chemicalName.toLowerCase());
-        });
-        break;
-    }
-
-    return list;
-  }
-
-  List<ChemicalModel> processChemicals(List<ChemicalModel> rawChemicals) {
-    var list = _deduplicateByCas(rawChemicals);
-    list = _applyFilter(list);
-    list = _applySearch(list);
-    list = _applySort(list);
-    return list;
-  }
-
-  Color getAvailabilityColor(String availability) {
-    final value = availability.toLowerCase();
-
-    if (value.contains('finished') ||
-        value.contains('empty') ||
-        value.contains('not available')) {
-      return Colors.redAccent;
-    }
-    if (value.contains('about')) {
-      return Colors.orangeAccent;
-    }
-    return Colors.greenAccent;
+    return groupedList;
   }
 
   String sortLabel(InventorySortOption option) {
@@ -175,15 +158,47 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     }
   }
 
- Widget buildChemicalCard(ChemicalModel chemical) {
+ Widget buildGroupedChemicalCard(List<ChemicalModel> bottles) {
+  final main = bottles.first;
+
+  final int total = bottles.length;
+
+  final locations = bottles
+      .map((b) => b.location.trim())
+      .where((l) => l.isNotEmpty)
+      .toSet()
+      .toList();
+
+  String locationSummary;
+  if (locations.isEmpty) {
+    locationSummary = '-';
+  } else if (locations.length == 1) {
+    locationSummary = locations.first;
+  } else {
+    locationSummary = '${locations.first} + ${locations.length - 1} more';
+  }
+
+  final bool hasAvailable = bottles.any(
+    (b) => b.availability.toLowerCase().trim() == 'available',
+  );
+
+  final bool hasLow = bottles.any((b) {
+    final v = b.availability.toLowerCase().trim();
+    return v == 'low' || v.contains('about');
+  });
+
+  String summaryStatus;
   Color statusColor;
 
-  if (chemical.isFinished) {
-    statusColor = Colors.redAccent;
-  } else if (chemical.availability.toLowerCase().contains('about')) {
+  if (hasAvailable) {
+    summaryStatus = 'Available';
+    statusColor = const Color(0xFF14B8A6);
+  } else if (hasLow) {
+    summaryStatus = 'Low';
     statusColor = Colors.orangeAccent;
   } else {
-    statusColor = const Color(0xFF14B8A6);
+    summaryStatus = 'Finished';
+    statusColor = Colors.redAccent;
   }
 
   Widget chip(String text) {
@@ -214,16 +229,15 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => ChemicalDetailScreen(chemical: chemical),
+              builder: (_) => ChemicalDetailScreen(chemical: main),
             ),
           );
         },
         child: Row(
           children: [
-            // 🔥 LEFT STATUS BAR
             Container(
               width: 5,
-              height: 110,
+              height: 130,
               decoration: BoxDecoration(
                 color: statusColor,
                 borderRadius: const BorderRadius.only(
@@ -232,14 +246,12 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                 ),
               ),
             ),
-
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // 🔹 TOP ROW
                     Row(
                       children: [
                         Container(
@@ -252,7 +264,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
-                            chemical.label,
+                            main.label,
                             style: const TextStyle(
                               color: Color(0xFF14B8A6),
                               fontWeight: FontWeight.bold,
@@ -262,7 +274,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                         ),
                         const Spacer(),
                         Text(
-                          chemical.availability,
+                          summaryStatus,
                           style: TextStyle(
                             color: statusColor,
                             fontWeight: FontWeight.w700,
@@ -277,12 +289,9 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                         ),
                       ],
                     ),
-
                     const SizedBox(height: 8),
-
-                    // 🔹 NAME
                     Text(
-                      chemical.chemicalName,
+                      main.chemicalName,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 15.5,
@@ -290,18 +299,14 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                         height: 1.25,
                       ),
                     ),
-
                     const SizedBox(height: 10),
-
-                    // 🔹 CHIPS ROW
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        chip('CAS: ${chemical.cas.isEmpty ? "-" : chemical.cas}'),
-                        chip(chemical.brand.isEmpty ? '-' : chemical.brand),
-                        chip('Qty: ${chemical.quantity.isEmpty ? "-" : chemical.quantity}'),
-                        chip(chemical.location.isEmpty ? '-' : chemical.location),
+                        chip('CAS: ${main.cas.isEmpty ? "-" : main.cas}'),
+                        chip('Loc: $locationSummary'),
+                        chip('Bottles: $total'),
                       ],
                     ),
                   ],
@@ -453,9 +458,9 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                   }
 
                   final raw = snapshot.data ?? [];
-                  final chemicals = processChemicals(raw);
+                  final groupedChemicals = processChemicals(raw);
 
-                  if (chemicals.isEmpty) {
+                  if (groupedChemicals.isEmpty) {
                     return const Center(
                       child: Text(
                         'No chemicals found.',
@@ -468,9 +473,11 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                   }
 
                   return ListView.builder(
-                    itemCount: chemicals.length,
+                    itemCount: groupedChemicals.length,
                     itemBuilder: (context, index) {
-                      return buildChemicalCard(chemicals[index]);
+                      return buildGroupedChemicalCard(
+                        groupedChemicals[index],
+                      );
                     },
                   );
                 },
