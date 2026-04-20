@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/order_model.dart';
 import '../screens/add_new_chemical_screen.dart';
+import '../screens/add_new_consumable_screen.dart';
+import '../screens/newly_arrived_items_screen.dart';
 import '../services/order_service.dart';
 
 class NewlyArrivedSection extends StatefulWidget {
@@ -40,6 +42,48 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
     super.dispose();
   }
 
+  List<OrderModel> _pendingRecentOrders(List<OrderModel> orders) {
+    final now = DateTime.now();
+
+    final recent = orders
+        .where((o) => o.status.toLowerCase() == 'delivered')
+        .where((o) => o.requiresInventoryIntake)
+        .where((o) => o.inventoryAdded == false)
+        .where((o) {
+          if (o.deliveredAt == null) return false;
+          return now.difference(o.deliveredAt!.toDate()).inDays <= 7;
+        })
+        .toList();
+
+    recent.sort((a, b) {
+      final aDate = a.deliveredAt?.toDate() ?? DateTime(2000);
+      final bDate = b.deliveredAt?.toDate() ?? DateTime(2000);
+      return bDate.compareTo(aDate);
+    });
+
+    return recent;
+  }
+
+  void _openEntryScreen(BuildContext context, OrderModel order) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => order.isConsumable
+            ? AddNewConsumableScreen(order: order)
+            : AddNewChemicalScreen(order: order),
+      ),
+    );
+  }
+
+  void _openFullList(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const NewlyArrivedItemsScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final orderService = OrderService();
@@ -47,13 +91,31 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Newly Arrived',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
+        Row(
+          children: [
+            GestureDetector(
+              onTap: () => _openFullList(context),
+              child: const Text(
+                'Newly Arrived',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Spacer(),
+            TextButton(
+              onPressed: () => _openFullList(context),
+              child: const Text(
+                'View all',
+                style: TextStyle(
+                  color: Color(0xFF14B8A6),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         StreamBuilder<List<OrderModel>>(
@@ -66,35 +128,22 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
               );
             }
 
-            final now = DateTime.now();
-
-            final delivered = snapshot.data!
-                .where((o) => o.status.toLowerCase() == 'delivered')
-                .where((o) => o.inventoryAdded == false)
-                .toList();
-
-            final recent = delivered.where((order) {
-              if (order.deliveredAt == null) return false;
-              final date = order.deliveredAt!.toDate();
-              return now.difference(date).inDays <= 7;
-            }).toList();
-
-            recent.sort((a, b) {
-              final aDate = a.deliveredAt?.toDate() ?? DateTime(2000);
-              final bDate = b.deliveredAt?.toDate() ?? DateTime(2000);
-              return bDate.compareTo(aDate);
-            });
+            final recent = _pendingRecentOrders(snapshot.data!);
 
             if (recent.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: const Text(
-                  'No newly arrived chemicals this week.',
-                  style: TextStyle(color: Colors.white70),
+              return InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => _openFullList(context),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Text(
+                    'No newly arrived items this week.',
+                    style: TextStyle(color: Colors.white70),
+                  ),
                 ),
               );
             }
@@ -102,26 +151,21 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
             final displayList = [...recent, ...recent];
 
             return SizedBox(
-              height: 90,
+              height: 104,
               child: ListView.builder(
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
                 itemCount: displayList.length,
                 itemBuilder: (context, index) {
                   final order = displayList[index];
+                  final secondary =
+                      order.brand.trim().isNotEmpty ? order.brand : order.vendor;
 
                   return InkWell(
                     borderRadius: BorderRadius.circular(18),
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => AddNewChemicalScreen(order: order),
-                        ),
-                      );
-                    },
+                    onTap: () => _openEntryScreen(context, order),
                     child: Container(
-                      width: 220,
+                      width: 240,
                       margin: const EdgeInsets.only(right: 12),
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -141,19 +185,50 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            order.chemicalName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14.5,
-                              fontWeight: FontWeight.w700,
-                            ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  order.displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: order.isConsumable
+                                      ? const Color(0x2238BDF8)
+                                      : const Color(0x2214B8A6),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  order.typeLabel,
+                                  style: TextStyle(
+                                    color: order.isConsumable
+                                        ? const Color(0xFF38BDF8)
+                                        : const Color(0xFF14B8A6),
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            order.brand.isEmpty ? 'Brand not set' : order.brand,
+                            secondary.trim().isEmpty
+                                ? 'Details not set'
+                                : secondary,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -162,13 +237,11 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                             ),
                           ),
                           const Spacer(),
-                          Text(
-                            order.receivedBy.isEmpty
-                                ? 'Tap to add to inventory'
-                                : 'Tap to add • ${order.receivedBy}',
+                          const Text(
+                            'Tap to confirm entry',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
+                            style: TextStyle(
                               color: Color(0xFF14B8A6),
                               fontSize: 12,
                               fontWeight: FontWeight.w600,

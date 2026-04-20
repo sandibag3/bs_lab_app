@@ -9,6 +9,30 @@ import '../services/requirement_service.dart';
 class CartScreen extends StatelessWidget {
   const CartScreen({super.key});
 
+  String _requirementDisplayName(RequirementModel req) {
+    final mainType = req.mainType.trim().toLowerCase();
+    final chemical = req.chemicalName.trim();
+    final consumable = req.consumableType.trim();
+
+    if (mainType == 'consumable') {
+      if (consumable.isNotEmpty) return consumable;
+      if (chemical.isNotEmpty) return chemical;
+      return 'Consumable';
+    }
+
+    if (chemical.isNotEmpty) return chemical;
+    if (consumable.isNotEmpty) return consumable;
+    return 'Chemical';
+  }
+
+  bool _isConsumableRequirement(RequirementModel req) {
+    return req.mainType.trim().toLowerCase() == 'consumable';
+  }
+
+  String _typeLabel(RequirementModel req) {
+    return _isConsumableRequirement(req) ? 'Consumable' : 'Chemical';
+  }
+
   @override
   Widget build(BuildContext context) {
     final requirementService = RequirementService();
@@ -56,19 +80,24 @@ class CartScreen extends StatelessWidget {
 
     Future<void> placeOrder(RequirementModel req) async {
       final order = OrderModel(
-  id: '',
-  requirementId: req.id,
-  chemicalName: req.chemicalName,
-  cas: req.cas,
-  brand: req.brand,
-  quantity: req.quantity,
-  orderedBy: currentUserName,
-  orderedAt: Timestamp.now(),
-  status: 'ordered',
-  receivedBy: '',
-  deliveredAt: null,
-  inventoryAdded: false,
-);
+        id: '',
+        requirementId: req.id,
+        mainType: req.mainType,
+        chemicalName: req.chemicalName,
+        consumableType: req.consumableType,
+        cas: req.cas,
+        brand: req.brand,
+        vendor: req.vendor,
+        quantity: req.quantity,
+        packSize: req.packSize,
+        modeOfPurchase: req.modeOfPurchase,
+        orderedBy: currentUserName,
+        orderedAt: Timestamp.now(),
+        status: 'ordered',
+        receivedBy: '',
+        deliveredAt: null,
+        inventoryAdded: false,
+      );
 
       await orderService.addOrder(order);
 
@@ -108,6 +137,7 @@ class CartScreen extends StatelessWidget {
             itemCount: list.length,
             itemBuilder: (context, index) {
               final req = list[index];
+              final isConsumable = _isConsumableRequirement(req);
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -123,7 +153,7 @@ class CartScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      req.chemicalName,
+                      _requirementDisplayName(req),
                       style: const TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -132,19 +162,49 @@ class CartScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 6),
                     Text(
-                      'CAS: ${req.cas.isEmpty ? "-" : req.cas}',
+                      'Type: ${_typeLabel(req)}',
                       style: const TextStyle(color: Colors.white70),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Brand: ${req.brand.isEmpty ? "-" : req.brand}',
-                      style: const TextStyle(color: Colors.white70),
-                    ),
+                    if (!isConsumable && req.cas.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'CAS: ${req.cas}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                    if (req.packSize.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Pack Size: ${req.packSize}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                    if (req.brand.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Brand: ${req.brand}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                    if (req.vendor.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Vendor: ${req.vendor}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
                     const SizedBox(height: 4),
                     Text(
                       'Qty: ${req.quantity.isEmpty ? "-" : req.quantity}',
                       style: const TextStyle(color: Colors.white70),
                     ),
+                    if (req.modeOfPurchase.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Mode: ${req.modeOfPurchase}',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
                     const SizedBox(height: 4),
                     Text(
                       'Requested by: ${req.userName.isEmpty ? "-" : req.userName}',

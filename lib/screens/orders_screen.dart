@@ -26,10 +26,10 @@ class OrdersScreen extends StatelessWidget {
     }
 
     String formatDeliveredNote(OrderModel order) {
-  if (order.deliveredAt == null) return '';
-  final date = order.deliveredAt!.toDate();
-  return 'Delivered on ${date.day}/${date.month}/${date.year} received by ${order.receivedBy}';
-}
+      if (order.deliveredAt == null) return '';
+      final date = order.deliveredAt!.toDate();
+      return 'Delivered on ${date.day}/${date.month}/${date.year} received by ${order.receivedBy}';
+    }
 
     Future<void> markDelivered(OrderModel order) async {
       await orderService.updateOrderStatus(
@@ -95,7 +95,7 @@ class OrdersScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      order.chemicalName,
+                      order.displayName,
                       style: const TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -104,20 +104,52 @@ class OrdersScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'CAS: ${order.cas.isEmpty ? "-" : order.cas}',
+                      'Type: ${order.typeLabel}',
                       style: const TextStyle(
                         color: Colors.white70,
                         fontSize: 13,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Brand: ${order.brand.isEmpty ? "-" : order.brand}',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
+                    if (order.isChemical && order.cas.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'CAS: ${order.cas}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
                       ),
-                    ),
+                    ],
+                    if (order.packSize.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Pack Size: ${order.packSize}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                    if (order.brand.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Brand: ${order.brand}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                    if (order.vendor.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Vendor: ${order.vendor}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 4),
                     Text(
                       'Quantity: ${order.quantity.isEmpty ? "-" : order.quantity}',
@@ -126,6 +158,16 @@ class OrdersScreen extends StatelessWidget {
                         fontSize: 13,
                       ),
                     ),
+                    if (order.modeOfPurchase.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        'Mode: ${order.modeOfPurchase}',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     Text(
                       formatOrderedNote(order),
