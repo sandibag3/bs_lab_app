@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 
+import '../app_state.dart';
 import '../services/requirement_service.dart';
 import '../models/requirement_model.dart';
 
@@ -392,7 +393,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
       consumableType:
           selectedMainType == 'consumable' ? (selectedConsumableType ?? '') : '',
       status: 'pending',
-      userName: 'Sandip',
+      userName: AppState.instance.authenticatedUserName,
       createdAt: Timestamp.now(),
       approvedBy: '',
       approvedAt: null,

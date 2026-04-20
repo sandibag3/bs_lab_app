@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../app_state.dart';
 import '../models/order_model.dart';
 import '../models/requirement_model.dart';
 import '../services/order_service.dart';
@@ -12,10 +13,9 @@ class CartScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final requirementService = RequirementService();
     final orderService = OrderService();
-
-    const bool isPI = true;
-    const String piName = 'Sandip';
-    const String currentUserName = 'Sandip';
+    final appState = AppState.instance;
+    final bool isPiAdmin = appState.isPiAdmin;
+    final String currentUserName = appState.authenticatedUserName;
 
     Color statusColor(String status) {
       switch (status.toLowerCase()) {
@@ -50,7 +50,7 @@ class CartScreen extends StatelessWidget {
       await requirementService.updateRequirementStatus(
         docId: docId,
         status: status,
-        approvedBy: piName,
+        approvedBy: currentUserName,
       );
     }
 
@@ -168,7 +168,7 @@ class CartScreen extends StatelessWidget {
                         ),
                       ),
                     ],
-                    if (isPI && req.status.toLowerCase() == 'pending') ...[
+                    if (isPiAdmin && req.status.toLowerCase() == 'pending') ...[
                       const SizedBox(height: 12),
                       Row(
                         children: [

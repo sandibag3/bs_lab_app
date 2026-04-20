@@ -76,6 +76,57 @@ class LabAccessScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildRoleSelector() {
+    return AnimatedBuilder(
+      animation: appState,
+      builder: (context, _) {
+        final selectedRole = appState.demoUserRole;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Demo Role',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'This role is stored locally on this device for now.',
+              style: TextStyle(
+                color: Colors.white60,
+                fontSize: 12.5,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: DemoUserRole.values.map((role) {
+                return ChoiceChip(
+                  label: Text(role.label),
+                  selected: selectedRole == role,
+                  selectedColor: const Color(0xFF14B8A6),
+                  backgroundColor: const Color(0xFF1E293B),
+                  labelStyle: TextStyle(
+                    color: selectedRole == role ? Colors.white : Colors.white70,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  onSelected: (_) async {
+                    await appState.saveDemoRole(role);
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   void _openCreateLab(BuildContext context) {
     Navigator.push(
       context,
@@ -94,7 +145,10 @@ class LabAccessScreen extends StatelessWidget {
     );
   }
 
-  void _openDemoMode(BuildContext context) {
+  Future<void> _openDemoMode(BuildContext context) async {
+    await appState.saveDemoRole(appState.demoUserRole);
+    if (!context.mounted) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -163,12 +217,15 @@ class LabAccessScreen extends StatelessWidget {
                     'Connect to an existing lab workspace. This stays as a safe placeholder in Phase 1.',
                 onTap: () => _openJoinLab(context),
               ),
+              const SizedBox(height: 6),
+              _buildRoleSelector(),
+              const SizedBox(height: 20),
               _buildOptionCard(
                 icon: Icons.science_rounded,
                 title: 'Demo Mode',
                 subtitle:
-                    'Continue into the current dashboard without changing existing inventory or requirement flows.',
-                onTap: () => _openDemoMode(context),
+                    'Continue into the current dashboard using the selected temporary local role.',
+                onTap: () async => _openDemoMode(context),
               ),
             ],
           ),

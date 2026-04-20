@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_state.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
 
@@ -8,7 +9,7 @@ class OrdersScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final orderService = OrderService();
-    const String currentUserName = 'Sandip';
+    final String currentUserName = AppState.instance.authenticatedUserName;
 
     Color statusColor(String status) {
       switch (status.toLowerCase()) {
