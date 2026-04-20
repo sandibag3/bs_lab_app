@@ -132,7 +132,7 @@ class HomeDashboardTab extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         profile.about.trim().isEmpty
-                            ? 'Your all time lab partner'
+                            ? 'Your chemistry lab partner'
                             : profile.about,
                         style: const TextStyle(
                           color: Colors.white70,

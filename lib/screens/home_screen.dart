@@ -114,7 +114,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 3:
         return 'Edit Profile';
       default:
-        return 'BS Lab Dashboard';
+        return 'Labmate Dashboard';
     }
   }
 

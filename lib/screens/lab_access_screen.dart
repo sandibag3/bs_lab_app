@@ -1,0 +1,179 @@
+import 'package:flutter/material.dart';
+import '../app_state.dart';
+import 'create_lab_screen.dart';
+import 'home_screen.dart';
+import 'join_lab_screen.dart';
+
+class LabAccessScreen extends StatelessWidget {
+  final AppState appState;
+
+  const LabAccessScreen({
+    super.key,
+    required this.appState,
+  });
+
+  Widget _buildOptionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Material(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: const Color(0x2214B8A6),
+                  child: Icon(
+                    icon,
+                    color: const Color(0xFF14B8A6),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: const TextStyle(
+                          color: Colors.white60,
+                          fontSize: 13,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  size: 16,
+                  color: Colors.white38,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openCreateLab(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CreateLabScreen(),
+      ),
+    );
+  }
+
+  void _openJoinLab(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const JoinLabScreen(),
+      ),
+    );
+  }
+
+  void _openDemoMode(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => HomeScreen(appState: appState),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text(
+          'Labmate',
+          style: TextStyle(color: Colors.white),
+        ),
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Choose how to continue',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 8),
+                    Text(
+                      'Create a new lab, join an existing lab, or continue into Demo Mode with the current app experience.',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13.5,
+                        height: 1.45,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
+              _buildOptionCard(
+                icon: Icons.add_business_rounded,
+                title: 'Create Lab',
+                subtitle:
+                    'Set up a new lab workspace. This stays as a safe placeholder in Phase 1.',
+                onTap: () => _openCreateLab(context),
+              ),
+              _buildOptionCard(
+                icon: Icons.group_add_rounded,
+                title: 'Join Lab',
+                subtitle:
+                    'Connect to an existing lab workspace. This stays as a safe placeholder in Phase 1.',
+                onTap: () => _openJoinLab(context),
+              ),
+              _buildOptionCard(
+                icon: Icons.science_rounded,
+                title: 'Demo Mode',
+                subtitle:
+                    'Continue into the current dashboard without changing existing inventory or requirement flows.',
+                onTap: () => _openDemoMode(context),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

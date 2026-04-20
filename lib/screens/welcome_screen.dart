@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app_state.dart';
-import 'home_screen.dart';
+import 'login_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   final AppState appState;
@@ -52,7 +52,7 @@ class WelcomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 28),
             const Text(
-              'BS Lab',
+              'Labmate',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 30,
@@ -62,7 +62,7 @@ class WelcomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             const Text(
-              'Welcome to BS Lab\nYour all time lab partner.',
+              'Welcome to Labmate\nYour chemistry lab partner.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 17,
@@ -75,10 +75,10 @@ class WelcomeScreen extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.pushReplacement(
+                  Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => HomeScreen(appState: appState),
+                      builder: (context) => LoginScreen(appState: appState),
                     ),
                   );
                 },
@@ -91,14 +91,14 @@ class WelcomeScreen extends StatelessWidget {
                   ),
                 ),
                 child: const Text(
-                  'Continue',
+                  'Sign In / Sign Up',
                   style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
                 ),
               ),
             ),
             const SizedBox(height: 16),
             const Text(
-              'Login / Signup screens can be connected here later.',
+              'Sign in to continue, then create a lab, join a lab, or enter Demo Mode.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,

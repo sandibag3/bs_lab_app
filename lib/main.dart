@@ -28,7 +28,7 @@ class BSLabApp extends StatelessWidget {
       builder: (context, _) {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
-          title: 'BS Lab',
+          title: 'Labmate',
           theme: ThemeData(
             useMaterial3: true,
             brightness: Brightness.dark,
