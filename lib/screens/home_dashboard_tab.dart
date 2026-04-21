@@ -3,6 +3,8 @@ import '../app_state.dart';
 import '../widgets/dashboard_card.dart';
 import '../widgets/newly_arrived_section.dart';
 import '../widgets/search_bar_widget.dart';
+import 'consumables_inventory_screen.dart';
+import 'newly_arrived_items_screen.dart';
 
 class HomeDashboardTab extends StatelessWidget {
   final AppState appState;
@@ -34,31 +36,37 @@ class HomeDashboardTab extends StatelessWidget {
     required this.onOpenMore,
   });
 
+  void _openConsumablesInventory(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const ConsumablesInventoryScreen(),
+      ),
+    );
+  }
+
+  void _openNewlyArrived(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const NewlyArrivedItemsScreen(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> dashboardItems = [
+    final List<Map<String, dynamic>> toolItems = [
       {
-        'title': 'Chemical Library',
-        'icon': Icons.biotech_rounded,
+        'title': 'Calculator',
+        'icon': Icons.calculate_rounded,
       },
       {
         'title': 'Instruments',
         'icon': Icons.precision_manufacturing_rounded,
       },
       {
-        'title': 'Orders',
-        'icon': Icons.shopping_cart_rounded,
-      },
-      {
-        'title': 'Cart',
-        'icon': Icons.shopping_bag_rounded,
-      },
-      {
-        'title': 'Calculator',
-        'icon': Icons.calculate_rounded,
-      },
-      {
-        'title': 'Electronic Lab Manual',
+        'title': 'Lab Manual',
         'icon': Icons.description_rounded,
       },
       {
@@ -75,6 +83,15 @@ class HomeDashboardTab extends StatelessWidget {
       animation: appState,
       builder: (context, _) {
         final profile = appState.profile;
+        final profileName = profile.name.trim();
+        final resolvedName =
+            profileName.isEmpty || profileName == 'Your Name'
+                ? appState.authenticatedUserName
+                : profileName;
+        final about = profile.about.trim();
+        final headlineText = about.isEmpty
+            ? 'Manage inventory, requirements, orders, and newly arrived items in one place.'
+            : about;
 
         return SafeArea(
           child: SingleChildScrollView(
@@ -86,7 +103,6 @@ class HomeDashboardTab extends StatelessWidget {
                   onTap: onOpenChemicals,
                 ),
                 const SizedBox(height: 20),
-
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(18),
@@ -111,111 +127,121 @@ class HomeDashboardTab extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Welcome back!',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
+                      Row(
+                        children: [
+                          const Text(
+                            'Labmate',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.16),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              appState.demoUserRole.label,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Text(
-                        profile.name.trim().isEmpty
-                            ? 'Your Name'
-                            : profile.name,
+                        resolvedName,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Text(
-                        profile.about.trim().isEmpty
-                            ? 'Your chemistry lab partner'
-                            : profile.about,
+                        headlineText,
                         style: const TextStyle(
                           color: Colors.white70,
                           fontSize: 13,
+                          height: 1.4,
                         ),
                       ),
                     ],
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
-                const NewlyArrivedSection(),
-
-                const SizedBox(height: 24),
-
-                Row(
-                  children: [
-                    const Text(
-                      'Upcoming Events',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                    ),
-                    const Spacer(),
-                    TextButton(
-                      onPressed: onOpenEvents,
-                      child: const Text(
-                        'View all',
-                        style: TextStyle(
-                          color: Color(0xFF14B8A6),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1B2435),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.06),
-                    ),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 8,
-                        offset: Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      _eventRow(
-                        icon: Icons.science_rounded,
-                        title: 'Research Seminar',
-                        subtitle: 'Today • 4:00 PM • CSB Seminar Hall',
-                        status: 'Upcoming',
-                      ),
-                      const SizedBox(height: 12),
-                      const Divider(color: Colors.white12, height: 1),
-                      const SizedBox(height: 12),
-                      _eventRow(
-                        icon: Icons.delete_outline_rounded,
-                        title: 'Waste Disposal',
-                        subtitle: 'Tomorrow • 10:30 AM • Lab',
-                        status: 'Scheduled',
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
                 const Text(
-                  'Dashboard',
+                  'Core Workflows',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Quick entry points for the modules used most in Labmate.',
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                _WorkflowEntryCard(
+                  title: 'Newly Arrived',
+                  subtitle: 'Review delivered chemicals and consumables waiting for inventory entry.',
+                  icon: Icons.inventory_2_rounded,
+                  accentColor: const Color(0xFFF59E0B),
+                  onTap: () => _openNewlyArrived(context),
+                ),
+                const SizedBox(height: 12),
+                _WorkflowEntryCard(
+                  title: 'Chemical Inventory',
+                  subtitle: 'Browse stock, search by CAS, and review bottle-level details.',
+                  icon: Icons.science_rounded,
+                  accentColor: const Color(0xFF14B8A6),
+                  onTap: onOpenChemicals,
+                ),
+                const SizedBox(height: 12),
+                _WorkflowEntryCard(
+                  title: 'Consumables Inventory',
+                  subtitle: 'Open the current consumables list added through the intake flow.',
+                  icon: Icons.inventory_rounded,
+                  accentColor: const Color(0xFF38BDF8),
+                  onTap: () => _openConsumablesInventory(context),
+                ),
+                const SizedBox(height: 12),
+                _WorkflowEntryCard(
+                  title: 'Requirements / Cart',
+                  subtitle: 'Review submitted requirements and continue the approval workflow.',
+                  icon: Icons.assignment_rounded,
+                  accentColor: const Color(0xFFA78BFA),
+                  onTap: onOpenCart,
+                ),
+                const SizedBox(height: 12),
+                _WorkflowEntryCard(
+                  title: 'Orders',
+                  subtitle: 'Track ordered items, delivery status, and inventory intake progress.',
+                  icon: Icons.local_shipping_rounded,
+                  accentColor: const Color(0xFFFB7185),
+                  onTap: onOpenOrders,
+                ),
+                const SizedBox(height: 24),
+                const NewlyArrivedSection(),
+                const SizedBox(height: 24),
+                const Text(
+                  'More Tools',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -223,11 +249,10 @@ class HomeDashboardTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-
                 GridView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: dashboardItems.length,
+                  itemCount: toolItems.length,
                   gridDelegate:
                       const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 4,
@@ -236,23 +261,17 @@ class HomeDashboardTab extends StatelessWidget {
                     childAspectRatio: 0.95,
                   ),
                   itemBuilder: (context, index) {
-                    final item = dashboardItems[index];
+                    final item = toolItems[index];
 
                     return DashboardCard(
                       title: item['title'],
                       icon: item['icon'],
                       onTap: () {
-                        if (item['title'] == 'Chemical Library') {
-                          onOpenChemicals();
-                        } else if (item['title'] == 'Calculator') {
+                        if (item['title'] == 'Calculator') {
                           onOpenCalculator();
                         } else if (item['title'] == 'Instruments') {
                           onOpenInstruments();
-                        } else if (item['title'] == 'Orders') {
-                          onOpenOrders();
-                        } else if (item['title'] == 'Cart') {
-                          onOpenCart();
-                        } else if (item['title'] == 'Electronic Lab Manual') {
+                        } else if (item['title'] == 'Lab Manual') {
                           onOpenLabManual();
                         } else if (item['title'] == 'ChemDraw') {
                           onOpenChemDraw();
@@ -276,70 +295,83 @@ class HomeDashboardTab extends StatelessWidget {
       },
     );
   }
+}
 
-  Widget _eventRow({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required String status,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        CircleAvatar(
-          radius: 22,
-          backgroundColor: const Color(0x2214B8A6),
-          child: Icon(
-            icon,
-            color: const Color(0xFF14B8A6),
-            size: 20,
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+class _WorkflowEntryCard extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final IconData icon;
+  final Color accentColor;
+  final VoidCallback onTap;
+
+  const _WorkflowEntryCard({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.accentColor,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
             children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14.5,
-                  fontWeight: FontWeight.w700,
+              Container(
+                height: 52,
+                width: 52,
+                decoration: BoxDecoration(
+                  color: accentColor.withOpacity(0.16),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(
+                  icon,
+                  color: accentColor,
+                  size: 26,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: Colors.white60,
-                  fontSize: 12.5,
-                  height: 1.35,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12.5,
+                        height: 1.4,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const SizedBox(width: 12),
+              Icon(
+                Icons.arrow_forward_ios_rounded,
+                color: Colors.white.withOpacity(0.6),
+                size: 16,
               ),
             ],
           ),
         ),
-        const SizedBox(width: 10),
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 5,
-          ),
-          decoration: BoxDecoration(
-            color: const Color(0x2214B8A6),
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            status,
-            style: const TextStyle(
-              color: Color(0xFF14B8A6),
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
