@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_state.dart';
 import '../models/chemical_model.dart';
 import '../models/order_model.dart';
 import '../services/inventory_service.dart';
@@ -446,6 +447,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
     final chemical = ChemicalModel(
       id: '',
+      labId: AppState.instance.resolveWriteLabId(widget.order?.labId),
       label: labelController.text.trim(),
       chemicalName: chemicalNameController.text.trim(),
       cas: casController.text.trim(),

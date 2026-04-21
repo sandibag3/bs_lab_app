@@ -1,7 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'models/lab_context_model.dart';
+import 'models/lab_membership_model.dart';
 import 'models/user_profile.dart';
+import 'services/lab_membership_service.dart';
 
 enum DemoUserRole {
   piAdmin('PI/Admin'),
@@ -20,12 +23,25 @@ class AppState extends ChangeNotifier {
   static const String _hobbiesKey = 'profile_hobbies';
   static const String _aboutKey = 'profile_about';
   static const String _demoRoleKey = 'demo_role';
+  static const String _selectedLabIdKey = 'selected_lab_id';
+  static const String _selectedLabNameKey = 'selected_lab_name';
+  static const String _selectedLabLocalRoleKey = 'selected_lab_local_role';
+
+  static const String demoLabId = 'labmate-demo-lab';
+  static const String demoLabName = 'Labmate Demo Lab';
 
   static AppState? _instance;
+  final LabMembershipService _labMembershipService = LabMembershipService();
 
   UserProfile _profile = UserProfile.empty();
   bool _isLoaded = false;
   String _demoRole = DemoUserRole.researcher.name;
+  String _selectedLabId = '';
+  String _selectedLabName = '';
+  String _selectedLabLocalRole = '';
+  String _selectedLabMembershipRole = '';
+  bool _isRefreshingSelectedLabRole = false;
+  bool _hasAttemptedSelectedLabMembershipLoad = false;
 
   AppState() {
     _instance = this;
@@ -42,6 +58,19 @@ class AppState extends ChangeNotifier {
   UserProfile get profile => _profile;
   bool get isLoaded => _isLoaded;
   String get demoRole => _demoRole;
+  String get selectedLabId => _selectedLabId;
+  String get selectedLabName => _selectedLabName;
+  String get selectedLabLocalRole => _selectedLabLocalRole;
+  String get selectedLabMembershipRole => _selectedLabMembershipRole;
+  bool get hasResolvedLabMembership =>
+      _selectedLabMembershipRole.trim().isNotEmpty;
+  bool get isRefreshingSelectedLabRole => _isRefreshingSelectedLabRole;
+  bool get hasAttemptedSelectedLabMembershipLoad =>
+      _hasAttemptedSelectedLabMembershipLoad;
+  LabContextModel get labContext => LabContextModel(
+        selectedLabId: _selectedLabId,
+        selectedLabName: _selectedLabName,
+      );
   DemoUserRole get demoUserRole {
     return DemoUserRole.values.firstWhere(
       (role) => role.name == _demoRole,
@@ -49,7 +78,37 @@ class AppState extends ChangeNotifier {
     );
   }
 
-  bool get isPiAdmin => demoUserRole == DemoUserRole.piAdmin;
+  bool get isPiAdmin => currentRoleName == DemoUserRole.piAdmin.name;
+  bool get hasSelectedLab => labContext.hasSelection;
+  bool get isDemoLabSelected => selectedLabId.trim() == demoLabId;
+  bool get isLocalFallbackLabSelected =>
+      selectedLabId.trim().startsWith('local-');
+  bool get shouldIncludeLegacyLabData =>
+      selectedLabId.trim().isEmpty || isDemoLabSelected;
+
+  String get authenticatedUserId {
+    return FirebaseAuth.instance.currentUser?.uid?.trim() ?? '';
+  }
+
+  String get currentRoleName {
+    if (isDemoLabSelected) {
+      return demoUserRole.name;
+    }
+
+    final membershipRole = _selectedLabMembershipRole.trim();
+    if (membershipRole.isNotEmpty) {
+      return membershipRole;
+    }
+
+    final localRole = _selectedLabLocalRole.trim();
+    if (localRole.isNotEmpty) {
+      return localRole;
+    }
+
+    return DemoUserRole.researcher.name;
+  }
+
+  String get currentRoleLabel => roleLabelFor(currentRoleName);
 
   String get authenticatedUserName {
     final user = FirebaseAuth.instance.currentUser;
@@ -66,6 +125,53 @@ class AppState extends ChangeNotifier {
     return 'User';
   }
 
+  String roleLabelFor(String roleName) {
+    return DemoUserRole.values.firstWhere(
+      (role) => role.name == roleName,
+      orElse: () => DemoUserRole.researcher,
+    ).label;
+  }
+
+  Future<void> _loadSelectedLabRole() async {
+    _selectedLabMembershipRole = '';
+
+    if (_selectedLabId.trim().isEmpty ||
+        isDemoLabSelected ||
+        isLocalFallbackLabSelected) {
+      _hasAttemptedSelectedLabMembershipLoad = false;
+      return;
+    }
+
+    final userId = authenticatedUserId;
+    if (userId.isEmpty) {
+      _hasAttemptedSelectedLabMembershipLoad = false;
+      return;
+    }
+
+    _hasAttemptedSelectedLabMembershipLoad = true;
+
+    LabMembershipModel? membership;
+    try {
+      membership = await _labMembershipService.getMembership(
+        userId: userId,
+        labId: _selectedLabId,
+      );
+    } catch (_) {
+      membership = null;
+    }
+
+    if (membership == null) {
+      return;
+    }
+
+    final status = membership.status.trim().toLowerCase();
+    if (status.isNotEmpty && status != 'active') {
+      return;
+    }
+
+    _selectedLabMembershipRole = membership.role.trim();
+  }
+
   Future<void> loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -78,6 +184,13 @@ class AppState extends ChangeNotifier {
       about: prefs.getString(_aboutKey) ?? '',
     );
     _demoRole = prefs.getString(_demoRoleKey) ?? DemoUserRole.researcher.name;
+    _selectedLabId = prefs.getString(_selectedLabIdKey) ?? '';
+    _selectedLabName = prefs.getString(_selectedLabNameKey) ?? '';
+    _selectedLabLocalRole =
+        prefs.getString(_selectedLabLocalRoleKey) ?? '';
+    _hasAttemptedSelectedLabMembershipLoad = false;
+
+    await _loadSelectedLabRole();
 
     _isLoaded = true;
     notifyListeners();
@@ -104,5 +217,75 @@ class AppState extends ChangeNotifier {
 
     _demoRole = role.name;
     notifyListeners();
+  }
+
+  Future<void> saveSelectedLabContext(LabContextModel labContext) async {
+    await saveSelectedLabContextWithRole(labContext);
+  }
+
+  Future<void> saveSelectedLabContextWithRole(
+    LabContextModel labContext, {
+    String localRoleName = '',
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(_selectedLabIdKey, labContext.selectedLabId);
+    await prefs.setString(_selectedLabNameKey, labContext.selectedLabName);
+    await prefs.setString(_selectedLabLocalRoleKey, localRoleName);
+
+    _selectedLabId = labContext.selectedLabId;
+    _selectedLabName = labContext.selectedLabName;
+    _selectedLabLocalRole = localRoleName;
+    _hasAttemptedSelectedLabMembershipLoad = false;
+
+    await _loadSelectedLabRole();
+
+    notifyListeners();
+  }
+
+  Future<void> enterDemoLab() async {
+    await saveSelectedLabContextWithRole(
+      const LabContextModel(
+        selectedLabId: demoLabId,
+        selectedLabName: demoLabName,
+      ),
+      localRoleName: '',
+    );
+  }
+
+  Future<void> refreshSelectedLabRole() async {
+    if (_isRefreshingSelectedLabRole) return;
+
+    _isRefreshingSelectedLabRole = true;
+    try {
+      await _loadSelectedLabRole();
+    } finally {
+      _isRefreshingSelectedLabRole = false;
+      notifyListeners();
+    }
+  }
+
+  bool matchesSelectedLabId(String? docLabId) {
+    final currentLabId = selectedLabId.trim();
+    final candidateLabId = (docLabId ?? '').trim();
+
+    if (currentLabId.isEmpty) {
+      return true;
+    }
+
+    if (candidateLabId.isEmpty) {
+      return shouldIncludeLegacyLabData;
+    }
+
+    return candidateLabId == currentLabId;
+  }
+
+  String resolveWriteLabId([String? preferredLabId]) {
+    final explicitLabId = (preferredLabId ?? '').trim();
+    if (explicitLabId.isNotEmpty) {
+      return explicitLabId;
+    }
+
+    return selectedLabId.trim();
   }
 }

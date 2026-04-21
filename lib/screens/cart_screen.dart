@@ -82,6 +82,7 @@ class CartScreen extends StatelessWidget {
       final order = OrderModel(
         id: '',
         requirementId: req.id,
+        labId: appState.resolveWriteLabId(req.labId),
         mainType: req.mainType,
         chemicalName: req.chemicalName,
         consumableType: req.consumableType,

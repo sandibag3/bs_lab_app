@@ -1,8 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../app_state.dart';
 import '../models/requirement_model.dart';
 
 class RequirementService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  bool _matchesCurrentLab(Map<String, dynamic> data) {
+    final labId = (data['labId'] ?? '').toString().trim();
+    return AppState.instance.matchesSelectedLabId(labId);
+  }
 
   Future<void> addRequirement(RequirementModel req) async {
     await _firestore.collection('requirements').add(req.toMap());
@@ -15,6 +21,7 @@ class RequirementService {
         .snapshots()
         .map((snapshot) {
       return snapshot.docs
+          .where((doc) => _matchesCurrentLab(doc.data()))
           .map((doc) => RequirementModel.fromFirestore(doc))
           .toList();
     });

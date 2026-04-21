@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class RequirementModel {
   final String id;
+  final String labId;
 
   // Common
   final String mainType;
@@ -31,6 +32,7 @@ class RequirementModel {
 
   RequirementModel({
     required this.id,
+    required this.labId,
     required this.mainType,
     required this.brand,
     required this.vendor,
@@ -56,6 +58,7 @@ class RequirementModel {
 
     return RequirementModel(
       id: doc.id,
+      labId: data['labId'] ?? '',
       mainType: data['mainType'] ?? 'chemical',
       brand: data['brand'] ?? '',
       vendor: data['vendor'] ?? '',
@@ -79,6 +82,7 @@ class RequirementModel {
 
   Map<String, dynamic> toMap() {
     return {
+      'labId': labId,
       'mainType': mainType,
       'brand': brand,
       'vendor': vendor,

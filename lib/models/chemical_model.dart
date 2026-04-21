@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 class ChemicalModel {
   final String id;
+  final String labId;
   final String label;
   final String chemicalName;
   final String cas;
@@ -20,6 +21,7 @@ class ChemicalModel {
 
   ChemicalModel({
     required this.id,
+    required this.labId,
     required this.label,
     required this.chemicalName,
     required this.cas,
@@ -42,6 +44,7 @@ class ChemicalModel {
 
     return ChemicalModel(
       id: doc.id,
+      labId: data['labId'] ?? '',
       label: data['label'] ?? '',
       chemicalName: data['chemicalName'] ?? '',
       cas: data['cas'] ?? '',
@@ -62,6 +65,7 @@ class ChemicalModel {
 
   Map<String, dynamic> toMap() {
     return {
+      'labId': labId,
       'label': label,
       'chemicalName': chemicalName,
       'cas': cas,

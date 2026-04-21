@@ -1,13 +1,22 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../app_state.dart';
 import '../models/chemical_model.dart';
 
 class InventoryService {
   final CollectionReference inventoryRef =
       FirebaseFirestore.instance.collection('inventory');
 
+  bool _matchesCurrentLab(Map<String, dynamic> data) {
+    final labId = (data['labId'] ?? '').toString().trim();
+    return AppState.instance.matchesSelectedLabId(labId);
+  }
+
   Stream<List<ChemicalModel>> getChemicals() {
     return inventoryRef.snapshots().map((snapshot) {
       return snapshot.docs
+          .where(
+            (doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>),
+          )
           .map((doc) => ChemicalModel.fromFirestore(doc))
           .toList();
     });
@@ -73,8 +82,13 @@ class InventoryService {
     if (snapshot.docs.isEmpty) return null;
 
     final chemicals = snapshot.docs
+        .where(
+          (doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>),
+        )
         .map((doc) => ChemicalModel.fromFirestore(doc))
         .toList();
+
+    if (chemicals.isEmpty) return null;
 
     chemicals.sort((a, b) {
       if (a.isAvailable != b.isAvailable) {
@@ -97,7 +111,13 @@ class InventoryService {
 
     if (snapshot.docs.isEmpty) return null;
 
-    final docs = snapshot.docs.toList();
+    final docs = snapshot.docs
+        .where(
+          (doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>),
+        )
+        .toList();
+
+    if (docs.isEmpty) return null;
 
     docs.sort((a, b) {
       final aData = a.data() as Map<String, dynamic>;
@@ -130,6 +150,9 @@ class InventoryService {
         .get();
 
     final bottles = snapshot.docs
+        .where(
+          (doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>),
+        )
         .map((doc) => ChemicalModel.fromFirestore(doc))
         .toList();
 
@@ -178,6 +201,7 @@ class InventoryService {
 
     for (final doc in snapshot.docs) {
       final data = doc.data() as Map<String, dynamic>;
+      if (!_matchesCurrentLab(data)) continue;
       final label = (data['label'] ?? '').toString().trim();
 
       if (!label.startsWith('$cleanPrefix-')) continue;

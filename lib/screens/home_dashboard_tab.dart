@@ -88,6 +88,7 @@ class HomeDashboardTab extends StatelessWidget {
             profileName.isEmpty || profileName == 'Your Name'
                 ? appState.authenticatedUserName
                 : profileName;
+        final selectedLabName = appState.selectedLabName.trim();
         final about = profile.about.trim();
         final headlineText = about.isEmpty
             ? 'Manage inventory, requirements, orders, and newly arrived items in one place.'
@@ -148,7 +149,7 @@ class HomeDashboardTab extends StatelessWidget {
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
-                              appState.demoUserRole.label,
+                              appState.currentRoleLabel,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 12,
@@ -176,6 +177,39 @@ class HomeDashboardTab extends StatelessWidget {
                           height: 1.4,
                         ),
                       ),
+                      if (selectedLabName.isNotEmpty) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.apartment_rounded,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  selectedLabName,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12.8,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

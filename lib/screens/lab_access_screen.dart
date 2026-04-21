@@ -131,7 +131,7 @@ class LabAccessScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const CreateLabScreen(),
+        builder: (_) => CreateLabScreen(appState: appState),
       ),
     );
   }
@@ -140,12 +140,13 @@ class LabAccessScreen extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => const JoinLabScreen(),
+        builder: (_) => JoinLabScreen(appState: appState),
       ),
     );
   }
 
   Future<void> _openDemoMode(BuildContext context) async {
+    await appState.enterDemoLab();
     await appState.saveDemoRole(appState.demoUserRole);
     if (!context.mounted) return;
 
@@ -183,7 +184,7 @@ class LabAccessScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Choose how to continue',
+                      'Choose a lab context',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 22,
@@ -192,7 +193,7 @@ class LabAccessScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Create a new lab, join an existing lab, or continue into Demo Mode with the current app experience.',
+                      'Create a new lab, join an existing lab, or continue into Demo Mode with a default demo lab context.',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 13.5,
@@ -207,14 +208,14 @@ class LabAccessScreen extends StatelessWidget {
                 icon: Icons.add_business_rounded,
                 title: 'Create Lab',
                 subtitle:
-                    'Set up a new lab workspace. This stays as a safe placeholder in Phase 1.',
+                    'Create a basic lab workspace and start using lab-scoped data safely.',
                 onTap: () => _openCreateLab(context),
               ),
               _buildOptionCard(
                 icon: Icons.group_add_rounded,
                 title: 'Join Lab',
                 subtitle:
-                    'Connect to an existing lab workspace. This stays as a safe placeholder in Phase 1.',
+                    'Enter a shared lab code or a mock identifier to continue with a lab context.',
                 onTap: () => _openJoinLab(context),
               ),
               const SizedBox(height: 6),
@@ -224,7 +225,7 @@ class LabAccessScreen extends StatelessWidget {
                 icon: Icons.science_rounded,
                 title: 'Demo Mode',
                 subtitle:
-                    'Continue into the current dashboard using the selected temporary local role.',
+                    'Continue into the current dashboard using the selected role inside the Labmate Demo Lab.',
                 onTap: () async => _openDemoMode(context),
               ),
             ],

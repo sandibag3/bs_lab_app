@@ -1,8 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../app_state.dart';
 import '../models/order_model.dart';
 
 class OrderService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  bool _matchesCurrentLab(Map<String, dynamic> data) {
+    final labId = (data['labId'] ?? '').toString().trim();
+    return AppState.instance.matchesSelectedLabId(labId);
+  }
 
   Future<void> addOrder(OrderModel order) async {
     await _firestore.collection('orders').add(order.toMap());
@@ -15,6 +21,7 @@ class OrderService {
         .snapshots()
         .map((snapshot) {
       return snapshot.docs
+          .where((doc) => _matchesCurrentLab(doc.data()))
           .map((doc) => OrderModel.fromFirestore(doc))
           .toList();
     });

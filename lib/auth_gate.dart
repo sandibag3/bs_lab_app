@@ -26,6 +26,17 @@ class AuthGate extends StatelessWidget {
         }
 
         if (snapshot.hasData) {
+          if (appState.hasSelectedLab &&
+              !appState.isDemoLabSelected &&
+              !appState.isLocalFallbackLabSelected &&
+              !appState.hasResolvedLabMembership &&
+              !appState.isRefreshingSelectedLabRole &&
+              !appState.hasAttemptedSelectedLabMembershipLoad) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              appState.refreshSelectedLabRole();
+            });
+          }
+
           return LabAccessScreen(appState: appState);
         }
 

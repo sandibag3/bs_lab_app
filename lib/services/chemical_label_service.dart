@@ -1,7 +1,13 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../app_state.dart';
 
 class ChemicalLabelService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  bool _matchesCurrentLab(Map<String, dynamic> data) {
+    final labId = (data['labId'] ?? '').toString().trim();
+    return AppState.instance.matchesSelectedLabId(labId);
+  }
 
   String getPrefix({
     required String category,
@@ -71,6 +77,7 @@ class ChemicalLabelService {
 
     for (final doc in query.docs) {
       final data = doc.data();
+      if (!_matchesCurrentLab(data)) continue;
       final label = (data['label'] ?? '').toString().trim();
 
       final match = RegExp('^${RegExp.escape(prefix)}-(\\d+)\$').firstMatch(label);

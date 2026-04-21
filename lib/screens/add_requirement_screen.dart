@@ -189,6 +189,11 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     );
   }
 
+  bool _matchesCurrentLab(Map<String, dynamic> data) {
+    final labId = (data['labId'] ?? '').toString().trim();
+    return AppState.instance.matchesSelectedLabId(labId);
+  }
+
   Future<bool> fetchFromInventoryByCas() async {
   final cas = casController.text.trim();
 
@@ -206,7 +211,13 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
       return false;
     }
 
-    final docs = snapshot.docs;
+    final docs = snapshot.docs
+        .where((doc) => _matchesCurrentLab(doc.data()))
+        .toList();
+
+    if (docs.isEmpty) {
+      return false;
+    }
 
     docs.sort((a, b) {
       final aTime = a.data()['createdAt'];
@@ -371,6 +382,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
 
     final req = RequirementModel(
       id: '',
+      labId: AppState.instance.resolveWriteLabId(),
       mainType: selectedMainType,
       brand: selectedBrand == 'Others'
           ? customBrandController.text.trim()

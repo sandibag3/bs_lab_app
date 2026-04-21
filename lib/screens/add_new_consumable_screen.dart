@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../app_state.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
 
@@ -87,6 +88,7 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
       final order = widget.order;
 
       await FirebaseFirestore.instance.collection('consumables_inventory').add({
+        'labId': AppState.instance.resolveWriteLabId(order.labId),
         'mainType': 'consumable',
         'orderId': order.id,
         'requirementId': order.requirementId,

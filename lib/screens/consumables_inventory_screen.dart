@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../app_state.dart';
 
 class ConsumablesInventoryScreen extends StatelessWidget {
   const ConsumablesInventoryScreen({super.key});
@@ -17,6 +18,11 @@ class ConsumablesInventoryScreen extends StatelessWidget {
 
   String _readText(Map<String, dynamic> data, String key) {
     return (data[key] ?? '').toString().trim();
+  }
+
+  bool _matchesCurrentLab(Map<String, dynamic> data) {
+    final labId = (data['labId'] ?? '').toString().trim();
+    return AppState.instance.matchesSelectedLabId(labId);
   }
 
   String _formatDate(Timestamp? timestamp) {
@@ -82,7 +88,11 @@ class ConsumablesInventoryScreen extends StatelessWidget {
               );
             }
 
-            final docs = _sortDocs(snapshot.data!.docs);
+            final docs = _sortDocs(
+              snapshot.data!.docs
+                  .where((doc) => _matchesCurrentLab(doc.data()))
+                  .toList(),
+            );
 
             if (docs.isEmpty) {
               return const Center(
