@@ -6,6 +6,9 @@ class LabMembershipModel {
   final String labId;
   final String role;
   final String status;
+  final String userName;
+  final String userEmail;
+  final String labName;
   final Timestamp? createdAt;
   final Timestamp? updatedAt;
 
@@ -15,6 +18,9 @@ class LabMembershipModel {
     required this.labId,
     required this.role,
     required this.status,
+    required this.userName,
+    required this.userEmail,
+    required this.labName,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -28,6 +34,9 @@ class LabMembershipModel {
       labId: data['labId'] ?? '',
       role: data['role'] ?? '',
       status: data['status'] ?? 'active',
+      userName: data['userName'] ?? '',
+      userEmail: data['userEmail'] ?? '',
+      labName: data['labName'] ?? '',
       createdAt: data['createdAt'],
       updatedAt: data['updatedAt'],
     );
@@ -39,6 +48,9 @@ class LabMembershipModel {
       'labId': labId,
       'role': role,
       'status': status,
+      'userName': userName,
+      'userEmail': userEmail,
+      'labName': labName,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
     };

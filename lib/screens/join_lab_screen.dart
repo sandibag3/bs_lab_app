@@ -76,6 +76,9 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
               userId: currentUserId,
               labId: foundLab.selectedLabId,
               role: researcherRole,
+              userName: widget.appState.authenticatedUserName,
+              userEmail: widget.appState.authenticatedUserEmail,
+              labName: foundLab.selectedLabName,
             );
           } catch (_) {
             localRoleName = researcherRole;

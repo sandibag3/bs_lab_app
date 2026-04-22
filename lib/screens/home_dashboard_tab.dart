@@ -4,6 +4,8 @@ import '../widgets/dashboard_card.dart';
 import '../widgets/newly_arrived_section.dart';
 import '../widgets/search_bar_widget.dart';
 import 'consumables_inventory_screen.dart';
+import 'lab_members_screen.dart';
+import 'lab_switcher_screen.dart';
 import 'newly_arrived_items_screen.dart';
 
 class HomeDashboardTab extends StatelessWidget {
@@ -50,6 +52,24 @@ class HomeDashboardTab extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (_) => const NewlyArrivedItemsScreen(),
+      ),
+    );
+  }
+
+  Future<void> _openLabSwitcher(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LabSwitcherScreen(appState: appState),
+      ),
+    );
+  }
+
+  void _openLabMembers(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LabMembersScreen(appState: appState),
       ),
     );
   }
@@ -208,6 +228,26 @@ class HomeDashboardTab extends StatelessWidget {
                               ),
                             ],
                           ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _HeroActionButton(
+                                label: 'Switch Lab',
+                                icon: Icons.swap_horiz_rounded,
+                                onTap: () => _openLabSwitcher(context),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: _HeroActionButton(
+                                label: 'Lab Members',
+                                icon: Icons.groups_rounded,
+                                onTap: () => _openLabMembers(context),
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ],
@@ -401,6 +441,58 @@ class _WorkflowEntryCard extends StatelessWidget {
                 Icons.arrow_forward_ios_rounded,
                 color: Colors.white.withOpacity(0.6),
                 size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroActionButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+
+  const _HeroActionButton({
+    required this.label,
+    required this.icon,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white.withOpacity(0.12),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 11,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: Colors.white,
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),

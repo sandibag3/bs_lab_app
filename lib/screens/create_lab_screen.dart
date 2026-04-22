@@ -80,6 +80,9 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
               userId: currentUserId,
               labId: remoteContext.selectedLabId,
               role: piAdminRole,
+              userName: widget.appState.authenticatedUserName,
+              userEmail: widget.appState.authenticatedUserEmail,
+              labName: remoteContext.selectedLabName,
             );
           } catch (_) {
             localRoleName = piAdminRole;

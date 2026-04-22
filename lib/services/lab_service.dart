@@ -76,6 +76,26 @@ class LabService {
     );
   }
 
+  Future<LabContextModel?> getLabContextById(String labId) async {
+    final cleanLabId = labId.trim();
+    if (cleanLabId.isEmpty) {
+      return null;
+    }
+
+    final doc = await _labsRef.doc(cleanLabId).get();
+    if (!doc.exists) {
+      return null;
+    }
+
+    final data = doc.data() ?? {};
+    final name = (data['name'] ?? cleanLabId).toString().trim();
+
+    return LabContextModel(
+      selectedLabId: doc.id,
+      selectedLabName: name.isEmpty ? cleanLabId : name,
+    );
+  }
+
   LabContextModel buildLocalLabContext(String identifier) {
     final trimmedIdentifier = identifier.trim();
     final normalizedIdentifier = trimmedIdentifier

@@ -125,6 +125,10 @@ class AppState extends ChangeNotifier {
     return 'User';
   }
 
+  String get authenticatedUserEmail {
+    return FirebaseAuth.instance.currentUser?.email?.trim() ?? '';
+  }
+
   String roleLabelFor(String roleName) {
     return DemoUserRole.values.firstWhere(
       (role) => role.name == roleName,

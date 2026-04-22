@@ -19,9 +19,17 @@ class LabMembershipService {
     required String labId,
     required String role,
     String status = 'active',
+    String userName = '',
+    String userEmail = '',
+    String labName = '',
   }) async {
     final cleanUserId = userId.trim();
     final cleanLabId = labId.trim();
+    final cleanRole = role.trim();
+    final cleanStatus = status.trim().isEmpty ? 'active' : status.trim();
+    final cleanUserName = userName.trim();
+    final cleanUserEmail = userEmail.trim();
+    final cleanLabName = labName.trim();
 
     if (cleanUserId.isEmpty || cleanLabId.isEmpty) {
       return;
@@ -36,8 +44,11 @@ class LabMembershipService {
       await docRef.update({
         'userId': cleanUserId,
         'labId': cleanLabId,
-        'role': role.trim(),
-        'status': status.trim().isEmpty ? 'active' : status.trim(),
+        'role': cleanRole,
+        'status': cleanStatus,
+        'userName': cleanUserName,
+        'userEmail': cleanUserEmail,
+        'labName': cleanLabName,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       return;
@@ -46,8 +57,11 @@ class LabMembershipService {
     await docRef.set({
       'userId': cleanUserId,
       'labId': cleanLabId,
-      'role': role.trim(),
-      'status': status.trim().isEmpty ? 'active' : status.trim(),
+      'role': cleanRole,
+      'status': cleanStatus,
+      'userName': cleanUserName,
+      'userEmail': cleanUserEmail,
+      'labName': cleanLabName,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
@@ -73,5 +87,77 @@ class LabMembershipService {
     }
 
     return LabMembershipModel.fromFirestore(doc);
+  }
+
+  Future<List<LabMembershipModel>> getMembershipsForUser({
+    required String userId,
+  }) async {
+    final cleanUserId = userId.trim();
+    if (cleanUserId.isEmpty) {
+      return [];
+    }
+
+    final snapshot = await _membershipsRef
+        .where('userId', isEqualTo: cleanUserId)
+        .get();
+
+    final memberships = snapshot.docs
+        .map(LabMembershipModel.fromFirestore)
+        .where((membership) {
+          final status = membership.status.trim().toLowerCase();
+          return status.isEmpty || status == 'active';
+        })
+        .toList();
+
+    memberships.sort((a, b) {
+      final left = a.labName.trim().toLowerCase();
+      final right = b.labName.trim().toLowerCase();
+      return left.compareTo(right);
+    });
+
+    return memberships;
+  }
+
+  Future<List<LabMembershipModel>> getMembershipsForLab({
+    required String labId,
+  }) async {
+    final cleanLabId = labId.trim();
+    if (cleanLabId.isEmpty) {
+      return [];
+    }
+
+    final snapshot = await _membershipsRef
+        .where('labId', isEqualTo: cleanLabId)
+        .get();
+
+    final memberships = snapshot.docs
+        .map(LabMembershipModel.fromFirestore)
+        .where((membership) {
+          final status = membership.status.trim().toLowerCase();
+          return status.isEmpty || status == 'active';
+        })
+        .toList();
+
+    memberships.sort((a, b) {
+      final left = _memberDisplayName(a).toLowerCase();
+      final right = _memberDisplayName(b).toLowerCase();
+      return left.compareTo(right);
+    });
+
+    return memberships;
+  }
+
+  String _memberDisplayName(LabMembershipModel membership) {
+    final userName = membership.userName.trim();
+    if (userName.isNotEmpty) {
+      return userName;
+    }
+
+    final userEmail = membership.userEmail.trim();
+    if (userEmail.isNotEmpty) {
+      return userEmail;
+    }
+
+    return membership.userId.trim();
   }
 }
