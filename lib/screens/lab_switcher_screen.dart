@@ -43,16 +43,6 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
       options.add(option);
     }
 
-    addOption(
-      _LabOption(
-        labId: AppState.demoLabId,
-        labName: AppState.demoLabName,
-        roleName: appState.demoUserRole.name,
-        sourceLabel: 'Demo',
-        localRoleName: appState.demoUserRole.name,
-      ),
-    );
-
     if (appState.isLocalFallbackLabSelected) {
       addOption(
         _LabOption(
@@ -79,17 +69,18 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
       }
 
       for (final membership in memberships) {
-        var resolvedLabName = membership.labName.trim();
+        var resolvedLabName = '';
+        try {
+          final labContext = await _labService.getLabContextById(
+            membership.labId,
+          );
+          resolvedLabName = labContext?.selectedLabName ?? '';
+        } catch (_) {
+          resolvedLabName = '';
+        }
 
         if (resolvedLabName.isEmpty) {
-          try {
-            final labContext = await _labService.getLabContextById(
-              membership.labId,
-            );
-            resolvedLabName = labContext?.selectedLabName ?? '';
-          } catch (_) {
-            resolvedLabName = '';
-          }
+          resolvedLabName = membership.labName.trim();
         }
 
         addOption(
@@ -130,9 +121,6 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
       if (aIsCurrent && !bIsCurrent) return -1;
       if (!aIsCurrent && bIsCurrent) return 1;
 
-      if (a.sourceLabel == 'Demo' && b.sourceLabel != 'Demo') return -1;
-      if (a.sourceLabel != 'Demo' && b.sourceLabel == 'Demo') return 1;
-
       return a.labName.toLowerCase().compareTo(b.labName.toLowerCase());
     });
 
@@ -154,17 +142,13 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
     });
 
     try {
-      if (option.labId == AppState.demoLabId) {
-        await widget.appState.enterDemoLab();
-      } else {
-        await widget.appState.saveSelectedLabContextWithRole(
-          LabContextModel(
-            selectedLabId: option.labId,
-            selectedLabName: option.labName,
-          ),
-          localRoleName: option.localRoleName,
-        );
-      }
+      await widget.appState.saveSelectedLabContextWithRole(
+        LabContextModel(
+          selectedLabId: option.labId,
+          selectedLabName: option.labName,
+        ),
+        localRoleName: option.localRoleName,
+      );
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -209,7 +193,7 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Switch between the demo lab and any shared labs you belong to.',
+            'Switch between labs you belong to.',
             style: TextStyle(
               color: Colors.white.withOpacity(0.72),
               fontSize: 13,
@@ -277,9 +261,7 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child: Icon(
-                                option.sourceLabel == 'Demo'
-                                    ? Icons.play_circle_outline_rounded
-                                    : Icons.apartment_rounded,
+                                Icons.apartment_rounded,
                                 color: Colors.white,
                               ),
                             ),

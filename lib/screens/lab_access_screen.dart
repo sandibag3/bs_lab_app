@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import 'create_lab_screen.dart';
-import 'home_screen.dart';
 import 'join_lab_screen.dart';
 
 class LabAccessScreen extends StatelessWidget {
@@ -76,57 +75,6 @@ class LabAccessScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRoleSelector() {
-    return AnimatedBuilder(
-      animation: appState,
-      builder: (context, _) {
-        final selectedRole = appState.demoUserRole;
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Demo Role',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'This role is stored locally on this device for now.',
-              style: TextStyle(
-                color: Colors.white60,
-                fontSize: 12.5,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: DemoUserRole.values.map((role) {
-                return ChoiceChip(
-                  label: Text(role.label),
-                  selected: selectedRole == role,
-                  selectedColor: const Color(0xFF14B8A6),
-                  backgroundColor: const Color(0xFF1E293B),
-                  labelStyle: TextStyle(
-                    color: selectedRole == role ? Colors.white : Colors.white70,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  onSelected: (_) async {
-                    await appState.saveDemoRole(role);
-                  },
-                );
-              }).toList(),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   void _openCreateLab(BuildContext context) {
     Navigator.push(
       context,
@@ -141,19 +89,6 @@ class LabAccessScreen extends StatelessWidget {
       context,
       MaterialPageRoute(
         builder: (_) => JoinLabScreen(appState: appState),
-      ),
-    );
-  }
-
-  Future<void> _openDemoMode(BuildContext context) async {
-    await appState.enterDemoLab();
-    await appState.saveDemoRole(appState.demoUserRole);
-    if (!context.mounted) return;
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => HomeScreen(appState: appState),
       ),
     );
   }
@@ -193,7 +128,7 @@ class LabAccessScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Create a new lab, join an existing lab, or continue into Demo Mode with a default demo lab context.',
+                      'Create a new lab or join an existing lab to continue.',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 13.5,
@@ -217,16 +152,6 @@ class LabAccessScreen extends StatelessWidget {
                 subtitle:
                     'Enter a shared lab code or a mock identifier to continue with a lab context.',
                 onTap: () => _openJoinLab(context),
-              ),
-              const SizedBox(height: 6),
-              _buildRoleSelector(),
-              const SizedBox(height: 20),
-              _buildOptionCard(
-                icon: Icons.science_rounded,
-                title: 'Demo Mode',
-                subtitle:
-                    'Continue into the current dashboard using the selected role inside the Labmate Demo Lab.',
-                onTap: () async => _openDemoMode(context),
               ),
             ],
           ),

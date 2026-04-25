@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'app_state.dart';
+import 'screens/home_screen.dart';
 import 'screens/lab_access_screen.dart';
 import 'screens/welcome_screen.dart';
 
@@ -25,19 +26,28 @@ class AuthGate extends StatelessWidget {
           );
         }
 
-        if (snapshot.hasData) {
-          if (appState.hasSelectedLab &&
-              !appState.isDemoLabSelected &&
-              !appState.isLocalFallbackLabSelected &&
-              !appState.hasResolvedLabMembership &&
-              !appState.isRefreshingSelectedLabRole &&
-              !appState.hasAttemptedSelectedLabMembershipLoad) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              appState.refreshSelectedLabRole();
-            });
-          }
+        final user = snapshot.data;
+        if (user != null) {
+          return FutureBuilder<bool>(
+            key: ValueKey(user.uid),
+            future: appState.resolveAuthenticatedLabContext(),
+            builder: (context, labSnapshot) {
+              if (labSnapshot.connectionState == ConnectionState.waiting) {
+                return const Scaffold(
+                  body: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                );
+              }
 
-          return LabAccessScreen(appState: appState);
+              final hasLabContext = labSnapshot.data ?? false;
+              if (hasLabContext) {
+                return HomeScreen(appState: appState);
+              }
+
+              return LabAccessScreen(appState: appState);
+            },
+          );
         }
 
         return WelcomeScreen(appState: appState);

@@ -141,7 +141,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return const ChemDrawScreen();
     }
     if (activeHomeOverlay == 'more') {
-      return const MoreScreen();
+      return MoreScreen(appState: widget.appState);
     }
 
     return IndexedStack(

@@ -87,7 +87,7 @@ class AppState extends ChangeNotifier {
       selectedLabId.trim().isEmpty || isDemoLabSelected;
 
   String get authenticatedUserId {
-    return FirebaseAuth.instance.currentUser?.uid?.trim() ?? '';
+    return FirebaseAuth.instance.currentUser?.uid.trim() ?? '';
   }
 
   String get currentRoleName {
@@ -223,6 +223,61 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<bool> resolveAuthenticatedLabContext() async {
+    if (isDemoLabSelected) {
+      await clearSessionContext();
+    }
+
+    if (hasSelectedLab) {
+      if (!isLocalFallbackLabSelected &&
+          !hasResolvedLabMembership &&
+          !isRefreshingSelectedLabRole &&
+          !hasAttemptedSelectedLabMembershipLoad) {
+        await refreshSelectedLabRole();
+      }
+      return true;
+    }
+
+    final userId = authenticatedUserId;
+    if (userId.isEmpty) {
+      return false;
+    }
+
+    List<LabMembershipModel> memberships;
+    try {
+      memberships = await _labMembershipService.getMembershipsForUser(
+        userId: userId,
+      );
+    } catch (_) {
+      memberships = [];
+    }
+
+    if (memberships.isEmpty) {
+      return false;
+    }
+
+    final membership = memberships.firstWhere(
+      (membership) => membership.labId.trim().isNotEmpty,
+      orElse: () => memberships.first,
+    );
+
+    if (membership.labId.trim().isEmpty) {
+      return false;
+    }
+
+    await saveSelectedLabContextWithRole(
+      LabContextModel(
+        selectedLabId: membership.labId,
+        selectedLabName: membership.labName.trim().isEmpty
+            ? membership.labId
+            : membership.labName,
+      ),
+      localRoleName: '',
+    );
+
+    return true;
+  }
+
   Future<void> saveSelectedLabContext(LabContextModel labContext) async {
     await saveSelectedLabContextWithRole(labContext);
   }
@@ -267,6 +322,36 @@ class AppState extends ChangeNotifier {
       _isRefreshingSelectedLabRole = false;
       notifyListeners();
     }
+  }
+
+  Future<void> updateSelectedLabName(String labName) async {
+    final cleanLabName = labName.trim();
+    if (cleanLabName.isEmpty) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_selectedLabNameKey, cleanLabName);
+
+    _selectedLabName = cleanLabName;
+    notifyListeners();
+  }
+
+  Future<void> clearSessionContext() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.remove(_selectedLabIdKey);
+    await prefs.remove(_selectedLabNameKey);
+    await prefs.remove(_selectedLabLocalRoleKey);
+
+    _selectedLabId = '';
+    _selectedLabName = '';
+    _selectedLabLocalRole = '';
+    _selectedLabMembershipRole = '';
+    _hasAttemptedSelectedLabMembershipLoad = false;
+    _isRefreshingSelectedLabRole = false;
+
+    notifyListeners();
   }
 
   bool matchesSelectedLabId(String? docLabId) {

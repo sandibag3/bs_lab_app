@@ -5,8 +5,8 @@ import '../widgets/newly_arrived_section.dart';
 import '../widgets/search_bar_widget.dart';
 import 'consumables_inventory_screen.dart';
 import 'lab_members_screen.dart';
+import 'lab_settings_screen.dart';
 import 'lab_switcher_screen.dart';
-import 'newly_arrived_items_screen.dart';
 
 class HomeDashboardTab extends StatelessWidget {
   final AppState appState;
@@ -47,15 +47,6 @@ class HomeDashboardTab extends StatelessWidget {
     );
   }
 
-  void _openNewlyArrived(BuildContext context) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const NewlyArrivedItemsScreen(),
-      ),
-    );
-  }
-
   Future<void> _openLabSwitcher(BuildContext context) async {
     await Navigator.push(
       context,
@@ -74,8 +65,117 @@ class HomeDashboardTab extends StatelessWidget {
     );
   }
 
+  void _openLabSettings(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => LabSettingsScreen(appState: appState),
+      ),
+    );
+  }
+
+  Future<void> _openHeroActions(BuildContext context) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF111827),
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.06),
+                ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Lab Actions',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    'Switch labs, view members, or open settings for the current workspace.',
+                    style: TextStyle(
+                      color: Colors.white60,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _LabActionTile(
+                    icon: Icons.swap_horiz_rounded,
+                    title: 'Switch Lab',
+                    subtitle: 'Choose a different lab context you belong to.',
+                    onTap: () async {
+                      Navigator.pop(sheetContext);
+                      await _openLabSwitcher(context);
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _LabActionTile(
+                    icon: Icons.groups_rounded,
+                    title: 'Lab Members',
+                    subtitle: 'View the current lab membership list and roles.',
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _openLabMembers(context);
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _LabActionTile(
+                    icon: Icons.settings_rounded,
+                    title: 'Lab Settings',
+                    subtitle: 'Open join code, lab details, and workspace settings.',
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _openLabSettings(context);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final List<Map<String, dynamic>> workflowItems = [
+      {
+        'title': 'Chemical Inventory',
+        'icon': Icons.science_rounded,
+        'onTap': onOpenChemicals,
+      },
+      {
+        'title': 'Consumables Inventory',
+        'icon': Icons.inventory_rounded,
+        'onTap': () => _openConsumablesInventory(context),
+      },
+      {
+        'title': 'Cart',
+        'icon': Icons.assignment_rounded,
+        'onTap': onOpenCart,
+      },
+      {
+        'title': 'Orders',
+        'icon': Icons.local_shipping_rounded,
+        'onTap': onOpenOrders,
+      },
+    ];
+
     final List<Map<String, dynamic>> toolItems = [
       {
         'title': 'Calculator',
@@ -109,10 +209,6 @@ class HomeDashboardTab extends StatelessWidget {
                 ? appState.authenticatedUserName
                 : profileName;
         final selectedLabName = appState.selectedLabName.trim();
-        final about = profile.about.trim();
-        final headlineText = about.isEmpty
-            ? 'Manage inventory, requirements, orders, and newly arrived items in one place.'
-            : about;
 
         return SafeArea(
           child: SingleChildScrollView(
@@ -123,135 +219,146 @@ class HomeDashboardTab extends StatelessWidget {
                 SearchBarWidget(
                   onTap: onOpenChemicals,
                 ),
-                const SizedBox(height: 20),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(18),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [
-                        Color(0xFF0F766E),
-                        Color(0xFF0EA5E9),
-                      ],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
+                const SizedBox(height: 14),
+                Material(
+                  color: Colors.transparent,
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(22),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Colors.black26,
-                        blurRadius: 12,
-                        offset: Offset(0, 4),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          const Text(
-                            'Labmate',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.16),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              appState.currentRoleLabel,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
+                    onTap: () => _openHeroActions(context),
+                    child: Ink(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [
+                            Color(0xFF0F766E),
+                            Color(0xFF0EA5E9),
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(22),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 12,
+                            offset: Offset(0, 4),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        resolvedName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        headlineText,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                          height: 1.4,
-                        ),
-                      ),
-                      if (selectedLabName.isNotEmpty) ...[
-                        const SizedBox(height: 10),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Row(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
                             children: [
-                              const Icon(
-                                Icons.apartment_rounded,
-                                color: Colors.white,
-                                size: 16,
+                              const Text(
+                                'Labmate',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.16),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
                                 child: Text(
-                                  selectedLabName,
+                                  appState.currentRoleLabel,
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 12.8,
-                                    fontWeight: FontWeight.w600,
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _HeroActionButton(
-                                label: 'Switch Lab',
-                                icon: Icons.swap_horiz_rounded,
-                                onTap: () => _openLabSwitcher(context),
-                              ),
+                          const SizedBox(height: 8),
+                          Text(
+                            resolvedName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: _HeroActionButton(
-                                label: 'Lab Members',
-                                icon: Icons.groups_rounded,
-                                onTap: () => _openLabMembers(context),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.apartment_rounded,
+                                      color: Colors.white,
+                                      size: 15,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        selectedLabName.isEmpty
+                                            ? 'Tap to open lab actions'
+                                            : selectedLabName,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 12.8,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ],
+                              const SizedBox(width: 10),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: Colors.white70,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
+                ),
+                const SizedBox(height: 24),
+                const NewlyArrivedSection(),
+                const SizedBox(height: 24),
+                const Text(
+                  'Upcoming Events',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Keep lab reminders, meetings, and scheduling updates visible.',
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _WorkflowEntryCard(
+                  title: 'Open Events',
+                  subtitle: 'View upcoming meetings, reminders, and lab schedules in the Events section.',
+                  icon: Icons.event_note_rounded,
+                  accentColor: const Color(0xFFF59E0B),
+                  onTap: onOpenEvents,
                 ),
                 const SizedBox(height: 24),
                 const Text(
@@ -272,47 +379,38 @@ class HomeDashboardTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                _WorkflowEntryCard(
-                  title: 'Newly Arrived',
-                  subtitle: 'Review delivered chemicals and consumables waiting for inventory entry.',
-                  icon: Icons.inventory_2_rounded,
-                  accentColor: const Color(0xFFF59E0B),
-                  onTap: () => _openNewlyArrived(context),
+                GridView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: workflowItems.length,
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    childAspectRatio: 1.22,
+                  ),
+                  itemBuilder: (context, index) {
+                    final item = workflowItems[index];
+                    final title = item['title'] as String;
+                    final icon = item['icon'] as IconData;
+                    final onTap = item['onTap'] as VoidCallback;
+
+                    return DashboardCard(
+                      title: title,
+                      icon: icon,
+                      onTap: onTap,
+                    );
+                  },
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 20),
                 _WorkflowEntryCard(
-                  title: 'Chemical Inventory',
-                  subtitle: 'Browse stock, search by CAS, and review bottle-level details.',
-                  icon: Icons.science_rounded,
-                  accentColor: const Color(0xFF14B8A6),
-                  onTap: onOpenChemicals,
-                ),
-                const SizedBox(height: 12),
-                _WorkflowEntryCard(
-                  title: 'Consumables Inventory',
-                  subtitle: 'Open the current consumables list added through the intake flow.',
-                  icon: Icons.inventory_rounded,
+                  title: 'Open More Tools',
+                  subtitle: 'Access calculator, instruments, lab manual, ChemDraw, and other shortcuts.',
+                  icon: Icons.widgets_rounded,
                   accentColor: const Color(0xFF38BDF8),
-                  onTap: () => _openConsumablesInventory(context),
+                  onTap: onOpenMore,
                 ),
-                const SizedBox(height: 12),
-                _WorkflowEntryCard(
-                  title: 'Requirements / Cart',
-                  subtitle: 'Review submitted requirements and continue the approval workflow.',
-                  icon: Icons.assignment_rounded,
-                  accentColor: const Color(0xFFA78BFA),
-                  onTap: onOpenCart,
-                ),
-                const SizedBox(height: 12),
-                _WorkflowEntryCard(
-                  title: 'Orders',
-                  subtitle: 'Track ordered items, delivery status, and inventory intake progress.',
-                  icon: Icons.local_shipping_rounded,
-                  accentColor: const Color(0xFFFB7185),
-                  onTap: onOpenOrders,
-                ),
-                const SizedBox(height: 24),
-                const NewlyArrivedSection(),
                 const SizedBox(height: 24),
                 const Text(
                   'More Tools',
@@ -450,49 +548,64 @@ class _WorkflowEntryCard extends StatelessWidget {
   }
 }
 
-class _HeroActionButton extends StatelessWidget {
-  final String label;
+class _LabActionTile extends StatelessWidget {
   final IconData icon;
+  final String title;
+  final String subtitle;
   final VoidCallback onTap;
 
-  const _HeroActionButton({
-    required this.label,
+  const _LabActionTile({
     required this.icon,
+    required this.title,
+    required this.subtitle,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withOpacity(0.12),
-      borderRadius: BorderRadius.circular(14),
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(18),
       child: InkWell(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 12,
-            vertical: 11,
-          ),
+          padding: const EdgeInsets.all(16),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                color: Colors.white,
-                size: 18,
+              CircleAvatar(
+                backgroundColor: const Color(0x2214B8A6),
+                child: Icon(icon, color: const Color(0xFF14B8A6)),
               ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w700,
-                  ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12.5,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                 ),
+              ),
+              const Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: Colors.white38,
               ),
             ],
           ),

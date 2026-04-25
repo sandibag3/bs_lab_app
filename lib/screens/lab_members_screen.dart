@@ -183,11 +183,10 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
               ? _buildHeaderCard(
                   'Select or create a lab first to view members.',
                 )
-              : widget.appState.isDemoLabSelected
-                  ? _buildLocalMemberCard(sourceLabel: 'Demo')
-                  : widget.appState.isLocalFallbackLabSelected
-                      ? _buildLocalMemberCard(sourceLabel: 'Local')
-                      : FutureBuilder<List<LabMembershipModel>>(
+              : widget.appState.isDemoLabSelected ||
+                      widget.appState.isLocalFallbackLabSelected
+                  ? _buildLocalMemberCard(sourceLabel: 'Local')
+                  : FutureBuilder<List<LabMembershipModel>>(
                           future: _membersFuture,
                           builder: (context, snapshot) {
                             if (!snapshot.hasData) {

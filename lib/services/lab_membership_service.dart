@@ -147,6 +147,41 @@ class LabMembershipService {
     return memberships;
   }
 
+  Future<int> deleteMembershipsForLabs(List<String> labIds) async {
+    final cleanedLabIds = labIds
+        .map((labId) => labId.trim())
+        .where((labId) => labId.isNotEmpty)
+        .toSet()
+        .toList();
+
+    if (cleanedLabIds.isEmpty) {
+      return 0;
+    }
+
+    var deletedCount = 0;
+
+    for (var index = 0; index < cleanedLabIds.length; index += 10) {
+      final chunk = cleanedLabIds.skip(index).take(10).toList();
+      final snapshot = await _membershipsRef
+          .where('labId', whereIn: chunk)
+          .get();
+
+      if (snapshot.docs.isEmpty) {
+        continue;
+      }
+
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in snapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      deletedCount += snapshot.docs.length;
+      await batch.commit();
+    }
+
+    return deletedCount;
+  }
+
   String _memberDisplayName(LabMembershipModel membership) {
     final userName = membership.userName.trim();
     if (userName.isNotEmpty) {
