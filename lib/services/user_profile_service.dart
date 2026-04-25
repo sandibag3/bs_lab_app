@@ -63,4 +63,23 @@ class UserProfileService {
       'email': email.trim(),
     }, SetOptions(merge: true));
   }
+
+  Future<Map<String, UserProfile>> getUserProfilesByIds(
+    Iterable<String> userIds,
+  ) async {
+    final cleanUserIds = userIds
+        .map((userId) => userId.trim())
+        .where((userId) => userId.isNotEmpty)
+        .toSet();
+    final profiles = <String, UserProfile>{};
+
+    for (final userId in cleanUserIds) {
+      final doc = await _usersRef.doc(userId).get();
+      if (doc.exists) {
+        profiles[userId] = UserProfile.fromFirestore(doc);
+      }
+    }
+
+    return profiles;
+  }
 }

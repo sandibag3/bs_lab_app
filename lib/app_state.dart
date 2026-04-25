@@ -136,6 +136,20 @@ class AppState extends ChangeNotifier {
   }
 
   String roleLabelFor(String roleName) {
+    const roleLabels = {
+      'piAdmin': 'PI/Admin',
+      'phdScholar': 'PhD Scholar',
+      'undergradStudent': 'Undergrad Student',
+      'projectStudent': 'Project Student',
+      'postdocFellow': 'Postdoc Fellow',
+      'labManager': 'Lab Manager',
+      'researcher': 'Researcher',
+    };
+    final directLabel = roleLabels[roleName.trim()];
+    if (directLabel != null) {
+      return directLabel;
+    }
+
     return DemoUserRole.values
         .firstWhere(
           (role) => role.name == roleName,

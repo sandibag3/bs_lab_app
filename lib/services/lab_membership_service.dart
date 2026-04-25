@@ -172,6 +172,24 @@ class LabMembershipService {
     });
   }
 
+  Future<void> updateMembershipRole({
+    required String userId,
+    required String labId,
+    required String role,
+  }) async {
+    final cleanUserId = userId.trim();
+    final cleanLabId = labId.trim();
+    final cleanRole = role.trim();
+
+    if (cleanUserId.isEmpty || cleanLabId.isEmpty || cleanRole.isEmpty) {
+      return;
+    }
+
+    await _membershipsRef
+        .doc(_membershipDocId(userId: cleanUserId, labId: cleanLabId))
+        .update({'role': cleanRole, 'updatedAt': FieldValue.serverTimestamp()});
+  }
+
   Future<int> deleteMembershipsForLabs(List<String> labIds) async {
     final cleanedLabIds = labIds
         .map((labId) => labId.trim())
