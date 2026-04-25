@@ -5,6 +5,7 @@ import 'models/lab_context_model.dart';
 import 'models/lab_membership_model.dart';
 import 'models/user_profile.dart';
 import 'services/lab_membership_service.dart';
+import 'services/user_profile_service.dart';
 
 enum DemoUserRole {
   piAdmin('PI/Admin'),
@@ -33,6 +34,7 @@ class AppState extends ChangeNotifier {
 
   static AppState? _instance;
   final LabMembershipService _labMembershipService = LabMembershipService();
+  final UserProfileService _userProfileService = UserProfileService();
 
   UserProfile _profile = UserProfile.empty();
   bool _isLoaded = false;
@@ -58,6 +60,7 @@ class AppState extends ChangeNotifier {
   }
 
   UserProfile get profile => _profile;
+  bool get shouldShowProfileReminder => _profile.shouldShowCompletionReminder;
   bool get isLoaded => _isLoaded;
   String get demoRole => _demoRole;
   String get selectedLabId => _selectedLabId;
@@ -185,12 +188,25 @@ class AppState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
 
     _profile = UserProfile(
+      prefix: '',
       name: prefs.getString(_nameKey) ?? 'Your Name',
+      joinAs: '',
+      contactNumber: '',
       rollNo: prefs.getString(_rollNoKey) ?? '',
       batch: prefs.getString(_batchKey) ?? '',
       dob: prefs.getString(_dobKey) ?? '',
+      photoUrl: '',
+      presentAddress: '',
+      permanentAddress: '',
+      emergencyContactPerson: '',
+      emergencyRelationship: '',
+      emergencyContactNumber: '',
+      bloodGroup: '',
       hobbies: prefs.getString(_hobbiesKey) ?? '',
       about: prefs.getString(_aboutKey) ?? '',
+      profileCompleted: false,
+      firstLoginAt: null,
+      updatedAt: null,
     );
     _demoRole = prefs.getString(_demoRoleKey) ?? DemoUserRole.researcher.name;
     _selectedLabId = prefs.getString(_selectedLabIdKey) ?? '';
@@ -207,15 +223,28 @@ class AppState extends ChangeNotifier {
 
   Future<void> saveProfile(UserProfile profile) async {
     final prefs = await SharedPreferences.getInstance();
+    final updatedProfile = profile.copyWith(
+      profileCompleted: profile.isComplete,
+      firstLoginAt: profile.firstLoginAt ?? _profile.firstLoginAt,
+    );
 
-    await prefs.setString(_nameKey, profile.name);
-    await prefs.setString(_rollNoKey, profile.rollNo);
-    await prefs.setString(_batchKey, profile.batch);
-    await prefs.setString(_dobKey, profile.dob);
-    await prefs.setString(_hobbiesKey, profile.hobbies);
-    await prefs.setString(_aboutKey, profile.about);
+    await prefs.setString(_nameKey, updatedProfile.name);
+    await prefs.setString(_rollNoKey, updatedProfile.rollNo);
+    await prefs.setString(_batchKey, updatedProfile.batch);
+    await prefs.setString(_dobKey, updatedProfile.dob);
+    await prefs.setString(_hobbiesKey, updatedProfile.hobbies);
+    await prefs.setString(_aboutKey, updatedProfile.about);
 
-    _profile = profile;
+    final userId = authenticatedUserId;
+    if (userId.isNotEmpty) {
+      await _userProfileService.saveUserProfile(
+        userId: userId,
+        email: authenticatedUserEmail,
+        profile: updatedProfile,
+      );
+    }
+
+    _profile = updatedProfile;
     notifyListeners();
   }
 
@@ -233,6 +262,8 @@ class AppState extends ChangeNotifier {
     if (userId.isEmpty) {
       return false;
     }
+
+    await loadAuthenticatedUserProfile();
 
     final savedLabBelongsToUser =
         _selectedLabUserId.trim().isEmpty ||
@@ -285,6 +316,33 @@ class AppState extends ChangeNotifier {
     );
 
     return true;
+  }
+
+  Future<void> loadAuthenticatedUserProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    final userId = user?.uid.trim() ?? '';
+    if (userId.isEmpty) {
+      return;
+    }
+
+    try {
+      final loadedProfile = await _userProfileService.getOrCreateUserProfile(
+        userId: userId,
+        email: authenticatedUserEmail,
+        accountCreatedAt: user?.metadata.creationTime,
+      );
+
+      _profile = loadedProfile;
+      notifyListeners();
+    } catch (_) {
+      if (_profile.firstLoginAt == null) {
+        _profile = _profile.copyWith(
+          firstLoginAt: user?.metadata.creationTime ?? DateTime.now(),
+          profileCompleted: _profile.isComplete,
+        );
+        notifyListeners();
+      }
+    }
   }
 
   Future<void> saveSelectedLabContext(LabContextModel labContext) async {

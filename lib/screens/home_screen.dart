@@ -21,10 +21,7 @@ import 'orders_screen.dart';
 class HomeScreen extends StatefulWidget {
   final AppState appState;
 
-  const HomeScreen({
-    super.key,
-    required this.appState,
-  });
+  const HomeScreen({super.key, required this.appState});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -58,27 +55,21 @@ class _HomeScreenState extends State<HomeScreen> {
             Navigator.pop(context);
             Navigator.push(
               this.context,
-              MaterialPageRoute(
-                builder: (_) => const AddRequirementScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const AddRequirementScreen()),
             );
           },
           onAddNewChemical: () {
             Navigator.pop(context);
             Navigator.push(
               this.context,
-              MaterialPageRoute(
-                builder: (_) => const AddNewChemicalScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const AddNewChemicalScreen()),
             );
           },
           onAddEvent: () {
             Navigator.pop(context);
             Navigator.push(
               this.context,
-              MaterialPageRoute(
-                builder: (_) => const AddEventScreen(),
-              ),
+              MaterialPageRoute(builder: (_) => const AddEventScreen()),
             );
           },
         );
@@ -112,7 +103,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 2:
         return 'Latest Articles';
       case 3:
-        return 'Edit Profile';
+        return 'Personal Information';
       default:
         return 'Labmate Dashboard';
     }
@@ -197,7 +188,7 @@ class _HomeScreenState extends State<HomeScreen> {
         actions: showEditIcon
             ? [
                 IconButton(
-                  tooltip: 'Edit Profile',
+                  tooltip: 'Personal Information',
                   onPressed: () => changeTab(3),
                   icon: const Icon(
                     Icons.edit_rounded,
@@ -213,10 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: openAddSheet,
               backgroundColor: const Color(0xFF14B8A6),
               icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text(
-                'Add',
-                style: TextStyle(color: Colors.white),
-              ),
+              label: const Text('Add', style: TextStyle(color: Colors.white)),
             )
           : null,
       bottomNavigationBar: BottomNavBar(

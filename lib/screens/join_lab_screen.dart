@@ -8,10 +8,7 @@ import 'home_screen.dart';
 class JoinLabScreen extends StatefulWidget {
   final AppState appState;
 
-  const JoinLabScreen({
-    super.key,
-    required this.appState,
-  });
+  const JoinLabScreen({super.key, required this.appState});
 
   @override
   State<JoinLabScreen> createState() => _JoinLabScreenState();
@@ -22,6 +19,7 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
   final LabService _labService = LabService();
   final LabMembershipService _labMembershipService = LabMembershipService();
   final TextEditingController _identifierController = TextEditingController();
+  String _selectedRoleName = DemoUserRole.researcher.name;
 
   bool isJoining = false;
 
@@ -29,6 +27,10 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
   void dispose() {
     _identifierController.dispose();
     super.dispose();
+  }
+
+  String _roleLabel(String roleName) {
+    return widget.appState.roleLabelFor(roleName);
   }
 
   InputDecoration _inputDecoration(String label) {
@@ -54,7 +56,7 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
     try {
       final identifier = _identifierController.text.trim();
       final currentUserId = widget.appState.authenticatedUserId;
-      final researcherRole = DemoUserRole.researcher.name;
+      final selectedRoleName = _selectedRoleName;
       LabContextModel? foundLab;
 
       try {
@@ -69,22 +71,41 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
       if (foundLab != null) {
         selectedContext = foundLab;
 
+        if (selectedRoleName == DemoUserRole.piAdmin.name) {
+          final hasPiAdmin = await _labMembershipService.labHasActivePiAdmin(
+            labId: foundLab.selectedLabId,
+            excludingUserId: currentUserId,
+          );
+
+          if (hasPiAdmin) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'This lab already has a PI/Admin. Join with a non-PI role.',
+                ),
+              ),
+            );
+            return;
+          }
+        }
+
         String localRoleName = '';
         if (currentUserId.isNotEmpty) {
           try {
             await _labMembershipService.upsertMembership(
               userId: currentUserId,
               labId: foundLab.selectedLabId,
-              role: researcherRole,
+              role: selectedRoleName,
               userName: widget.appState.authenticatedUserName,
               userEmail: widget.appState.authenticatedUserEmail,
               labName: foundLab.selectedLabName,
             );
           } catch (_) {
-            localRoleName = researcherRole;
+            localRoleName = selectedRoleName;
           }
         } else {
-          localRoleName = researcherRole;
+          localRoleName = selectedRoleName;
         }
 
         await widget.appState.saveSelectedLabContextWithRole(
@@ -94,16 +115,16 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
 
         if (localRoleName.isEmpty) {
           statusMessage =
-              'Joined ${foundLab.selectedLabName} as Researcher';
+              'Joined ${foundLab.selectedLabName} as ${_roleLabel(selectedRoleName)}';
         } else {
           statusMessage =
-              'Joined ${foundLab.selectedLabName}. Researcher access is stored locally for now.';
+              'Joined ${foundLab.selectedLabName}. ${_roleLabel(selectedRoleName)} access is stored locally for now.';
         }
       } else {
         selectedContext = _labService.buildLocalLabContext(identifier);
         await widget.appState.saveSelectedLabContextWithRole(
           selectedContext,
-          localRoleName: researcherRole,
+          localRoleName: selectedRoleName,
         );
         statusMessage =
             'No shared lab found. Using a local lab context for "$identifier".';
@@ -111,9 +132,9 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(statusMessage)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(statusMessage)));
 
       Navigator.pushReplacement(
         context,
@@ -124,11 +145,9 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not join lab: $e'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not join lab: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -142,10 +161,7 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Join Lab',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Join Lab', style: TextStyle(color: Colors.white)),
       ),
       body: SafeArea(
         child: Form(
@@ -180,6 +196,27 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
                   }
                   return null;
                 },
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedRoleName,
+                dropdownColor: const Color(0xFF1E293B),
+                decoration: _inputDecoration('Join as'),
+                style: const TextStyle(color: Colors.white),
+                items: DemoUserRole.values.map((role) {
+                  return DropdownMenuItem<String>(
+                    value: role.name,
+                    child: Text(role.label),
+                  );
+                }).toList(),
+                onChanged: isJoining
+                    ? null
+                    : (value) {
+                        if (value == null) return;
+                        setState(() {
+                          _selectedRoleName = value;
+                        });
+                      },
               ),
               const SizedBox(height: 22),
               SizedBox(

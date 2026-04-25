@@ -5,10 +5,7 @@ class LabMembershipService {
   final CollectionReference<Map<String, dynamic>> _membershipsRef =
       FirebaseFirestore.instance.collection('memberships');
 
-  String _membershipDocId({
-    required String userId,
-    required String labId,
-  }) {
+  String _membershipDocId({required String userId, required String labId}) {
     final safeLabId = labId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
     final safeUserId = userId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
     return '${safeLabId}_$safeUserId';
@@ -145,6 +142,34 @@ class LabMembershipService {
     });
 
     return memberships;
+  }
+
+  Future<bool> labHasActivePiAdmin({
+    required String labId,
+    String excludingUserId = '',
+  }) async {
+    final cleanLabId = labId.trim();
+    final cleanExcludingUserId = excludingUserId.trim();
+    if (cleanLabId.isEmpty) {
+      return false;
+    }
+
+    final snapshot = await _membershipsRef
+        .where('labId', isEqualTo: cleanLabId)
+        .where('role', isEqualTo: 'piAdmin')
+        .get();
+
+    return snapshot.docs.map(LabMembershipModel.fromFirestore).any((
+      membership,
+    ) {
+      final status = membership.status.trim().toLowerCase();
+      final isActive = status.isEmpty || status == 'active';
+      final isDifferentUser =
+          cleanExcludingUserId.isEmpty ||
+          membership.userId.trim() != cleanExcludingUserId;
+
+      return isActive && isDifferentUser;
+    });
   }
 
   Future<int> deleteMembershipsForLabs(List<String> labIds) async {

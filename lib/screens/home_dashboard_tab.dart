@@ -41,36 +41,28 @@ class HomeDashboardTab extends StatelessWidget {
   void _openConsumablesInventory(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const ConsumablesInventoryScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const ConsumablesInventoryScreen()),
     );
   }
 
   Future<void> _openLabSwitcher(BuildContext context) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => LabSwitcherScreen(appState: appState),
-      ),
+      MaterialPageRoute(builder: (_) => LabSwitcherScreen(appState: appState)),
     );
   }
 
   void _openLabMembers(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => LabMembersScreen(appState: appState),
-      ),
+      MaterialPageRoute(builder: (_) => LabMembersScreen(appState: appState)),
     );
   }
 
   void _openLabSettings(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => LabSettingsScreen(appState: appState),
-      ),
+      MaterialPageRoute(builder: (_) => LabSettingsScreen(appState: appState)),
     );
   }
 
@@ -87,9 +79,7 @@ class HomeDashboardTab extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF111827),
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.06),
-                ),
+                border: Border.all(color: Colors.white.withOpacity(0.06)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -136,7 +126,8 @@ class HomeDashboardTab extends StatelessWidget {
                   _LabActionTile(
                     icon: Icons.settings_rounded,
                     title: 'Lab Settings',
-                    subtitle: 'Open join code, lab details, and workspace settings.',
+                    subtitle:
+                        'Open join code, lab details, and workspace settings.',
                     onTap: () {
                       Navigator.pop(sheetContext);
                       _openLabSettings(context);
@@ -164,11 +155,7 @@ class HomeDashboardTab extends StatelessWidget {
         'icon': Icons.inventory_rounded,
         'onTap': () => _openConsumablesInventory(context),
       },
-      {
-        'title': 'Cart',
-        'icon': Icons.assignment_rounded,
-        'onTap': onOpenCart,
-      },
+      {'title': 'Cart', 'icon': Icons.assignment_rounded, 'onTap': onOpenCart},
       {
         'title': 'Orders',
         'icon': Icons.local_shipping_rounded,
@@ -177,26 +164,11 @@ class HomeDashboardTab extends StatelessWidget {
     ];
 
     final List<Map<String, dynamic>> toolItems = [
-      {
-        'title': 'Calculator',
-        'icon': Icons.calculate_rounded,
-      },
-      {
-        'title': 'Instruments',
-        'icon': Icons.precision_manufacturing_rounded,
-      },
-      {
-        'title': 'Lab Manual',
-        'icon': Icons.description_rounded,
-      },
-      {
-        'title': 'ChemDraw',
-        'icon': Icons.draw_rounded,
-      },
-      {
-        'title': 'More',
-        'icon': Icons.more_horiz_rounded,
-      },
+      {'title': 'Calculator', 'icon': Icons.calculate_rounded},
+      {'title': 'Instruments', 'icon': Icons.precision_manufacturing_rounded},
+      {'title': 'Lab Manual', 'icon': Icons.description_rounded},
+      {'title': 'ChemDraw', 'icon': Icons.draw_rounded},
+      {'title': 'More', 'icon': Icons.more_horiz_rounded},
     ];
 
     return AnimatedBuilder(
@@ -204,10 +176,9 @@ class HomeDashboardTab extends StatelessWidget {
       builder: (context, _) {
         final profile = appState.profile;
         final profileName = profile.name.trim();
-        final resolvedName =
-            profileName.isEmpty || profileName == 'Your Name'
-                ? appState.authenticatedUserName
-                : profileName;
+        final resolvedName = profileName.isEmpty || profileName == 'Your Name'
+            ? appState.authenticatedUserName
+            : profileName;
         final selectedLabName = appState.selectedLabName.trim();
 
         return SafeArea(
@@ -216,9 +187,7 @@ class HomeDashboardTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SearchBarWidget(
-                  onTap: onOpenChemicals,
-                ),
+                SearchBarWidget(onTap: onOpenChemicals),
                 const SizedBox(height: 14),
                 Material(
                   color: Colors.transparent,
@@ -230,10 +199,7 @@ class HomeDashboardTab extends StatelessWidget {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
-                          colors: [
-                            Color(0xFF0F766E),
-                            Color(0xFF0EA5E9),
-                          ],
+                          colors: [Color(0xFF0F766E), Color(0xFF0EA5E9)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -333,6 +299,17 @@ class HomeDashboardTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 24),
+                if (appState.shouldShowProfileReminder) ...[
+                  _WorkflowEntryCard(
+                    title: 'Complete Personal Information',
+                    subtitle:
+                        'Your profile is still incomplete. You can keep using Labmate and finish it when convenient.',
+                    icon: Icons.person_outline_rounded,
+                    accentColor: const Color(0xFFF59E0B),
+                    onTap: onOpenProfile,
+                  ),
+                  const SizedBox(height: 24),
+                ],
                 const NewlyArrivedSection(),
                 const SizedBox(height: 24),
                 const Text(
@@ -355,7 +332,8 @@ class HomeDashboardTab extends StatelessWidget {
                 const SizedBox(height: 12),
                 _WorkflowEntryCard(
                   title: 'Open Events',
-                  subtitle: 'View upcoming meetings, reminders, and lab schedules in the Events section.',
+                  subtitle:
+                      'View upcoming meetings, reminders, and lab schedules in the Events section.',
                   icon: Icons.event_note_rounded,
                   accentColor: const Color(0xFFF59E0B),
                   onTap: onOpenEvents,
@@ -383,8 +361,7 @@ class HomeDashboardTab extends StatelessWidget {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: workflowItems.length,
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
@@ -406,7 +383,8 @@ class HomeDashboardTab extends StatelessWidget {
                 const SizedBox(height: 20),
                 _WorkflowEntryCard(
                   title: 'Open More Tools',
-                  subtitle: 'Access calculator, instruments, lab manual, ChemDraw, and other shortcuts.',
+                  subtitle:
+                      'Access calculator, instruments, lab manual, ChemDraw, and other shortcuts.',
                   icon: Icons.widgets_rounded,
                   accentColor: const Color(0xFF38BDF8),
                   onTap: onOpenMore,
@@ -425,8 +403,7 @@ class HomeDashboardTab extends StatelessWidget {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   itemCount: toolItems.length,
-                  gridDelegate:
-                      const SliverGridDelegateWithFixedCrossAxisCount(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 4,
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
@@ -503,11 +480,7 @@ class _WorkflowEntryCard extends StatelessWidget {
                   color: accentColor.withOpacity(0.16),
                   borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(
-                  icon,
-                  color: accentColor,
-                  size: 26,
-                ),
+                child: Icon(icon, color: accentColor, size: 26),
               ),
               const SizedBox(width: 14),
               Expanded(

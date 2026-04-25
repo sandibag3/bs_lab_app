@@ -1,15 +1,13 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import 'edit_profile_screen.dart';
 import 'import_inventory_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   final AppState appState;
 
-  const MoreScreen({
-    super.key,
-    required this.appState,
-  });
+  const MoreScreen({super.key, required this.appState});
 
   Widget buildSectionTitle(String title) {
     return Padding(
@@ -95,16 +93,10 @@ class MoreScreen extends StatelessWidget {
       builder: (context) {
         return AlertDialog(
           backgroundColor: const Color(0xFF1E293B),
-          title: const Text(
-            'Sign Out?',
-            style: TextStyle(color: Colors.white),
-          ),
+          title: const Text('Sign Out?', style: TextStyle(color: Colors.white)),
           content: const Text(
             'This will sign you out of Firebase and clear the current lab session on this device.',
-            style: TextStyle(
-              color: Colors.white70,
-              height: 1.4,
-            ),
+            style: TextStyle(color: Colors.white70, height: 1.4),
           ),
           actions: [
             TextButton(
@@ -140,12 +132,29 @@ class MoreScreen extends StatelessWidget {
     } catch (e) {
       if (!context.mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not sign out: $e'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not sign out: $e')));
     }
+  }
+
+  void _openPersonalInformation(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text(
+                'Personal Information',
+                style: TextStyle(color: Colors.white),
+              ),
+            ),
+            body: EditProfileScreen(appState: appState),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -161,7 +170,8 @@ class MoreScreen extends StatelessWidget {
               context: context,
               icon: Icons.file_upload_rounded,
               title: 'Import Inventory Excel',
-subtitle: 'Import your cleaned .xlsx inventory file into Firestore.',
+              subtitle:
+                  'Import your cleaned .xlsx inventory file into Firestore.',
               onTap: () {
                 Navigator.push(
                   context,
@@ -172,6 +182,13 @@ subtitle: 'Import your cleaned .xlsx inventory file into Firestore.',
               },
             ),
             buildSectionTitle('General'),
+            buildOptionCard(
+              context: context,
+              icon: Icons.person_outline_rounded,
+              title: 'Personal Information',
+              subtitle: 'Add or update your own optional profile details.',
+              onTap: () => _openPersonalInformation(context),
+            ),
             buildOptionCard(
               context: context,
               icon: Icons.settings_rounded,
@@ -202,7 +219,8 @@ subtitle: 'Import your cleaned .xlsx inventory file into Firestore.',
               context: context,
               icon: Icons.logout_rounded,
               title: 'Sign Out',
-              subtitle: 'Log out so you can sign in with a different email account.',
+              subtitle:
+                  'Log out so you can sign in with a different email account.',
               accentColor: const Color(0xFFFB7185),
               showChevron: false,
               onTap: () => _signOut(context),
