@@ -26,6 +26,7 @@ class AppState extends ChangeNotifier {
   static const String _selectedLabIdKey = 'selected_lab_id';
   static const String _selectedLabNameKey = 'selected_lab_name';
   static const String _selectedLabLocalRoleKey = 'selected_lab_local_role';
+  static const String _selectedLabUserIdKey = 'selected_lab_user_id';
 
   static const String demoLabId = 'labmate-demo-lab';
   static const String demoLabName = 'Labmate Demo Lab';
@@ -39,6 +40,7 @@ class AppState extends ChangeNotifier {
   String _selectedLabId = '';
   String _selectedLabName = '';
   String _selectedLabLocalRole = '';
+  String _selectedLabUserId = '';
   String _selectedLabMembershipRole = '';
   bool _isRefreshingSelectedLabRole = false;
   bool _hasAttemptedSelectedLabMembershipLoad = false;
@@ -61,6 +63,7 @@ class AppState extends ChangeNotifier {
   String get selectedLabId => _selectedLabId;
   String get selectedLabName => _selectedLabName;
   String get selectedLabLocalRole => _selectedLabLocalRole;
+  String get selectedLabUserId => _selectedLabUserId;
   String get selectedLabMembershipRole => _selectedLabMembershipRole;
   bool get hasResolvedLabMembership =>
       _selectedLabMembershipRole.trim().isNotEmpty;
@@ -68,9 +71,9 @@ class AppState extends ChangeNotifier {
   bool get hasAttemptedSelectedLabMembershipLoad =>
       _hasAttemptedSelectedLabMembershipLoad;
   LabContextModel get labContext => LabContextModel(
-        selectedLabId: _selectedLabId,
-        selectedLabName: _selectedLabName,
-      );
+    selectedLabId: _selectedLabId,
+    selectedLabName: _selectedLabName,
+  );
   DemoUserRole get demoUserRole {
     return DemoUserRole.values.firstWhere(
       (role) => role.name == _demoRole,
@@ -130,10 +133,12 @@ class AppState extends ChangeNotifier {
   }
 
   String roleLabelFor(String roleName) {
-    return DemoUserRole.values.firstWhere(
-      (role) => role.name == roleName,
-      orElse: () => DemoUserRole.researcher,
-    ).label;
+    return DemoUserRole.values
+        .firstWhere(
+          (role) => role.name == roleName,
+          orElse: () => DemoUserRole.researcher,
+        )
+        .label;
   }
 
   Future<void> _loadSelectedLabRole() async {
@@ -190,8 +195,8 @@ class AppState extends ChangeNotifier {
     _demoRole = prefs.getString(_demoRoleKey) ?? DemoUserRole.researcher.name;
     _selectedLabId = prefs.getString(_selectedLabIdKey) ?? '';
     _selectedLabName = prefs.getString(_selectedLabNameKey) ?? '';
-    _selectedLabLocalRole =
-        prefs.getString(_selectedLabLocalRoleKey) ?? '';
+    _selectedLabLocalRole = prefs.getString(_selectedLabLocalRoleKey) ?? '';
+    _selectedLabUserId = prefs.getString(_selectedLabUserIdKey) ?? '';
     _hasAttemptedSelectedLabMembershipLoad = false;
 
     await _loadSelectedLabRole();
@@ -224,11 +229,20 @@ class AppState extends ChangeNotifier {
   }
 
   Future<bool> resolveAuthenticatedLabContext() async {
-    if (isDemoLabSelected) {
-      await clearSessionContext();
+    final userId = authenticatedUserId;
+    if (userId.isEmpty) {
+      return false;
     }
 
-    if (hasSelectedLab) {
+    final savedLabBelongsToUser =
+        _selectedLabUserId.trim().isEmpty ||
+        _selectedLabUserId.trim() == userId;
+
+    if (hasSelectedLab && !isDemoLabSelected && savedLabBelongsToUser) {
+      if (_selectedLabUserId.trim().isEmpty) {
+        await _saveSelectedLabUserId(userId);
+      }
+
       if (!isLocalFallbackLabSelected &&
           !hasResolvedLabMembership &&
           !isRefreshingSelectedLabRole &&
@@ -236,11 +250,6 @@ class AppState extends ChangeNotifier {
         await refreshSelectedLabRole();
       }
       return true;
-    }
-
-    final userId = authenticatedUserId;
-    if (userId.isEmpty) {
-      return false;
     }
 
     List<LabMembershipModel> memberships;
@@ -287,14 +296,17 @@ class AppState extends ChangeNotifier {
     String localRoleName = '',
   }) async {
     final prefs = await SharedPreferences.getInstance();
+    final userId = authenticatedUserId;
 
     await prefs.setString(_selectedLabIdKey, labContext.selectedLabId);
     await prefs.setString(_selectedLabNameKey, labContext.selectedLabName);
     await prefs.setString(_selectedLabLocalRoleKey, localRoleName);
+    await prefs.setString(_selectedLabUserIdKey, userId);
 
     _selectedLabId = labContext.selectedLabId;
     _selectedLabName = labContext.selectedLabName;
     _selectedLabLocalRole = localRoleName;
+    _selectedLabUserId = userId;
     _hasAttemptedSelectedLabMembershipLoad = false;
 
     await _loadSelectedLabRole();
@@ -337,16 +349,30 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> _saveSelectedLabUserId(String userId) async {
+    final cleanUserId = userId.trim();
+    if (cleanUserId.isEmpty) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_selectedLabUserIdKey, cleanUserId);
+
+    _selectedLabUserId = cleanUserId;
+  }
+
   Future<void> clearSessionContext() async {
     final prefs = await SharedPreferences.getInstance();
 
     await prefs.remove(_selectedLabIdKey);
     await prefs.remove(_selectedLabNameKey);
     await prefs.remove(_selectedLabLocalRoleKey);
+    await prefs.remove(_selectedLabUserIdKey);
 
     _selectedLabId = '';
     _selectedLabName = '';
     _selectedLabLocalRole = '';
+    _selectedLabUserId = '';
     _selectedLabMembershipRole = '';
     _hasAttemptedSelectedLabMembershipLoad = false;
     _isRefreshingSelectedLabRole = false;
