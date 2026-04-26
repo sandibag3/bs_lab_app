@@ -8,15 +8,16 @@ import 'add_new_chemical_screen.dart';
 import 'add_requirement_screen.dart';
 import 'calculator_screen.dart';
 import 'cart_screen.dart';
-import 'chemdraw_screen.dart';
 import 'chemical_inventory_screen.dart';
 import 'edit_profile_screen.dart';
 import 'electronic_lab_manual_screen.dart';
 import 'events_screen.dart';
+import 'export_reports_screen.dart';
 import 'home_dashboard_tab.dart';
 import 'import_inventory_screen.dart';
 import 'instruments_screen.dart';
 import 'latest_articles_screen.dart';
+import 'native_chemdraw_screen.dart';
 import 'orders_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -85,6 +86,22 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void openExportReports() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ExportReportsScreen(appState: widget.appState),
+      ),
+    );
+  }
+
+  void openMoleculeDraw() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const NativeChemDrawScreen()),
+    );
+  }
+
   Future<void> signOut() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -150,8 +167,6 @@ class _HomeScreenState extends State<HomeScreen> {
         return 'Cart';
       case 'lab_manual':
         return 'Electronic Lab Manual';
-      case 'chemdraw':
-        return 'ChemDraw';
     }
 
     switch (selectedIndex) {
@@ -185,10 +200,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (activeHomeOverlay == 'lab_manual') {
       return const ElectronicLabManualScreen();
     }
-    if (activeHomeOverlay == 'chemdraw') {
-      return const ChemDrawScreen();
-    }
-
     return IndexedStack(
       index: selectedIndex,
       children: [
@@ -203,7 +214,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onOpenOrders: () => openOverlay('orders'),
           onOpenCart: () => openOverlay('cart'),
           onOpenLabManual: () => openOverlay('lab_manual'),
-          onOpenChemDraw: () => openOverlay('chemdraw'),
+          onOpenChemDraw: openMoleculeDraw,
           onOpenMore: () {},
         ),
         const EventsScreen(),
@@ -254,6 +265,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 case _HomeOverflowAction.importInventory:
                   openImportInventory();
                   break;
+                case _HomeOverflowAction.exportReports:
+                  openExportReports();
+                  break;
                 case _HomeOverflowAction.signOut:
                   signOut();
                   break;
@@ -267,6 +281,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     icon: Icons.file_upload_rounded,
                     label: 'Import Inventory (Excel)',
                     color: Color(0xFF38BDF8),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: _HomeOverflowAction.exportReports,
+                  child: _OverflowMenuItem(
+                    icon: Icons.file_download_rounded,
+                    label: 'Export Reports',
+                    color: Color(0xFF14B8A6),
                   ),
                 ),
                 PopupMenuDivider(),
@@ -302,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-enum _HomeOverflowAction { importInventory, signOut }
+enum _HomeOverflowAction { importInventory, exportReports, signOut }
 
 class _OverflowMenuItem extends StatelessWidget {
   final IconData icon;
