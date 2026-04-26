@@ -163,8 +163,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final bool showBackButton = activeHomeOverlay != null;
     final bool showEditIcon = selectedIndex == 0 && activeHomeOverlay == null;
-    final bool showHomeAddButton =
-        selectedIndex == 0 && activeHomeOverlay == null;
+    final bool showMainAddButton = activeHomeOverlay == null;
 
     return Scaffold(
       appBar: AppBar(
@@ -199,14 +198,16 @@ class _HomeScreenState extends State<HomeScreen> {
             : [],
       ),
       body: currentScreen,
-      floatingActionButton: showHomeAddButton
-          ? FloatingActionButton.extended(
+      floatingActionButton: showMainAddButton
+          ? FloatingActionButton(
               onPressed: openAddSheet,
               backgroundColor: const Color(0xFF14B8A6),
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text('Add', style: TextStyle(color: Colors.white)),
+              elevation: 6,
+              shape: const CircleBorder(),
+              child: const Icon(Icons.add_rounded, color: Colors.white),
             )
           : null,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomNavBar(
         currentIndex: selectedIndex,
         onTap: changeTab,

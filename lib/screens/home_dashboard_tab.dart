@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
@@ -7,7 +9,6 @@ import '../models/requirement_model.dart';
 import '../services/inventory_service.dart';
 import '../services/order_service.dart';
 import '../services/requirement_service.dart';
-import '../widgets/dashboard_card.dart';
 import '../widgets/newly_arrived_section.dart';
 import '../widgets/search_bar_widget.dart';
 import 'consumables_inventory_screen.dart';
@@ -167,16 +168,17 @@ class HomeDashboardTab extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       itemCount: workflowItems.length,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-        childAspectRatio: 1.22,
+        crossAxisCount: 4,
+        mainAxisSpacing: 14,
+        crossAxisSpacing: 14,
+        childAspectRatio: 0.92,
       ),
       itemBuilder: (context, index) {
         final item = workflowItems[index];
         final title = item['title'] as String;
         final icon = item['icon'] as IconData;
         final onTap = item['onTap'] as VoidCallback;
+        final accentColor = item['accentColor'] as Color;
         final badgeCount = title == 'Cart'
             ? pendingApprovalCount
             : title == 'Orders'
@@ -187,9 +189,10 @@ class HomeDashboardTab extends StatelessWidget {
             ? consumablesLowStockCount
             : 0;
 
-        return DashboardCard(
+        return _HomeToolCard(
           title: title,
           icon: icon,
+          accentColor: accentColor,
           onTap: onTap,
           badgeCount: badgeCount,
         );
@@ -279,27 +282,51 @@ class HomeDashboardTab extends StatelessWidget {
       {
         'title': 'Chemical Inventory',
         'icon': Icons.science_rounded,
+        'accentColor': const Color(0xFF2DD4BF),
         'onTap': onOpenChemicals,
       },
       {
         'title': 'Consumables Inventory',
         'icon': Icons.inventory_rounded,
+        'accentColor': const Color(0xFF60A5FA),
         'onTap': () => _openConsumablesInventory(context),
       },
-      {'title': 'Cart', 'icon': Icons.assignment_rounded, 'onTap': onOpenCart},
+      {
+        'title': 'Cart',
+        'icon': Icons.assignment_rounded,
+        'accentColor': const Color(0xFFFBBF24),
+        'onTap': onOpenCart,
+      },
       {
         'title': 'Orders',
         'icon': Icons.local_shipping_rounded,
+        'accentColor': const Color(0xFF38BDF8),
         'onTap': onOpenOrders,
       },
-    ];
-
-    final List<Map<String, dynamic>> toolItems = [
-      {'title': 'Calculator', 'icon': Icons.calculate_rounded},
-      {'title': 'Instruments', 'icon': Icons.precision_manufacturing_rounded},
-      {'title': 'Lab Manual', 'icon': Icons.description_rounded},
-      {'title': 'ChemDraw', 'icon': Icons.draw_rounded},
-      {'title': 'More', 'icon': Icons.more_horiz_rounded},
+      {
+        'title': 'Calculator',
+        'icon': Icons.calculate_rounded,
+        'accentColor': const Color(0xFFA78BFA),
+        'onTap': onOpenCalculator,
+      },
+      {
+        'title': 'Instruments',
+        'icon': Icons.precision_manufacturing_rounded,
+        'accentColor': const Color(0xFF94A3B8),
+        'onTap': onOpenInstruments,
+      },
+      {
+        'title': 'Lab Manual',
+        'icon': Icons.description_rounded,
+        'accentColor': const Color(0xFF34D399),
+        'onTap': onOpenLabManual,
+      },
+      {
+        'title': 'ChemDraw',
+        'icon': Icons.draw_rounded,
+        'accentColor': const Color(0xFFF472B6),
+        'onTap': onOpenChemDraw,
+      },
     ];
 
     return AnimatedBuilder(
@@ -319,7 +346,7 @@ class HomeDashboardTab extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 SearchBarWidget(onTap: onOpenChemicals),
-                const SizedBox(height: 14),
+                const SizedBox(height: 12),
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -327,7 +354,7 @@ class HomeDashboardTab extends StatelessWidget {
                     onTap: () => _openHeroActions(context),
                     child: Ink(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Color(0xFF0F766E), Color(0xFF0EA5E9)],
@@ -377,7 +404,7 @@ class HomeDashboardTab extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Text(
                             resolvedName,
                             maxLines: 1,
@@ -388,7 +415,7 @@ class HomeDashboardTab extends StatelessWidget {
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 6),
                           Row(
                             children: [
                               Expanded(
@@ -429,7 +456,7 @@ class HomeDashboardTab extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 20),
                 if (appState.shouldShowProfileReminder) ...[
                   _WorkflowEntryCard(
                     title: 'Complete Personal Information',
@@ -439,55 +466,12 @@ class HomeDashboardTab extends StatelessWidget {
                     accentColor: const Color(0xFFF59E0B),
                     onTap: onOpenProfile,
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                 ],
                 const NewlyArrivedSection(),
-                const SizedBox(height: 24),
-                const Text(
-                  'Upcoming Events',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Keep lab reminders, meetings, and scheduling updates visible.',
-                  style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _WorkflowEntryCard(
-                  title: 'Open Events',
-                  subtitle:
-                      'View upcoming meetings, reminders, and lab schedules in the Events section.',
-                  icon: Icons.event_note_rounded,
-                  accentColor: const Color(0xFFF59E0B),
-                  onTap: onOpenEvents,
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  'Core Workflows',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Quick entry points for the modules used most in Labmate.',
-                  style: TextStyle(
-                    color: Colors.white60,
-                    fontSize: 13,
-                    height: 1.4,
-                  ),
-                ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 20),
+                _UpcomingEventsPreview(onViewAll: onOpenEvents),
+                const SizedBox(height: 20),
                 StreamBuilder<List<RequirementModel>>(
                   stream: RequirementService().getRequirements(),
                   builder: (context, requirementsSnapshot) {
@@ -530,15 +514,6 @@ class HomeDashboardTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 20),
                 _WorkflowEntryCard(
-                  title: 'Open More Tools',
-                  subtitle:
-                      'Access calculator, instruments, lab manual, ChemDraw, and other shortcuts.',
-                  icon: Icons.widgets_rounded,
-                  accentColor: const Color(0xFF38BDF8),
-                  onTap: onOpenMore,
-                ),
-                const SizedBox(height: 12),
-                _WorkflowEntryCard(
                   title: 'Recent Activity',
                   subtitle:
                       'View recent requirements, orders, deliveries, and inventory entries for this lab.',
@@ -546,59 +521,283 @@ class HomeDashboardTab extends StatelessWidget {
                   accentColor: const Color(0xFF14B8A6),
                   onTap: () => _openRecentActivity(context),
                 ),
-                const SizedBox(height: 24),
-                const Text(
-                  'More Tools',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 14),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: toolItems.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 0.95,
-                  ),
-                  itemBuilder: (context, index) {
-                    final item = toolItems[index];
-
-                    return DashboardCard(
-                      title: item['title'],
-                      icon: item['icon'],
-                      onTap: () {
-                        if (item['title'] == 'Calculator') {
-                          onOpenCalculator();
-                        } else if (item['title'] == 'Instruments') {
-                          onOpenInstruments();
-                        } else if (item['title'] == 'Lab Manual') {
-                          onOpenLabManual();
-                        } else if (item['title'] == 'ChemDraw') {
-                          onOpenChemDraw();
-                        } else if (item['title'] == 'More') {
-                          onOpenMore();
-                        } else if (item['title'] == 'Events') {
-                          onOpenEvents();
-                        } else if (item['title'] == 'Latest Articles') {
-                          onOpenArticles();
-                        } else if (item['title'] == 'Profile') {
-                          onOpenProfile();
-                        }
-                      },
-                    );
-                  },
-                ),
               ],
             ),
           ),
         );
       },
+    );
+  }
+}
+
+class _DashboardEvent {
+  final String title;
+  final String detail;
+
+  const _DashboardEvent({required this.title, required this.detail});
+}
+
+class _UpcomingEventsPreview extends StatefulWidget {
+  final VoidCallback onViewAll;
+
+  const _UpcomingEventsPreview({required this.onViewAll});
+
+  @override
+  State<_UpcomingEventsPreview> createState() => _UpcomingEventsPreviewState();
+}
+
+class _UpcomingEventsPreviewState extends State<_UpcomingEventsPreview> {
+  static const double _eventItemHeight = 52;
+  static const List<_DashboardEvent> _events = [
+    _DashboardEvent(
+      title: 'Research Seminar',
+      detail: 'Today, 3:00 PM · CSB Seminar Hall',
+    ),
+    _DashboardEvent(
+      title: 'Solvent Collection',
+      detail: 'Tomorrow, 11:00 AM · Lab',
+    ),
+    _DashboardEvent(
+      title: 'Waste Disposal',
+      detail: 'Friday, 4:30 PM · Collection point',
+    ),
+    _DashboardEvent(
+      title: 'Instrument Booking Review',
+      detail: 'Monday, 10:00 AM · CSB-4202',
+    ),
+  ];
+
+  late final PageController _controller;
+  Timer? _timer;
+  int _page = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = PageController(viewportFraction: 1 / 3);
+    _timer = Timer.periodic(const Duration(milliseconds: 2600), (_) {
+      if (!mounted || !_controller.hasClients) {
+        return;
+      }
+
+      _page += 1;
+      _controller.animateToPage(
+        _page,
+        duration: const Duration(milliseconds: 520),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Upcoming Events',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: widget.onViewAll,
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFF59E0B),
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 34),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text(
+                  'View All',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          SizedBox(
+            height: _eventItemHeight * 3,
+            child: PageView.builder(
+              controller: _controller,
+              scrollDirection: Axis.vertical,
+              physics: const NeverScrollableScrollPhysics(),
+              padEnds: false,
+              itemBuilder: (context, index) {
+                final event = _events[index % _events.length];
+                return _UpcomingEventTile(event: event);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _UpcomingEventTile extends StatelessWidget {
+  final _DashboardEvent event;
+
+  const _UpcomingEventTile({required this.event});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: _UpcomingEventsPreviewState._eventItemHeight,
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        children: [
+          Container(
+            height: 8,
+            width: 8,
+            decoration: const BoxDecoration(
+              color: Color(0xFFF59E0B),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  event.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.2,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  event.detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HomeToolCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color accentColor;
+  final VoidCallback onTap;
+  final int badgeCount;
+
+  const _HomeToolCard({
+    required this.title,
+    required this.icon,
+    required this.accentColor,
+    required this.onTap,
+    this.badgeCount = 0,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(18),
+      elevation: 1,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Container(
+                    height: 42,
+                    width: 42,
+                    decoration: BoxDecoration(
+                      color: accentColor.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(icon, color: accentColor, size: 22),
+                  ),
+                  if (badgeCount > 0)
+                    Positioned(
+                      right: -8,
+                      top: -8,
+                      child: Container(
+                        constraints: const BoxConstraints(
+                          minWidth: 22,
+                          minHeight: 22,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFB7185),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: const Color(0xFF1E293B),
+                            width: 2,
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          badgeCount > 99 ? '99+' : '$badgeCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                  height: 1.2,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
