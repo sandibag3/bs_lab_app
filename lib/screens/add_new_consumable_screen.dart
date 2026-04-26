@@ -77,6 +77,27 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
     return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
   }
 
+  String _inventoryKey(String consumableType) {
+    return consumableType.trim().toLowerCase();
+  }
+
+  double? _readQuantityNumber(String quantity) {
+    final match = RegExp(r'[-+]?\d*\.?\d+').firstMatch(quantity.trim());
+    if (match == null) {
+      return null;
+    }
+
+    return double.tryParse(match.group(0) ?? '');
+  }
+
+  String _formatQuantityNumber(double quantity) {
+    if (quantity == quantity.roundToDouble()) {
+      return quantity.toStringAsFixed(0);
+    }
+
+    return quantity.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '');
+  }
+
   Future<void> submitConsumableEntry() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -86,33 +107,153 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
 
     try {
       final order = widget.order;
+      final labId = AppState.instance.resolveWriteLabId(order.labId);
+      final consumableType = consumableTypeController.text.trim();
+      final quantityAddedText = quantityController.text.trim();
+      final quantityAdded = _readQuantityNumber(quantityAddedText);
+      final brand = brandController.text.trim();
+      final vendor = vendorController.text.trim();
+      final modeOfPurchase = modeOfPurchaseController.text.trim();
+      final orderedBy = orderedByController.text.trim();
+      final timestamp = Timestamp.now();
 
-      await FirebaseFirestore.instance.collection('consumables_inventory').add({
-        'labId': AppState.instance.resolveWriteLabId(order.labId),
-        'mainType': 'consumable',
-        'orderId': order.id,
-        'requirementId': order.requirementId,
-        'consumableType': consumableTypeController.text.trim(),
-        'quantity': quantityController.text.trim(),
-        'brand': brandController.text.trim(),
-        'vendor': vendorController.text.trim(),
-        'modeOfPurchase': modeOfPurchaseController.text.trim(),
-        'orderedBy': orderedByController.text.trim(),
-        'receivedBy': order.receivedBy,
-        'deliveredAt': order.deliveredAt ?? Timestamp.now(),
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
+      if (quantityAdded == null || quantityAdded <= 0) {
+        throw Exception('Quantity must be numeric and greater than 0.');
+      }
+
+      final firestore = FirebaseFirestore.instance;
+      final inventoryRef = firestore.collection('consumables_inventory');
+      final purchaseLogRef = firestore
+          .collection('consumable_purchase_logs')
+          .doc();
+
+      final existingSnapshot = await inventoryRef.get();
+      final targetKey = _inventoryKey(consumableType);
+      QueryDocumentSnapshot<Map<String, dynamic>>? existingDoc;
+
+      for (final doc in existingSnapshot.docs) {
+        final data = doc.data();
+        final docLabId = (data['labId'] ?? '').toString().trim();
+        if (docLabId != labId) {
+          continue;
+        }
+
+        final docKey = _inventoryKey((data['consumableType'] ?? '').toString());
+        if (docKey == targetKey) {
+          existingDoc = doc;
+          break;
+        }
+      }
+
+      late final String inventoryId;
+      late final double previousQuantity;
+      late final double newQuantity;
+
+      if (existingDoc == null) {
+        final newInventoryRef = inventoryRef.doc();
+        inventoryId = newInventoryRef.id;
+        previousQuantity = 0;
+        newQuantity = quantityAdded;
+
+        await firestore.runTransaction((transaction) async {
+          transaction.set(newInventoryRef, {
+            'labId': labId,
+            'mainType': 'consumable',
+            'orderId': order.id,
+            'latestOrderId': order.id,
+            'requirementId': order.requirementId,
+            'consumableType': consumableType,
+            'quantity': _formatQuantityNumber(newQuantity),
+            'isAggregate': true,
+            'brand': brand,
+            'latestBrand': brand,
+            'vendor': vendor,
+            'latestVendor': vendor,
+            'modeOfPurchase': modeOfPurchase,
+            'orderedBy': orderedBy,
+            'receivedBy': order.receivedBy,
+            'deliveredAt': order.deliveredAt ?? timestamp,
+            'createdAt': timestamp,
+            'updatedAt': timestamp,
+          });
+
+          transaction.set(purchaseLogRef, {
+            'labId': labId,
+            'consumableInventoryId': inventoryId,
+            'consumableType': consumableType,
+            'quantityAdded': quantityAdded,
+            'previousQuantity': previousQuantity,
+            'newQuantity': newQuantity,
+            'brand': brand,
+            'vendor': vendor,
+            'modeOfPurchase': modeOfPurchase,
+            'receivedBy': order.receivedBy,
+            'deliveredAt': order.deliveredAt ?? timestamp,
+            'sourceOrderId': order.id,
+            'createdAt': timestamp,
+            'createdBy': AppState.instance.authenticatedUserId,
+            'actorName': AppState.instance.authenticatedUserName,
+          });
+        });
+      } else {
+        final matchedDoc = existingDoc;
+        inventoryId = matchedDoc.id;
+
+        await firestore.runTransaction((transaction) async {
+          final freshSnapshot = await transaction.get(matchedDoc.reference);
+          final freshData = freshSnapshot.data();
+          if (freshData == null) {
+            throw Exception('Existing consumable inventory item was removed.');
+          }
+
+          final currentQuantity = _readQuantityNumber(
+            (freshData['quantity'] ?? '').toString(),
+          );
+          previousQuantity = currentQuantity ?? 0;
+          newQuantity = previousQuantity + quantityAdded;
+
+          transaction.update(matchedDoc.reference, {
+            'quantity': _formatQuantityNumber(newQuantity),
+            'isAggregate': true,
+            'latestOrderId': order.id,
+            'requirementId': order.requirementId,
+            'latestBrand': brand,
+            'latestVendor': vendor,
+            'modeOfPurchase': modeOfPurchase,
+            'orderedBy': orderedBy,
+            'receivedBy': order.receivedBy,
+            'deliveredAt': order.deliveredAt ?? timestamp,
+            'updatedAt': timestamp,
+          });
+
+          transaction.set(purchaseLogRef, {
+            'labId': labId,
+            'consumableInventoryId': inventoryId,
+            'consumableType': consumableType,
+            'quantityAdded': quantityAdded,
+            'previousQuantity': previousQuantity,
+            'newQuantity': newQuantity,
+            'brand': brand,
+            'vendor': vendor,
+            'modeOfPurchase': modeOfPurchase,
+            'receivedBy': order.receivedBy,
+            'deliveredAt': order.deliveredAt ?? timestamp,
+            'sourceOrderId': order.id,
+            'createdAt': timestamp,
+            'createdBy': AppState.instance.authenticatedUserId,
+            'actorName': AppState.instance.authenticatedUserName,
+          });
+        });
+      }
 
       await orderService.markInventoryAdded(docId: order.id);
       await ActivityService().addActivity(
-        labId: AppState.instance.resolveWriteLabId(order.labId),
+        labId: labId,
         type: 'consumable_inventory_added',
-        message:
-            'Consumable entry confirmed for ${consumableTypeController.text.trim()}',
+        message: 'Consumable entry confirmed for $consumableType',
         actorName: AppState.instance.authenticatedUserName,
         createdBy: AppState.instance.authenticatedUserId,
-        relatedId: order.id,
+        relatedId: inventoryId,
       );
 
       if (!mounted) return;
@@ -122,6 +263,14 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
       );
 
       Navigator.pop(context);
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {

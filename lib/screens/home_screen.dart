@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../widgets/add_action_sheet.dart';
@@ -13,9 +14,9 @@ import 'edit_profile_screen.dart';
 import 'electronic_lab_manual_screen.dart';
 import 'events_screen.dart';
 import 'home_dashboard_tab.dart';
+import 'import_inventory_screen.dart';
 import 'instruments_screen.dart';
 import 'latest_articles_screen.dart';
-import 'more_screen.dart';
 import 'orders_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -77,6 +78,64 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void openImportInventory() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const ImportInventoryScreen()),
+    );
+  }
+
+  Future<void> signOut() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: const Text('Sign Out?', style: TextStyle(color: Colors.white)),
+          content: const Text(
+            'This will sign you out of Firebase and clear the current lab session on this device.',
+            style: TextStyle(color: Colors.white70, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text(
+                'Sign Out',
+                style: TextStyle(color: Color(0xFFFB7185)),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.signOut();
+      await widget.appState.clearSessionContext();
+
+      if (!mounted) return;
+
+      Navigator.popUntil(context, (route) => route.isFirst);
+    } catch (error) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not sign out: $error')));
+    }
+  }
+
   String get appBarTitle {
     switch (activeHomeOverlay) {
       case 'chemicals':
@@ -93,8 +152,6 @@ class _HomeScreenState extends State<HomeScreen> {
         return 'Electronic Lab Manual';
       case 'chemdraw':
         return 'ChemDraw';
-      case 'more':
-        return 'More';
     }
 
     switch (selectedIndex) {
@@ -131,9 +188,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (activeHomeOverlay == 'chemdraw') {
       return const ChemDrawScreen();
     }
-    if (activeHomeOverlay == 'more') {
-      return MoreScreen(appState: widget.appState);
-    }
 
     return IndexedStack(
       index: selectedIndex,
@@ -150,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onOpenCart: () => openOverlay('cart'),
           onOpenLabManual: () => openOverlay('lab_manual'),
           onOpenChemDraw: () => openOverlay('chemdraw'),
-          onOpenMore: () => openOverlay('more'),
+          onOpenMore: () {},
         ),
         const EventsScreen(),
         const LatestArticlesScreen(),
@@ -184,18 +238,50 @@ class _HomeScreenState extends State<HomeScreen> {
             color: Colors.white,
           ),
         ),
-        actions: showEditIcon
-            ? [
-                IconButton(
-                  tooltip: 'Personal Information',
-                  onPressed: () => changeTab(3),
-                  icon: const Icon(
-                    Icons.edit_rounded,
-                    color: Color(0xFF14B8A6),
+        actions: [
+          if (showEditIcon)
+            IconButton(
+              tooltip: 'Personal Information',
+              onPressed: () => changeTab(3),
+              icon: const Icon(Icons.edit_rounded, color: Color(0xFF14B8A6)),
+            ),
+          PopupMenuButton<_HomeOverflowAction>(
+            tooltip: 'More options',
+            icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+            color: const Color(0xFF1E293B),
+            onSelected: (action) {
+              switch (action) {
+                case _HomeOverflowAction.importInventory:
+                  openImportInventory();
+                  break;
+                case _HomeOverflowAction.signOut:
+                  signOut();
+                  break;
+              }
+            },
+            itemBuilder: (context) {
+              return const [
+                PopupMenuItem(
+                  value: _HomeOverflowAction.importInventory,
+                  child: _OverflowMenuItem(
+                    icon: Icons.file_upload_rounded,
+                    label: 'Import Inventory (Excel)',
+                    color: Color(0xFF38BDF8),
                   ),
                 ),
-              ]
-            : [],
+                PopupMenuDivider(),
+                PopupMenuItem(
+                  value: _HomeOverflowAction.signOut,
+                  child: _OverflowMenuItem(
+                    icon: Icons.logout_rounded,
+                    label: 'Sign Out',
+                    color: Color(0xFFFB7185),
+                  ),
+                ),
+              ];
+            },
+          ),
+        ],
       ),
       body: currentScreen,
       floatingActionButton: showMainAddButton
@@ -212,6 +298,38 @@ class _HomeScreenState extends State<HomeScreen> {
         currentIndex: selectedIndex,
         onTap: changeTab,
       ),
+    );
+  }
+}
+
+enum _HomeOverflowAction { importInventory, signOut }
+
+class _OverflowMenuItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  const _OverflowMenuItem({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: color, size: 20),
+        const SizedBox(width: 12),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 13.5,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
     );
   }
 }

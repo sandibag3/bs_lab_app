@@ -43,6 +43,10 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     return quantity.toStringAsFixed(2).replaceFirst(RegExp(r'0+$'), '');
   }
 
+  String _inventoryKey(String consumableType) {
+    return consumableType.trim().toLowerCase();
+  }
+
   bool _matchesCurrentLab(Map<String, dynamic> data) {
     final labId = (data['labId'] ?? '').toString().trim();
     return AppState.instance.matchesSelectedLabId(labId);
@@ -93,6 +97,70 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     return sorted;
   }
 
+  List<_ConsumableInventoryItem> _groupDocs(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    final grouped =
+        <String, List<QueryDocumentSnapshot<Map<String, dynamic>>>>{};
+    for (final doc in docs) {
+      final data = doc.data();
+      final key = _inventoryKey(_readText(data, 'consumableType'));
+      grouped.putIfAbsent(key, () => []).add(doc);
+    }
+
+    return grouped.values.map((groupDocs) {
+      QueryDocumentSnapshot<Map<String, dynamic>>? aggregateDoc;
+      for (final doc in groupDocs) {
+        if (doc.data()['isAggregate'] == true) {
+          aggregateDoc = doc;
+          break;
+        }
+      }
+
+      final primaryDoc = aggregateDoc ?? groupDocs.first;
+      final primaryData = primaryDoc.data();
+      final aggregateQuantity = aggregateDoc == null
+          ? groupDocs.fold<double?>(0, (total, doc) {
+              final quantity = _readQuantityNumber(
+                _readText(doc.data(), 'quantity'),
+              );
+              if (quantity == null || total == null) {
+                return null;
+              }
+              return total + quantity;
+            })
+          : _readQuantityNumber(_readText(primaryData, 'quantity'));
+      final quantityText = aggregateQuantity == null
+          ? _readText(primaryData, 'quantity')
+          : _formatQuantityNumber(aggregateQuantity);
+      final brands = groupDocs
+          .map((doc) => _readText(doc.data(), 'brand'))
+          .where((brand) => brand.isNotEmpty)
+          .toSet();
+      final vendors = groupDocs
+          .map((doc) => _readText(doc.data(), 'vendor'))
+          .where((vendor) => vendor.isNotEmpty)
+          .toSet();
+
+      return _ConsumableInventoryItem(
+        primaryDoc: primaryDoc,
+        sourceDocs: groupDocs,
+        quantityText: quantityText,
+        numericQuantity: aggregateQuantity,
+        brandLabel: brands.length > 1
+            ? 'Mixed brands'
+            : brands.isEmpty
+            ? ''
+            : brands.first,
+        vendorLabel: vendors.length > 1
+            ? ''
+            : vendors.isEmpty
+            ? ''
+            : vendors.first,
+      );
+    }).toList();
+  }
+
   Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _stockLogsStream({
     required String labId,
     required String consumableInventoryId,
@@ -120,10 +188,43 @@ class ConsumablesInventoryScreen extends StatelessWidget {
         });
   }
 
+  Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  _purchaseLogsStream({
+    required String labId,
+    required String consumableInventoryId,
+  }) {
+    return FirebaseFirestore.instance
+        .collection('consumable_purchase_logs')
+        .snapshots()
+        .map((snapshot) {
+          final logs = snapshot.docs.where((doc) {
+            final data = doc.data();
+            return (data['labId'] ?? '').toString().trim() == labId &&
+                (data['consumableInventoryId'] ?? '').toString().trim() ==
+                    consumableInventoryId;
+          }).toList();
+
+          logs.sort((a, b) {
+            final aCreatedAt =
+                _readTimestamp(a.data(), 'deliveredAt') ??
+                _readTimestamp(a.data(), 'createdAt');
+            final bCreatedAt =
+                _readTimestamp(b.data(), 'deliveredAt') ??
+                _readTimestamp(b.data(), 'createdAt');
+            final aDate = aCreatedAt?.toDate() ?? DateTime(2000);
+            final bDate = bCreatedAt?.toDate() ?? DateTime(2000);
+            return bDate.compareTo(aDate);
+          });
+
+          return logs.take(30).toList();
+        });
+  }
+
   Future<void> _openStockSheet({
     required BuildContext context,
     required QueryDocumentSnapshot<Map<String, dynamic>> doc,
     required String action,
+    double? currentQuantityOverride,
   }) async {
     final quantityController = TextEditingController();
     final noteController = TextEditingController();
@@ -166,6 +267,7 @@ class ConsumablesInventoryScreen extends StatelessWidget {
                 action: action,
                 quantityChanged: enteredQuantity,
                 note: noteController.text.trim(),
+                currentQuantityOverride: currentQuantityOverride,
               );
 
               navigator.pop();
@@ -200,6 +302,7 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     required String action,
     required double quantityChanged,
     required String note,
+    double? currentQuantityOverride,
   }) async {
     final appState = AppState.instance;
     final labId = appState.selectedLabId.trim();
@@ -231,7 +334,7 @@ class ConsumablesInventoryScreen extends StatelessWidget {
         throw Exception('Current quantity must be numeric before using stock.');
       }
 
-      previousQuantity = currentQuantity ?? 0;
+      previousQuantity = currentQuantityOverride ?? currentQuantity ?? 0;
       newQuantity = action == 'added'
           ? previousQuantity + quantityChanged
           : previousQuantity - quantityChanged;
@@ -242,6 +345,7 @@ class ConsumablesInventoryScreen extends StatelessWidget {
 
       transaction.update(doc.reference, {
         'quantity': _formatQuantityNumber(newQuantity),
+        'isAggregate': true,
         'updatedAt': timestamp,
       });
 
@@ -275,10 +379,11 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     );
   }
 
-  void _showStockHistory({
+  void _showItemHistory({
     required BuildContext context,
-    required QueryDocumentSnapshot<Map<String, dynamic>> doc,
+    required _ConsumableInventoryItem item,
   }) {
+    final doc = item.primaryDoc;
     final data = doc.data();
     final labId = _readText(data, 'labId');
     final consumableType = _readText(data, 'consumableType');
@@ -290,12 +395,17 @@ class ConsumablesInventoryScreen extends StatelessWidget {
       builder: (context) {
         return _StockHistorySheet(
           title: consumableType.isEmpty ? 'Stock History' : consumableType,
+          purchaseLogsStream: _purchaseLogsStream(
+            labId: labId,
+            consumableInventoryId: doc.id,
+          ),
           logsStream: _stockLogsStream(
             labId: labId,
             consumableInventoryId: doc.id,
           ),
           formatDateTime: _formatDateTime,
           formatQuantityNumber: _formatQuantityNumber,
+          legacyArrivalDocs: item.sourceDocs,
         );
       },
     );
@@ -336,8 +446,9 @@ class ConsumablesInventoryScreen extends StatelessWidget {
                   .where((doc) => _matchesCurrentLab(doc.data()))
                   .toList(),
             );
+            final items = _groupDocs(docs);
 
-            if (docs.isEmpty) {
+            if (items.isEmpty) {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
@@ -352,167 +463,179 @@ class ConsumablesInventoryScreen extends StatelessWidget {
 
             return ListView.separated(
               padding: const EdgeInsets.all(16),
-              itemCount: docs.length,
+              itemCount: items.length,
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
-                final data = docs[index].data();
+                final item = items[index];
+                final data = item.primaryDoc.data();
                 final consumableType = _readText(data, 'consumableType');
-                final quantity = _readText(data, 'quantity');
-                final brand = _readText(data, 'brand');
-                final vendor = _readText(data, 'vendor');
+                final quantity = item.quantityText;
+                final brand = item.brandLabel;
+                final vendor = item.vendorLabel;
                 final orderedBy = _readText(data, 'orderedBy');
                 final receivedBy = _readText(data, 'receivedBy');
                 final modeOfPurchase = _readText(data, 'modeOfPurchase');
                 final deliveredAt = _readTimestamp(data, 'deliveredAt');
                 final isLowStock = _isLowStock(quantity);
 
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                return Material(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(18),
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.white.withOpacity(0.06)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                    onTap: () => _showItemHistory(context: context, item: item),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.06),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: Text(
-                              consumableType.isEmpty
-                                  ? 'Consumable'
-                                  : consumableType,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0x2238BDF8),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: const Text(
-                              'Consumable',
-                              style: TextStyle(
-                                color: Color(0xFF38BDF8),
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          if (isLowStock) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 5,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color(0x22FB7185),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Text(
-                                'Low Stock',
-                                style: TextStyle(
-                                  color: Color(0xFFFB7185),
-                                  fontSize: 11.5,
-                                  fontWeight: FontWeight.w700,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  consumableType.isEmpty
+                                      ? 'Consumable'
+                                      : consumableType,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        quantity.isEmpty ? 'Quantity not set' : quantity,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          if (brand.isNotEmpty)
-                            _InfoChip(label: 'Brand: $brand'),
-                          if (vendor.isNotEmpty)
-                            _InfoChip(label: 'Vendor: $vendor'),
-                          if (modeOfPurchase.isNotEmpty)
-                            _InfoChip(label: 'Mode: $modeOfPurchase'),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Ordered by: ${orderedBy.isEmpty ? '-' : orderedBy}',
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Received by: ${receivedBy.isEmpty ? '-' : receivedBy}',
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'Delivered on: ${_formatDate(deliveredAt)}',
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _StockActionButton(
-                            label: 'Use Stock',
-                            icon: Icons.remove_circle_outline_rounded,
-                            color: const Color(0xFFF59E0B),
-                            onTap: () => _openStockSheet(
-                              context: context,
-                              doc: docs[index],
-                              action: 'used',
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: const Color(0x2238BDF8),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Text(
+                                  'Consumable',
+                                  style: TextStyle(
+                                    color: Color(0xFF38BDF8),
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              if (isLowStock) ...[
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 5,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0x22FB7185),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Text(
+                                    'Low Stock',
+                                    style: TextStyle(
+                                      color: Color(0xFFFB7185),
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            quantity.isEmpty ? 'Quantity not set' : quantity,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
                             ),
                           ),
-                          _StockActionButton(
-                            label: 'Add Stock',
-                            icon: Icons.add_circle_outline_rounded,
-                            color: const Color(0xFF34D399),
-                            onTap: () => _openStockSheet(
-                              context: context,
-                              doc: docs[index],
-                              action: 'added',
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              if (brand.isNotEmpty)
+                                _InfoChip(label: 'Brand: $brand'),
+                              if (vendor.isNotEmpty)
+                                _InfoChip(label: 'Vendor: $vendor'),
+                              if (modeOfPurchase.isNotEmpty)
+                                _InfoChip(label: 'Mode: $modeOfPurchase'),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            'Ordered by: ${orderedBy.isEmpty ? '-' : orderedBy}',
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontSize: 12.5,
                             ),
                           ),
-                          _StockActionButton(
-                            label: 'View History',
-                            icon: Icons.history_rounded,
-                            color: const Color(0xFF38BDF8),
-                            onTap: () => _showStockHistory(
-                              context: context,
-                              doc: docs[index],
+                          const SizedBox(height: 4),
+                          Text(
+                            'Received by: ${receivedBy.isEmpty ? '-' : receivedBy}',
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontSize: 12.5,
                             ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Delivered on: ${_formatDate(deliveredAt)}',
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              _StockActionButton(
+                                label: 'Use Stock',
+                                icon: Icons.remove_circle_outline_rounded,
+                                color: const Color(0xFFF59E0B),
+                                onTap: () => _openStockSheet(
+                                  context: context,
+                                  doc: item.primaryDoc,
+                                  action: 'used',
+                                  currentQuantityOverride: item.numericQuantity,
+                                ),
+                              ),
+                              _StockActionButton(
+                                label: 'Add Stock',
+                                icon: Icons.add_circle_outline_rounded,
+                                color: const Color(0xFF34D399),
+                                onTap: () => _openStockSheet(
+                                  context: context,
+                                  doc: item.primaryDoc,
+                                  action: 'added',
+                                  currentQuantityOverride: item.numericQuantity,
+                                ),
+                              ),
+                              _StockActionButton(
+                                label: 'View History',
+                                icon: Icons.history_rounded,
+                                color: const Color(0xFF38BDF8),
+                                onTap: () => _showItemHistory(
+                                  context: context,
+                                  item: item,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 );
               },
@@ -522,6 +645,24 @@ class ConsumablesInventoryScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _ConsumableInventoryItem {
+  final QueryDocumentSnapshot<Map<String, dynamic>> primaryDoc;
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> sourceDocs;
+  final String quantityText;
+  final double? numericQuantity;
+  final String brandLabel;
+  final String vendorLabel;
+
+  const _ConsumableInventoryItem({
+    required this.primaryDoc,
+    required this.sourceDocs,
+    required this.quantityText,
+    required this.numericQuantity,
+    required this.brandLabel,
+    required this.vendorLabel,
+  });
 }
 
 class _InfoChip extends StatelessWidget {
@@ -685,15 +826,20 @@ class _StockActionSheet extends StatelessWidget {
 
 class _StockHistorySheet extends StatelessWidget {
   final String title;
+  final Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  purchaseLogsStream;
   final Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> logsStream;
   final String Function(Timestamp?) formatDateTime;
   final String Function(double) formatQuantityNumber;
+  final List<QueryDocumentSnapshot<Map<String, dynamic>>> legacyArrivalDocs;
 
   const _StockHistorySheet({
     required this.title,
+    required this.purchaseLogsStream,
     required this.logsStream,
     required this.formatDateTime,
     required this.formatQuantityNumber,
+    required this.legacyArrivalDocs,
   });
 
   @override
@@ -735,141 +881,373 @@ class _StockHistorySheet extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Expanded(
-                  child: StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
-                    stream: logsStream,
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return const Center(
-                          child: Text(
-                            'Unable to load stock history.',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        );
-                      }
+                  child:
+                      StreamBuilder<
+                        List<QueryDocumentSnapshot<Map<String, dynamic>>>
+                      >(
+                        stream: purchaseLogsStream,
+                        builder: (context, purchaseSnapshot) {
+                          return StreamBuilder<
+                            List<QueryDocumentSnapshot<Map<String, dynamic>>>
+                          >(
+                            stream: logsStream,
+                            builder: (context, stockSnapshot) {
+                              if (purchaseSnapshot.hasError ||
+                                  stockSnapshot.hasError) {
+                                return const Center(
+                                  child: Text(
+                                    'Unable to load item history.',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                );
+                              }
 
-                      if (!snapshot.hasData) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
+                              if (!purchaseSnapshot.hasData ||
+                                  !stockSnapshot.hasData) {
+                                return const Center(
+                                  child: CircularProgressIndicator(),
+                                );
+                              }
 
-                      final logs = snapshot.data!;
-                      if (logs.isEmpty) {
-                        return const Center(
-                          child: Text(
-                            'No stock changes recorded yet.',
-                            style: TextStyle(color: Colors.white70),
-                          ),
-                        );
-                      }
+                              final purchaseLogs = purchaseSnapshot.data!;
+                              final stockLogs = stockSnapshot.data!;
+                              final legacyArrivals = purchaseLogs.isEmpty
+                                  ? legacyArrivalDocs
+                                  : const <
+                                      QueryDocumentSnapshot<
+                                        Map<String, dynamic>
+                                      >
+                                    >[];
+                              if (purchaseLogs.isEmpty &&
+                                  stockLogs.isEmpty &&
+                                  legacyArrivals.isEmpty) {
+                                return const Center(
+                                  child: Text(
+                                    'No history recorded yet.',
+                                    style: TextStyle(color: Colors.white70),
+                                  ),
+                                );
+                              }
 
-                      return ListView.separated(
-                        controller: scrollController,
-                        itemCount: logs.length,
-                        separatorBuilder: (context, index) =>
-                            const SizedBox(height: 10),
-                        itemBuilder: (context, index) {
-                          final data = logs[index].data();
-                          final action = (data['action'] ?? '')
-                              .toString()
-                              .trim();
-                          final quantityChanged =
-                              (data['quantityChanged'] as num?)?.toDouble() ??
-                              0;
-                          final previousQuantity =
-                              (data['previousQuantity'] as num?)?.toDouble() ??
-                              0;
-                          final newQuantity =
-                              (data['newQuantity'] as num?)?.toDouble() ?? 0;
-                          final note = (data['note'] ?? '').toString().trim();
-                          final actorName = (data['actorName'] ?? '')
-                              .toString()
-                              .trim();
-                          final createdAt = data['createdAt'] is Timestamp
-                              ? data['createdAt'] as Timestamp
-                              : null;
-                          final isAdded = action == 'added';
-
-                          return Container(
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      isAdded
-                                          ? Icons.add_circle_outline_rounded
-                                          : Icons.remove_circle_outline_rounded,
-                                      color: isAdded
-                                          ? const Color(0xFF34D399)
-                                          : const Color(0xFFF59E0B),
-                                      size: 19,
+                              return ListView(
+                                controller: scrollController,
+                                children: [
+                                  if (purchaseLogs.isNotEmpty ||
+                                      legacyArrivals.isNotEmpty) ...[
+                                    const _HistorySectionTitle(
+                                      title: 'Purchase / Arrival History',
                                     ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        isAdded ? 'Stock added' : 'Stock used',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontWeight: FontWeight.w800,
+                                    const SizedBox(height: 8),
+                                    if (purchaseLogs.isNotEmpty)
+                                      ...purchaseLogs.map(
+                                        (doc) => _PurchaseHistoryCard(
+                                          data: doc.data(),
+                                          formatDateTime: formatDateTime,
+                                          formatQuantityNumber:
+                                              formatQuantityNumber,
+                                        ),
+                                      )
+                                    else
+                                      ...legacyArrivals.map(
+                                        (doc) => _LegacyArrivalCard(
+                                          data: doc.data(),
+                                          formatDateTime: formatDateTime,
                                         ),
                                       ),
+                                    const SizedBox(height: 16),
+                                  ],
+                                  if (stockLogs.isNotEmpty) ...[
+                                    const _HistorySectionTitle(
+                                      title: 'Stock In / Out History',
                                     ),
-                                    Text(
-                                      formatDateTime(createdAt),
-                                      style: const TextStyle(
-                                        color: Colors.white54,
-                                        fontSize: 11.5,
+                                    const SizedBox(height: 8),
+                                    ...stockLogs.map(
+                                      (doc) => _StockHistoryCard(
+                                        data: doc.data(),
+                                        formatDateTime: formatDateTime,
+                                        formatQuantityNumber:
+                                            formatQuantityNumber,
                                       ),
                                     ),
                                   ],
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  '${formatQuantityNumber(quantityChanged)} changed · '
-                                  '${formatQuantityNumber(previousQuantity)} → '
-                                  '${formatQuantityNumber(newQuantity)}',
-                                  style: const TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 12.5,
-                                  ),
-                                ),
-                                if (note.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    note,
-                                    style: const TextStyle(
-                                      color: Colors.white60,
-                                      fontSize: 12.5,
-                                    ),
-                                  ),
                                 ],
-                                if (actorName.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Text(
-                                    'By $actorName',
-                                    style: const TextStyle(
-                                      color: Colors.white38,
-                                      fontSize: 11.5,
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
+                              );
+                            },
                           );
                         },
-                      );
-                    },
-                  ),
+                      ),
                 ),
               ],
             ),
           );
         },
       ),
+    );
+  }
+}
+
+class _HistorySectionTitle extends StatelessWidget {
+  final String title;
+
+  const _HistorySectionTitle({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Colors.white,
+        fontSize: 14,
+        fontWeight: FontWeight.w800,
+      ),
+    );
+  }
+}
+
+class _PurchaseHistoryCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final String Function(Timestamp?) formatDateTime;
+  final String Function(double) formatQuantityNumber;
+
+  const _PurchaseHistoryCard({
+    required this.data,
+    required this.formatDateTime,
+    required this.formatQuantityNumber,
+  });
+
+  String _readText(String key) {
+    return (data[key] ?? '').toString().trim();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final quantityAdded = (data['quantityAdded'] as num?)?.toDouble() ?? 0;
+    final previousQuantity =
+        (data['previousQuantity'] as num?)?.toDouble() ?? 0;
+    final newQuantity = (data['newQuantity'] as num?)?.toDouble() ?? 0;
+    final deliveredAt = data['deliveredAt'] is Timestamp
+        ? data['deliveredAt'] as Timestamp
+        : null;
+    final brand = _readText('brand');
+    final vendor = _readText('vendor');
+    final modeOfPurchase = _readText('modeOfPurchase');
+    final receivedBy = _readText('receivedBy');
+
+    return _HistoryCardFrame(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.inventory_2_outlined,
+                color: Color(0xFF38BDF8),
+                size: 19,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Arrival +${formatQuantityNumber(quantityAdded)}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                formatDateTime(deliveredAt),
+                style: const TextStyle(color: Colors.white54, fontSize: 11.5),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${formatQuantityNumber(previousQuantity)} -> '
+            '${formatQuantityNumber(newQuantity)}',
+            style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (brand.isNotEmpty) _InfoChip(label: 'Brand: $brand'),
+              if (vendor.isNotEmpty) _InfoChip(label: 'Vendor: $vendor'),
+              if (modeOfPurchase.isNotEmpty)
+                _InfoChip(label: 'Mode: $modeOfPurchase'),
+              if (receivedBy.isNotEmpty) _InfoChip(label: 'By: $receivedBy'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegacyArrivalCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final String Function(Timestamp?) formatDateTime;
+
+  const _LegacyArrivalCard({required this.data, required this.formatDateTime});
+
+  String _readText(String key) {
+    return (data[key] ?? '').toString().trim();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final quantity = _readText('quantity');
+    final brand = _readText('brand');
+    final vendor = _readText('vendor');
+    final modeOfPurchase = _readText('modeOfPurchase');
+    final receivedBy = _readText('receivedBy');
+    final deliveredAt = data['deliveredAt'] is Timestamp
+        ? data['deliveredAt'] as Timestamp
+        : null;
+
+    return _HistoryCardFrame(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.inventory_2_outlined,
+                color: Color(0xFF38BDF8),
+                size: 19,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  quantity.isEmpty ? 'Arrival' : 'Arrival +$quantity',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                formatDateTime(deliveredAt),
+                style: const TextStyle(color: Colors.white54, fontSize: 11.5),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              if (brand.isNotEmpty) _InfoChip(label: 'Brand: $brand'),
+              if (vendor.isNotEmpty) _InfoChip(label: 'Vendor: $vendor'),
+              if (modeOfPurchase.isNotEmpty)
+                _InfoChip(label: 'Mode: $modeOfPurchase'),
+              if (receivedBy.isNotEmpty) _InfoChip(label: 'By: $receivedBy'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StockHistoryCard extends StatelessWidget {
+  final Map<String, dynamic> data;
+  final String Function(Timestamp?) formatDateTime;
+  final String Function(double) formatQuantityNumber;
+
+  const _StockHistoryCard({
+    required this.data,
+    required this.formatDateTime,
+    required this.formatQuantityNumber,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final action = (data['action'] ?? '').toString().trim();
+    final quantityChanged = (data['quantityChanged'] as num?)?.toDouble() ?? 0;
+    final previousQuantity =
+        (data['previousQuantity'] as num?)?.toDouble() ?? 0;
+    final newQuantity = (data['newQuantity'] as num?)?.toDouble() ?? 0;
+    final note = (data['note'] ?? '').toString().trim();
+    final actorName = (data['actorName'] ?? '').toString().trim();
+    final createdAt = data['createdAt'] is Timestamp
+        ? data['createdAt'] as Timestamp
+        : null;
+    final isAdded = action == 'added';
+
+    return _HistoryCardFrame(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                isAdded
+                    ? Icons.add_circle_outline_rounded
+                    : Icons.remove_circle_outline_rounded,
+                color: isAdded
+                    ? const Color(0xFF34D399)
+                    : const Color(0xFFF59E0B),
+                size: 19,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  isAdded ? 'Stock added' : 'Stock used',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              Text(
+                formatDateTime(createdAt),
+                style: const TextStyle(color: Colors.white54, fontSize: 11.5),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '${formatQuantityNumber(quantityChanged)} changed - '
+            '${formatQuantityNumber(previousQuantity)} -> '
+            '${formatQuantityNumber(newQuantity)}',
+            style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+          ),
+          if (note.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              note,
+              style: const TextStyle(color: Colors.white60, fontSize: 12.5),
+            ),
+          ],
+          if (actorName.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'By $actorName',
+              style: const TextStyle(color: Colors.white38, fontSize: 11.5),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _HistoryCardFrame extends StatelessWidget {
+  final Widget child;
+
+  const _HistoryCardFrame({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: child,
     );
   }
 }
