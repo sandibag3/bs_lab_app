@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/chemical_model.dart';
 import '../models/order_model.dart';
+import '../services/activity_service.dart';
 import '../services/inventory_service.dart';
 import '../services/order_service.dart';
 import '../services/pubchem_service.dart';
@@ -10,10 +11,7 @@ import '../services/chemical_label_service.dart';
 class AddNewChemicalScreen extends StatefulWidget {
   final OrderModel? order;
 
-  const AddNewChemicalScreen({
-    super.key,
-    this.order,
-  });
+  const AddNewChemicalScreen({super.key, this.order});
 
   @override
   State<AddNewChemicalScreen> createState() => _AddNewChemicalScreenState();
@@ -133,8 +131,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     final order = widget.order;
     final deliveredDate = order?.deliveredAt?.toDate();
 
-    chemicalNameController =
-        TextEditingController(text: order?.chemicalName ?? '');
+    chemicalNameController = TextEditingController(
+      text: order?.chemicalName ?? '',
+    );
     casController = TextEditingController(text: order?.cas ?? '');
     brandController = TextEditingController(text: order?.brand ?? '');
     quantityController = TextEditingController(text: order?.quantity ?? '');
@@ -222,7 +221,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
             : catalystMetalController.text.trim(),
       );
 
-      final labelData = await chemicalLabelService.generateLabel(prefix: prefix);
+      final labelData = await chemicalLabelService.generateLabel(
+        prefix: prefix,
+      );
 
       if (!mounted) return;
 
@@ -419,9 +420,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
                 side: BorderSide(
-                  color: isSelected
-                      ? const Color(0xFF14B8A6)
-                      : Colors.white12,
+                  color: isSelected ? const Color(0xFF14B8A6) : Colors.white12,
                 ),
                 onSelected: (selected) {
                   setState(() {
@@ -470,6 +469,14 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     if (widget.order != null) {
       await orderService.markInventoryAdded(docId: widget.order!.id);
     }
+    await ActivityService().addActivity(
+      labId: chemical.labId,
+      type: 'chemical_inventory_added',
+      message: 'Chemical entry confirmed for ${chemical.chemicalName}',
+      actorName: AppState.instance.authenticatedUserName,
+      createdBy: AppState.instance.authenticatedUserId,
+      relatedId: widget.order?.id ?? chemical.cas,
+    );
 
     if (!mounted) return;
 
@@ -477,9 +484,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         ? 'New bottle added under existing label ${labelController.text.trim()}'
         : 'New chemical added to inventory';
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
 
     Navigator.pop(context);
   }
@@ -513,10 +520,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                         ),
                         child: const Text(
                           'Prefilled from delivered order. Name, CAS, brand, quantity, ordered by, and arrival date come from the order. Formula and molecular weight can be fetched from CAS.',
-                          style: TextStyle(
-                            color: Colors.white70,
-                            height: 1.4,
-                          ),
+                          style: TextStyle(color: Colors.white70, height: 1.4),
                         ),
                       ),
                       const SizedBox(height: 14),
@@ -675,8 +679,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                         controller: catalystMetalController,
                         readOnly: isExisting,
                         style: const TextStyle(color: Colors.white),
-                        decoration:
-                            inputDecoration('Catalyst Metal (Pd, Cu, Fe...)'),
+                        decoration: inputDecoration(
+                          'Catalyst Metal (Pd, Cu, Fe...)',
+                        ),
                         onChanged: (_) async {
                           if (!isExisting) {
                             await _generateLabelForNewChemical();
@@ -857,9 +862,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         child: Text(
-                          isExisting
-                              ? 'Add New Bottle'
-                              : 'Confirm Entry',
+                          isExisting ? 'Add New Bottle' : 'Confirm Entry',
                           style: const TextStyle(fontSize: 15),
                         ),
                       ),

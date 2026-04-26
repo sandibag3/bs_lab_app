@@ -11,6 +11,7 @@ import 'consumables_inventory_screen.dart';
 import 'lab_members_screen.dart';
 import 'lab_settings_screen.dart';
 import 'lab_switcher_screen.dart';
+import 'recent_activity_screen.dart';
 
 class HomeDashboardTab extends StatelessWidget {
   final AppState appState;
@@ -67,6 +68,15 @@ class HomeDashboardTab extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => LabSettingsScreen(appState: appState)),
+    );
+  }
+
+  void _openRecentActivity(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RecentActivityScreen(appState: appState),
+      ),
     );
   }
 
@@ -446,6 +456,15 @@ class HomeDashboardTab extends StatelessWidget {
                   icon: Icons.widgets_rounded,
                   accentColor: const Color(0xFF38BDF8),
                   onTap: onOpenMore,
+                ),
+                const SizedBox(height: 12),
+                _WorkflowEntryCard(
+                  title: 'Recent Activity',
+                  subtitle:
+                      'View recent requirements, orders, deliveries, and inventory entries for this lab.',
+                  icon: Icons.notifications_rounded,
+                  accentColor: const Color(0xFF14B8A6),
+                  onTap: () => _openRecentActivity(context),
                 ),
                 const SizedBox(height: 24),
                 const Text(

@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:http/http.dart' as http;
 
 import '../app_state.dart';
+import '../services/activity_service.dart';
 import '../services/requirement_service.dart';
 import '../models/requirement_model.dart';
 
@@ -65,14 +66,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     'Others',
   ];
 
-  final List<String> quantities = [
-    '1',
-    '2',
-    '3',
-    '4',
-    '5',
-    '10',
-  ];
+  final List<String> quantities = ['1', '2', '3', '4', '5', '10'];
 
   final List<String> packSizes = [
     '100 mg',
@@ -126,10 +120,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     'Misc',
   ];
 
-  final List<String> purchaseModes = [
-    'indent',
-    'direct',
-  ];
+  final List<String> purchaseModes = ['indent', 'direct'];
 
   double get totalPrice {
     final estimate = double.tryParse(estimatedCostController.text.trim()) ?? 0;
@@ -167,10 +158,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
           .map(
             (item) => DropdownMenuItem<String>(
               value: item,
-              child: Text(
-                item,
-                style: const TextStyle(color: Colors.white),
-              ),
+              child: Text(item, style: const TextStyle(color: Colors.white)),
             ),
           )
           .toList(),
@@ -179,7 +167,8 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
           onChanged(value);
         });
       },
-      validator: validator ??
+      validator:
+          validator ??
           (value) {
             if (value == null || value.isEmpty) {
               return 'Required';
@@ -195,95 +184,95 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
   }
 
   Future<bool> fetchFromInventoryByCas() async {
-  final cas = casController.text.trim();
+    final cas = casController.text.trim();
 
-  if (cas.isEmpty || cas.toUpperCase() == 'NA') {
-    return false;
-  }
-
-  try {
-    final snapshot = await FirebaseFirestore.instance
-        .collection('inventory')
-        .where('cas', isEqualTo: cas)
-        .get();
-
-    if (snapshot.docs.isEmpty) {
+    if (cas.isEmpty || cas.toUpperCase() == 'NA') {
       return false;
     }
 
-    final docs = snapshot.docs
-        .where((doc) => _matchesCurrentLab(doc.data()))
-        .toList();
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('inventory')
+          .where('cas', isEqualTo: cas)
+          .get();
 
-    if (docs.isEmpty) {
-      return false;
-    }
-
-    docs.sort((a, b) {
-      final aTime = a.data()['createdAt'];
-      final bTime = b.data()['createdAt'];
-
-      if (aTime is Timestamp && bTime is Timestamp) {
-        return bTime.compareTo(aTime);
-      }
-      return 0;
-    });
-
-    final data = docs.first.data();
-
-    final fetchedChemicalName =
-        (data['chemicalName'] ?? '').toString().trim();
-    final fetchedCatNumber = (data['catNumber'] ?? '').toString().trim();
-    final fetchedPackSize = (data['packSize'] ?? '').toString().trim();
-    final fetchedBrand = (data['brand'] ?? '').toString().trim();
-
-    setState(() {
-      if (fetchedChemicalName.isNotEmpty) {
-        chemicalNameController.text = fetchedChemicalName;
+      if (snapshot.docs.isEmpty) {
+        return false;
       }
 
-      if (fetchedCatNumber.isNotEmpty) {
-        catalogNoController.text = fetchedCatNumber;
+      final docs = snapshot.docs
+          .where((doc) => _matchesCurrentLab(doc.data()))
+          .toList();
+
+      if (docs.isEmpty) {
+        return false;
       }
 
-      if (fetchedPackSize.isNotEmpty && packSizes.contains(fetchedPackSize)) {
-        selectedPackSize = fetchedPackSize;
-      }
+      docs.sort((a, b) {
+        final aTime = a.data()['createdAt'];
+        final bTime = b.data()['createdAt'];
 
-      if (fetchedBrand.isNotEmpty) {
-        if (brands.contains(fetchedBrand)) {
-          selectedBrand = fetchedBrand;
-          customBrandController.clear();
-        } else {
-          selectedBrand = 'Others';
-          customBrandController.text = fetchedBrand;
+        if (aTime is Timestamp && bTime is Timestamp) {
+          return bTime.compareTo(aTime);
         }
+        return 0;
+      });
+
+      final data = docs.first.data();
+
+      final fetchedChemicalName = (data['chemicalName'] ?? '')
+          .toString()
+          .trim();
+      final fetchedCatNumber = (data['catNumber'] ?? '').toString().trim();
+      final fetchedPackSize = (data['packSize'] ?? '').toString().trim();
+      final fetchedBrand = (data['brand'] ?? '').toString().trim();
+
+      setState(() {
+        if (fetchedChemicalName.isNotEmpty) {
+          chemicalNameController.text = fetchedChemicalName;
+        }
+
+        if (fetchedCatNumber.isNotEmpty) {
+          catalogNoController.text = fetchedCatNumber;
+        }
+
+        if (fetchedPackSize.isNotEmpty && packSizes.contains(fetchedPackSize)) {
+          selectedPackSize = fetchedPackSize;
+        }
+
+        if (fetchedBrand.isNotEmpty) {
+          if (brands.contains(fetchedBrand)) {
+            selectedBrand = fetchedBrand;
+            customBrandController.clear();
+          } else {
+            selectedBrand = 'Others';
+            customBrandController.text = fetchedBrand;
+          }
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Chemical details loaded from inventory'),
+          ),
+        );
       }
-    });
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Chemical details loaded from inventory'),
-        ),
-      );
+      return true;
+    } catch (e) {
+      debugPrint('Inventory lookup error: $e');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Inventory lookup failed')),
+        );
+      }
+
+      return false;
     }
-
-    return true;
-  } catch (e) {
-    debugPrint('Inventory lookup error: $e');
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Inventory lookup failed'),
-        ),
-      );
-    }
-
-    return false;
   }
-}
+
   Future<void> fetchFromPubChemByCas() async {
     final cas = casController.text.trim();
 
@@ -395,15 +384,19 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
       estimatedTotal: totalPrice.toStringAsFixed(2),
       modeOfPurchase: selectedModeOfPurchase ?? '',
       packSize: selectedMainType == 'chemical' ? (selectedPackSize ?? '') : '',
-      chemicalName:
-          selectedMainType == 'chemical' ? chemicalNameController.text.trim() : '',
+      chemicalName: selectedMainType == 'chemical'
+          ? chemicalNameController.text.trim()
+          : '',
       cas: selectedMainType == 'chemical' ? casController.text.trim() : '',
-      catalogNo:
-          selectedMainType == 'chemical' ? catalogNoController.text.trim() : '',
-      chemicalType:
-          selectedMainType == 'chemical' ? (selectedChemicalType ?? '') : '',
-      consumableType:
-          selectedMainType == 'consumable' ? (selectedConsumableType ?? '') : '',
+      catalogNo: selectedMainType == 'chemical'
+          ? catalogNoController.text.trim()
+          : '',
+      chemicalType: selectedMainType == 'chemical'
+          ? (selectedChemicalType ?? '')
+          : '',
+      consumableType: selectedMainType == 'consumable'
+          ? (selectedConsumableType ?? '')
+          : '',
       status: 'pending',
       userName: AppState.instance.authenticatedUserName,
       createdAt: Timestamp.now(),
@@ -411,13 +404,22 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
       approvedAt: null,
     );
 
-    await service.addRequirement(req);
+    final requirementId = await service.addRequirement(req);
+    await ActivityService().addActivity(
+      labId: req.labId,
+      type: 'requirement_created',
+      message:
+          'Requirement submitted for ${req.mainType == 'consumable' ? req.consumableType : req.chemicalName}',
+      actorName: AppState.instance.authenticatedUserName,
+      createdBy: AppState.instance.authenticatedUserId,
+      relatedId: requirementId,
+    );
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Requirement submitted')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Requirement submitted')));
 
     Navigator.pop(context);
   }
@@ -468,8 +470,9 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                   decoration: inputDecoration(
                     'CAS No',
                     suffixIcon: IconButton(
-                      onPressed:
-                          isFetchingChemicalName ? null : fetchChemicalDetailsSmart,
+                      onPressed: isFetchingChemicalName
+                          ? null
+                          : fetchChemicalDetailsSmart,
                       icon: isFetchingChemicalName
                           ? const SizedBox(
                               width: 18,
@@ -650,10 +653,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                     const SizedBox(height: 8),
                     const Text(
                       'Approval and fund allocation will be handled later by PI.',
-                      style: TextStyle(
-                        color: Colors.white60,
-                        fontSize: 12.5,
-                      ),
+                      style: TextStyle(color: Colors.white60, fontSize: 12.5),
                     ),
                   ],
                 ),

@@ -10,8 +10,9 @@ class RequirementService {
     return AppState.instance.matchesSelectedLabId(labId);
   }
 
-  Future<void> addRequirement(RequirementModel req) async {
-    await _firestore.collection('requirements').add(req.toMap());
+  Future<String> addRequirement(RequirementModel req) async {
+    final doc = await _firestore.collection('requirements').add(req.toMap());
+    return doc.id;
   }
 
   Stream<List<RequirementModel>> getRequirements() {
@@ -20,11 +21,11 @@ class RequirementService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .where((doc) => _matchesCurrentLab(doc.data()))
-          .map((doc) => RequirementModel.fromFirestore(doc))
-          .toList();
-    });
+          return snapshot.docs
+              .where((doc) => _matchesCurrentLab(doc.data()))
+              .map((doc) => RequirementModel.fromFirestore(doc))
+              .toList();
+        });
   }
 
   Future<void> updateRequirementStatus({

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/order_model.dart';
 import '../models/requirement_model.dart';
+import '../services/activity_service.dart';
 import '../services/order_service.dart';
 import '../services/requirement_service.dart';
 
@@ -68,13 +69,24 @@ class CartScreen extends StatelessWidget {
     }
 
     Future<void> updateStatus({
-      required String docId,
+      required RequirementModel req,
       required String status,
     }) async {
       await requirementService.updateRequirementStatus(
-        docId: docId,
+        docId: req.id,
         status: status,
         approvedBy: currentUserName,
+      );
+      await ActivityService().addActivity(
+        labId: appState.resolveWriteLabId(req.labId),
+        type: status == 'approved'
+            ? 'requirement_approved'
+            : 'requirement_rejected',
+        message:
+            'Requirement ${status == 'approved' ? 'approved' : 'rejected'} for ${_requirementDisplayName(req)}',
+        actorName: currentUserName,
+        createdBy: appState.authenticatedUserId,
+        relatedId: req.id,
       );
     }
 
@@ -100,20 +112,25 @@ class CartScreen extends StatelessWidget {
         inventoryAdded: false,
       );
 
-      await orderService.addOrder(order);
+      final orderId = await orderService.addOrder(order);
 
       await requirementService.markRequirementOrdered(
         docId: req.id,
         updatedBy: currentUserName,
       );
+      await ActivityService().addActivity(
+        labId: order.labId,
+        type: 'order_placed',
+        message: 'Order placed for ${order.displayName}',
+        actorName: currentUserName,
+        createdBy: appState.authenticatedUserId,
+        relatedId: orderId,
+      );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Cart',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Cart', style: TextStyle(color: Colors.white)),
       ),
       body: StreamBuilder<List<RequirementModel>>(
         stream: requirementService.getRequirements(),
@@ -146,9 +163,7 @@ class CartScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E293B),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.06),
-                  ),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,7 +252,7 @@ class CartScreen extends StatelessWidget {
                             child: ElevatedButton(
                               onPressed: () async {
                                 await updateStatus(
-                                  docId: req.id,
+                                  req: req,
                                   status: 'approved',
                                 );
 
@@ -260,7 +275,7 @@ class CartScreen extends StatelessWidget {
                             child: ElevatedButton(
                               onPressed: () async {
                                 await updateStatus(
-                                  docId: req.id,
+                                  req: req,
                                   status: 'rejected',
                                 );
 

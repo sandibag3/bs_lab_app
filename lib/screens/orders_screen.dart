@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/order_model.dart';
+import '../services/activity_service.dart';
 import '../services/order_service.dart';
 
 class OrdersScreen extends StatelessWidget {
@@ -37,14 +38,19 @@ class OrdersScreen extends StatelessWidget {
         status: 'delivered',
         receivedBy: currentUserName,
       );
+      await ActivityService().addActivity(
+        labId: AppState.instance.resolveWriteLabId(order.labId),
+        type: 'order_delivered',
+        message: 'Order delivered for ${order.displayName}',
+        actorName: currentUserName,
+        createdBy: AppState.instance.authenticatedUserId,
+        relatedId: order.id,
+      );
     }
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Orders',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Orders', style: TextStyle(color: Colors.white)),
       ),
       body: StreamBuilder<List<OrderModel>>(
         stream: orderService.getOrders(),
@@ -59,10 +65,7 @@ class OrdersScreen extends StatelessWidget {
             return const Center(
               child: Text(
                 'No orders yet.',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 16,
-                ),
+                style: TextStyle(color: Colors.white70, fontSize: 16),
               ),
             );
           }
@@ -87,9 +90,7 @@ class OrdersScreen extends StatelessWidget {
                       offset: Offset(0, 3),
                     ),
                   ],
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.06),
-                  ),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

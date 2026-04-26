@@ -2,15 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/order_model.dart';
+import '../services/activity_service.dart';
 import '../services/order_service.dart';
 
 class AddNewConsumableScreen extends StatefulWidget {
   final OrderModel order;
 
-  const AddNewConsumableScreen({
-    super.key,
-    required this.order,
-  });
+  const AddNewConsumableScreen({super.key, required this.order});
 
   @override
   State<AddNewConsumableScreen> createState() => _AddNewConsumableScreenState();
@@ -42,7 +40,9 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
     quantityController = TextEditingController(text: order.quantity);
     brandController = TextEditingController(text: order.brand);
     vendorController = TextEditingController(text: order.vendor);
-    modeOfPurchaseController = TextEditingController(text: order.modeOfPurchase);
+    modeOfPurchaseController = TextEditingController(
+      text: order.modeOfPurchase,
+    );
     orderedByController = TextEditingController(text: order.orderedBy);
   }
 
@@ -105,13 +105,20 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
       });
 
       await orderService.markInventoryAdded(docId: order.id);
+      await ActivityService().addActivity(
+        labId: AppState.instance.resolveWriteLabId(order.labId),
+        type: 'consumable_inventory_added',
+        message:
+            'Consumable entry confirmed for ${consumableTypeController.text.trim()}',
+        actorName: AppState.instance.authenticatedUserName,
+        createdBy: AppState.instance.authenticatedUserId,
+        relatedId: order.id,
+      );
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Consumable added to inventory'),
-        ),
+        const SnackBar(content: Text('Consumable added to inventory')),
       );
 
       Navigator.pop(context);
@@ -149,10 +156,7 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
                 ),
                 child: const Text(
                   'Prefilled from the delivered consumable order. Review the basic details, edit if needed, and confirm entry to create the consumables inventory record.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    height: 1.4,
-                  ),
+                  style: TextStyle(color: Colors.white70, height: 1.4),
                 ),
               ),
               const SizedBox(height: 14),

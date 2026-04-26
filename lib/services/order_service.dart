@@ -10,8 +10,9 @@ class OrderService {
     return AppState.instance.matchesSelectedLabId(labId);
   }
 
-  Future<void> addOrder(OrderModel order) async {
-    await _firestore.collection('orders').add(order.toMap());
+  Future<String> addOrder(OrderModel order) async {
+    final doc = await _firestore.collection('orders').add(order.toMap());
+    return doc.id;
   }
 
   Stream<List<OrderModel>> getOrders() {
@@ -20,11 +21,11 @@ class OrderService {
         .orderBy('orderedAt', descending: true)
         .snapshots()
         .map((snapshot) {
-      return snapshot.docs
-          .where((doc) => _matchesCurrentLab(doc.data()))
-          .map((doc) => OrderModel.fromFirestore(doc))
-          .toList();
-    });
+          return snapshot.docs
+              .where((doc) => _matchesCurrentLab(doc.data()))
+              .map((doc) => OrderModel.fromFirestore(doc))
+              .toList();
+        });
   }
 
   Future<void> updateOrderStatus({
@@ -39,9 +40,7 @@ class OrderService {
     });
   }
 
-  Future<void> markInventoryAdded({
-    required String docId,
-  }) async {
+  Future<void> markInventoryAdded({required String docId}) async {
     await _firestore.collection('orders').doc(docId).update({
       'inventoryAdded': true,
     });
