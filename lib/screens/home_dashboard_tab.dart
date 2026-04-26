@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../models/order_model.dart';
+import '../models/requirement_model.dart';
+import '../services/order_service.dart';
+import '../services/requirement_service.dart';
 import '../widgets/dashboard_card.dart';
 import '../widgets/newly_arrived_section.dart';
 import '../widgets/search_bar_widget.dart';
@@ -63,6 +67,63 @@ class HomeDashboardTab extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => LabSettingsScreen(appState: appState)),
+    );
+  }
+
+  int _pendingApprovalCount(List<RequirementModel> requirements) {
+    if (!appState.isPiAdmin) {
+      return 0;
+    }
+
+    return requirements.where((requirement) {
+      final status = requirement.status.trim().toLowerCase();
+      return status == 'pending' ||
+          status == 'waiting approval' ||
+          status == 'waiting_approval';
+    }).length;
+  }
+
+  int _ordersInProgressCount(List<OrderModel> orders) {
+    return orders.where((order) {
+      final status = order.status.trim().toLowerCase();
+      return status == 'ordered';
+    }).length;
+  }
+
+  Widget _buildWorkflowGrid({
+    required BuildContext context,
+    required List<Map<String, dynamic>> workflowItems,
+    required int pendingApprovalCount,
+    required int ordersInProgressCount,
+  }) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: workflowItems.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 1.22,
+      ),
+      itemBuilder: (context, index) {
+        final item = workflowItems[index];
+        final title = item['title'] as String;
+        final icon = item['icon'] as IconData;
+        final onTap = item['onTap'] as VoidCallback;
+        final badgeCount = title == 'Cart'
+            ? pendingApprovalCount
+            : title == 'Orders'
+            ? ordersInProgressCount
+            : 0;
+
+        return DashboardCard(
+          title: title,
+          icon: icon,
+          onTap: onTap,
+          badgeCount: badgeCount,
+        );
+      },
     );
   }
 
@@ -357,26 +418,23 @@ class HomeDashboardTab extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 14),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: workflowItems.length,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2,
-                    mainAxisSpacing: 12,
-                    crossAxisSpacing: 12,
-                    childAspectRatio: 1.22,
-                  ),
-                  itemBuilder: (context, index) {
-                    final item = workflowItems[index];
-                    final title = item['title'] as String;
-                    final icon = item['icon'] as IconData;
-                    final onTap = item['onTap'] as VoidCallback;
-
-                    return DashboardCard(
-                      title: title,
-                      icon: icon,
-                      onTap: onTap,
+                StreamBuilder<List<RequirementModel>>(
+                  stream: RequirementService().getRequirements(),
+                  builder: (context, requirementsSnapshot) {
+                    return StreamBuilder<List<OrderModel>>(
+                      stream: OrderService().getOrders(),
+                      builder: (context, ordersSnapshot) {
+                        return _buildWorkflowGrid(
+                          context: context,
+                          workflowItems: workflowItems,
+                          pendingApprovalCount: _pendingApprovalCount(
+                            requirementsSnapshot.data ?? [],
+                          ),
+                          ordersInProgressCount: _ordersInProgressCount(
+                            ordersSnapshot.data ?? [],
+                          ),
+                        );
+                      },
                     );
                   },
                 ),

@@ -78,9 +78,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
   void _openFullList(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => const NewlyArrivedItemsScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const NewlyArrivedItemsScreen()),
     );
   }
 
@@ -105,6 +103,37 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
               ),
             ),
             const Spacer(),
+            StreamBuilder<List<OrderModel>>(
+              stream: OrderService().getOrders(),
+              builder: (context, snapshot) {
+                final count = snapshot.hasData
+                    ? _pendingRecentOrders(snapshot.data!).length
+                    : 0;
+                if (count == 0) {
+                  return const SizedBox.shrink();
+                }
+
+                return Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFB7185),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    count > 99 ? '99+' : '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                );
+              },
+            ),
             TextButton(
               onPressed: () => _openFullList(context),
               child: const Text(
@@ -158,8 +187,9 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                 itemCount: displayList.length,
                 itemBuilder: (context, index) {
                   final order = displayList[index];
-                  final secondary =
-                      order.brand.trim().isNotEmpty ? order.brand : order.vendor;
+                  final secondary = order.brand.trim().isNotEmpty
+                      ? order.brand
+                      : order.vendor;
 
                   return InkWell(
                     borderRadius: BorderRadius.circular(18),
@@ -172,7 +202,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                         color: const Color(0xFF1E293B),
                         borderRadius: BorderRadius.circular(18),
                         border: Border.all(
-                          color: Colors.white.withOpacity(0.06),
+                          color: Colors.white.withValues(alpha: 0.06),
                         ),
                         boxShadow: const [
                           BoxShadow(
