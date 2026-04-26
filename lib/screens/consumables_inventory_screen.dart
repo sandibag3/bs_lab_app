@@ -20,6 +20,20 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     return (data[key] ?? '').toString().trim();
   }
 
+  double? _readQuantityNumber(String quantity) {
+    final match = RegExp(r'[-+]?\d*\.?\d+').firstMatch(quantity.trim());
+    if (match == null) {
+      return null;
+    }
+
+    return double.tryParse(match.group(0) ?? '');
+  }
+
+  bool _isLowStock(String quantity) {
+    final numericQuantity = _readQuantityNumber(quantity);
+    return numericQuantity != null && numericQuantity <= 2;
+  }
+
   bool _matchesCurrentLab(Map<String, dynamic> data) {
     final labId = (data['labId'] ?? '').toString().trim();
     return AppState.instance.matchesSelectedLabId(labId);
@@ -42,10 +56,12 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     sorted.sort((a, b) {
       final aData = a.data();
       final bData = b.data();
-      final aTimestamp = _readTimestamp(aData, 'createdAt') ??
+      final aTimestamp =
+          _readTimestamp(aData, 'createdAt') ??
           _readTimestamp(aData, 'deliveredAt') ??
           _readTimestamp(aData, 'updatedAt');
-      final bTimestamp = _readTimestamp(bData, 'createdAt') ??
+      final bTimestamp =
+          _readTimestamp(bData, 'createdAt') ??
           _readTimestamp(bData, 'deliveredAt') ??
           _readTimestamp(bData, 'updatedAt');
 
@@ -83,9 +99,7 @@ class ConsumablesInventoryScreen extends StatelessWidget {
             }
 
             if (!snapshot.hasData) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return const Center(child: CircularProgressIndicator());
             }
 
             final docs = _sortDocs(
@@ -110,7 +124,7 @@ class ConsumablesInventoryScreen extends StatelessWidget {
             return ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: docs.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
+              separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final data = docs[index].data();
                 final consumableType = _readText(data, 'consumableType');
@@ -121,15 +135,14 @@ class ConsumablesInventoryScreen extends StatelessWidget {
                 final receivedBy = _readText(data, 'receivedBy');
                 final modeOfPurchase = _readText(data, 'modeOfPurchase');
                 final deliveredAt = _readTimestamp(data, 'deliveredAt');
+                final isLowStock = _isLowStock(quantity);
 
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1E293B),
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.06),
-                    ),
+                    border: Border.all(color: Colors.white.withOpacity(0.06)),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -166,6 +179,27 @@ class ConsumablesInventoryScreen extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (isLowStock) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0x22FB7185),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Text(
+                                'Low Stock',
+                                style: TextStyle(
+                                  color: Color(0xFFFB7185),
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 8),
@@ -181,8 +215,10 @@ class ConsumablesInventoryScreen extends StatelessWidget {
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          if (brand.isNotEmpty) _InfoChip(label: 'Brand: $brand'),
-                          if (vendor.isNotEmpty) _InfoChip(label: 'Vendor: $vendor'),
+                          if (brand.isNotEmpty)
+                            _InfoChip(label: 'Brand: $brand'),
+                          if (vendor.isNotEmpty)
+                            _InfoChip(label: 'Vendor: $vendor'),
                           if (modeOfPurchase.isNotEmpty)
                             _InfoChip(label: 'Mode: $modeOfPurchase'),
                         ],
@@ -226,17 +262,12 @@ class ConsumablesInventoryScreen extends StatelessWidget {
 class _InfoChip extends StatelessWidget {
   final String label;
 
-  const _InfoChip({
-    required this.label,
-  });
+  const _InfoChip({required this.label});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 6,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.06),
         borderRadius: BorderRadius.circular(999),

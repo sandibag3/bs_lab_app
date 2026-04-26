@@ -1,7 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../models/chemical_model.dart';
 import '../models/order_model.dart';
 import '../models/requirement_model.dart';
+import '../services/inventory_service.dart';
 import '../services/order_service.dart';
 import '../services/requirement_service.dart';
 import '../widgets/dashboard_card.dart';
@@ -100,11 +103,64 @@ class HomeDashboardTab extends StatelessWidget {
     }).length;
   }
 
+  bool _chemicalNeedsAttention(ChemicalModel chemical) {
+    final availability = chemical.availability.trim().toLowerCase();
+    return availability == 'low' ||
+        availability.contains('about') ||
+        availability.contains('finished') ||
+        availability.contains('empty') ||
+        availability.contains('not available') ||
+        availability.contains('unavailable') ||
+        availability == 'nil' ||
+        availability == '0';
+  }
+
+  int _chemicalAttentionCount(List<ChemicalModel> chemicals) {
+    final grouped = InventoryService().groupByCas(chemicals);
+    return grouped.values.where((group) {
+      return group.any(_chemicalNeedsAttention);
+    }).length;
+  }
+
+  Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  _consumablesInventoryStream() {
+    return FirebaseFirestore.instance
+        .collection('consumables_inventory')
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.where((doc) {
+            final labId = (doc.data()['labId'] ?? '').toString().trim();
+            return appState.matchesSelectedLabId(labId);
+          }).toList();
+        });
+  }
+
+  double? _readQuantityNumber(String quantity) {
+    final match = RegExp(r'[-+]?\d*\.?\d+').firstMatch(quantity.trim());
+    if (match == null) {
+      return null;
+    }
+
+    return double.tryParse(match.group(0) ?? '');
+  }
+
+  int _consumablesLowStockCount(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> docs,
+  ) {
+    return docs.where((doc) {
+      final quantity = (doc.data()['quantity'] ?? '').toString();
+      final numericQuantity = _readQuantityNumber(quantity);
+      return numericQuantity != null && numericQuantity <= 2;
+    }).length;
+  }
+
   Widget _buildWorkflowGrid({
     required BuildContext context,
     required List<Map<String, dynamic>> workflowItems,
     required int pendingApprovalCount,
     required int ordersInProgressCount,
+    required int chemicalAttentionCount,
+    required int consumablesLowStockCount,
   }) {
     return GridView.builder(
       shrinkWrap: true,
@@ -125,6 +181,10 @@ class HomeDashboardTab extends StatelessWidget {
             ? pendingApprovalCount
             : title == 'Orders'
             ? ordersInProgressCount
+            : title == 'Chemical Inventory'
+            ? chemicalAttentionCount
+            : title == 'Consumables Inventory'
+            ? consumablesLowStockCount
             : 0;
 
         return DashboardCard(
@@ -434,15 +494,35 @@ class HomeDashboardTab extends StatelessWidget {
                     return StreamBuilder<List<OrderModel>>(
                       stream: OrderService().getOrders(),
                       builder: (context, ordersSnapshot) {
-                        return _buildWorkflowGrid(
-                          context: context,
-                          workflowItems: workflowItems,
-                          pendingApprovalCount: _pendingApprovalCount(
-                            requirementsSnapshot.data ?? [],
-                          ),
-                          ordersInProgressCount: _ordersInProgressCount(
-                            ordersSnapshot.data ?? [],
-                          ),
+                        return StreamBuilder<List<ChemicalModel>>(
+                          stream: InventoryService().getChemicals(),
+                          builder: (context, chemicalsSnapshot) {
+                            return StreamBuilder<
+                              List<QueryDocumentSnapshot<Map<String, dynamic>>>
+                            >(
+                              stream: _consumablesInventoryStream(),
+                              builder: (context, consumablesSnapshot) {
+                                return _buildWorkflowGrid(
+                                  context: context,
+                                  workflowItems: workflowItems,
+                                  pendingApprovalCount: _pendingApprovalCount(
+                                    requirementsSnapshot.data ?? [],
+                                  ),
+                                  ordersInProgressCount: _ordersInProgressCount(
+                                    ordersSnapshot.data ?? [],
+                                  ),
+                                  chemicalAttentionCount:
+                                      _chemicalAttentionCount(
+                                        chemicalsSnapshot.data ?? [],
+                                      ),
+                                  consumablesLowStockCount:
+                                      _consumablesLowStockCount(
+                                        consumablesSnapshot.data ?? [],
+                                      ),
+                                );
+                              },
+                            );
+                          },
                         );
                       },
                     );
