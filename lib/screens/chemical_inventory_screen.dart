@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../app_state.dart';
 import '../models/chemical_model.dart';
 import '../services/inventory_service.dart';
 import 'chemical_detail_screen.dart';
@@ -203,6 +204,44 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     );
   }
 
+  void _handleCardMenuSelection(String value) {
+    if (value == 'manual_entry') {
+      _showQuickActionMessage('Manual entry coming soon');
+    }
+  }
+
+  Future<void> _markOneBottleLow(ChemicalModel chemical) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final labId = AppState.instance.selectedLabId.trim();
+
+    try {
+      final updated = await inventoryService.markOneBottleLowForCas(
+        cas: chemical.cas,
+        labId: labId,
+      );
+
+      if (!mounted) return;
+
+      if (updated) {
+        setState(() {});
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Marked one bottle as low')),
+        );
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('No available bottle found')),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
   Widget _buildQuickActionButton({
     required String label,
     required IconData icon,
@@ -401,11 +440,12 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                       ),
                       const SizedBox(height: 12),
                       Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                        spacing: 10,
+                        runSpacing: 10,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           _buildQuickActionButton(
-                            label: 'Use',
+                            label: 'Used',
                             icon: Icons.remove_circle_outline,
                             color: const Color(0xFFF59E0B),
                             onTap: () => _showQuickActionMessage(
@@ -416,16 +456,38 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                             label: 'Low',
                             icon: Icons.warning_amber_rounded,
                             color: const Color(0xFFFB7185),
-                            onTap: () => _showQuickActionMessage(
-                              'Mark low coming soon',
-                            ),
+                            onTap: () => _markOneBottleLow(main),
                           ),
-                          _buildQuickActionButton(
-                            label: 'Add Bottle',
-                            icon: Icons.add_circle_outline,
-                            color: const Color(0xFF14B8A6),
-                            onTap: () => _showQuickActionMessage(
-                              'Quick add bottle coming soon',
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.04),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.14),
+                              ),
+                            ),
+                            child: PopupMenuButton<String>(
+                              tooltip: 'More actions',
+                              color: const Color(0xFF243244),
+                              icon: const Icon(
+                                Icons.more_vert,
+                                color: Colors.white70,
+                                size: 18,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 2,
+                                vertical: 2,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              onSelected: _handleCardMenuSelection,
+                              itemBuilder: (context) => const [
+                                PopupMenuItem<String>(
+                                  value: 'manual_entry',
+                                  child: Text('Manual Entry'),
+                                ),
+                              ],
                             ),
                           ),
                         ],
