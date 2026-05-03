@@ -204,12 +204,6 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     );
   }
 
-  void _handleCardMenuSelection(String value) {
-    if (value == 'manual_entry') {
-      _showQuickActionMessage('Manual entry coming soon');
-    }
-  }
-
   Future<void> _markOneBottleLow(ChemicalModel chemical) async {
     final messenger = ScaffoldMessenger.of(context);
     final labId = AppState.instance.selectedLabId.trim();
@@ -243,7 +237,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   }
 
   Widget _buildQuickActionButton({
-    required String label,
+    String? label,
     required IconData icon,
     required Color color,
     required VoidCallback onTap,
@@ -254,7 +248,11 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
         borderRadius: BorderRadius.circular(10),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          alignment: Alignment.center,
+          padding: EdgeInsets.symmetric(
+            horizontal: label == null ? 8 : 10,
+            vertical: 8,
+          ),
           decoration: BoxDecoration(
             color: Colors.white.withOpacity(0.04),
             borderRadius: BorderRadius.circular(10),
@@ -264,15 +262,17 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 15, color: color),
-              const SizedBox(width: 5),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: 11.8,
-                  fontWeight: FontWeight.w700,
+              if (label != null) ...[
+                const SizedBox(width: 5),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 11.8,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -439,55 +439,33 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                         ],
                       ),
                       const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 10,
-                        runSpacing: 10,
-                        crossAxisAlignment: WrapCrossAlignment.center,
+                      Row(
                         children: [
+                          Expanded(
+                            child: _buildQuickActionButton(
+                              label: 'Finished',
+                              icon: Icons.cancel_outlined,
+                              color: Colors.white70,
+                              onTap: () => _showQuickActionMessage(
+                                'Mark finished coming soon',
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: _buildQuickActionButton(
+                              label: 'Low',
+                              icon: Icons.warning_amber_rounded,
+                              color: const Color(0xFFFB7185),
+                              onTap: () => _markOneBottleLow(main),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
                           _buildQuickActionButton(
-                            label: 'Used',
-                            icon: Icons.remove_circle_outline,
-                            color: const Color(0xFFF59E0B),
+                            icon: Icons.add_circle_outline,
+                            color: const Color(0xFF14B8A6),
                             onTap: () => _showQuickActionMessage(
-                              'Use stock coming soon',
-                            ),
-                          ),
-                          _buildQuickActionButton(
-                            label: 'Low',
-                            icon: Icons.warning_amber_rounded,
-                            color: const Color(0xFFFB7185),
-                            onTap: () => _markOneBottleLow(main),
-                          ),
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.04),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.14),
-                              ),
-                            ),
-                            child: PopupMenuButton<String>(
-                              tooltip: 'More actions',
-                              color: const Color(0xFF243244),
-                              icon: const Icon(
-                                Icons.more_vert,
-                                color: Colors.white70,
-                                size: 18,
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 2,
-                                vertical: 2,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              onSelected: _handleCardMenuSelection,
-                              itemBuilder: (context) => const [
-                                PopupMenuItem<String>(
-                                  value: 'manual_entry',
-                                  child: Text('Manual Entry'),
-                                ),
-                              ],
+                              'Manual entry coming soon',
                             ),
                           ),
                         ],
