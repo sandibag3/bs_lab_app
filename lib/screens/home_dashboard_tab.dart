@@ -716,6 +716,20 @@ class _UpcomingEventsPreview extends StatelessWidget {
         .toList();
   }
 
+  String _previewDetail(EventModel event) {
+    final segments = <String>[_formatDateTime(event.scheduledAt)];
+    final type = event.eventType.trim();
+    final venue = event.venue.trim();
+
+    if (type.isNotEmpty) {
+      segments.add(type);
+    } else if (venue.isNotEmpty) {
+      segments.add(venue);
+    }
+
+    return segments.join(' - ');
+  }
+
   static const double _eventItemHeight = 52;
   @override
   Widget build(BuildContext context) {
@@ -792,10 +806,8 @@ class _UpcomingEventsPreview extends StatelessWidget {
               return Column(
                 children: upcomingEvents.map((event) {
                   return _UpcomingEventTile(
-                    title: event.title.trim().isEmpty
-                        ? 'Untitled Event'
-                        : event.title.trim(),
-                    detail: _formatDateTime(event.scheduledAt),
+                    title: event.normalizedTitle,
+                    detail: _previewDetail(event),
                   );
                 }).toList(),
               );

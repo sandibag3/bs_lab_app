@@ -12,11 +12,20 @@ class AddEventScreen extends StatefulWidget {
 }
 
 class _AddEventScreenState extends State<AddEventScreen> {
+  static const List<String> _eventTypeOptions = [
+    'Group Meeting',
+    'Group Activity',
+    'Celebration',
+    'Conference',
+  ];
+
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _venueController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final EventService _eventService = EventService();
 
+  String _selectedEventType = '';
   DateTime? _selectedDateTime;
   bool _isSaving = false;
 
@@ -127,6 +136,8 @@ class _AddEventScreenState extends State<AddEventScreen> {
         id: '',
         labId: labId,
         title: _titleController.text.trim(),
+        eventType: _selectedEventType.trim(),
+        venue: _venueController.text.trim(),
         description: _descriptionController.text.trim(),
         dateTime: Timestamp.fromDate(scheduledAt),
         createdBy: appState.authenticatedUserName,
@@ -166,6 +177,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
   @override
   void dispose() {
     _titleController.dispose();
+    _venueController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -224,6 +236,42 @@ class _AddEventScreenState extends State<AddEventScreen> {
                   }
                   return null;
                 },
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                initialValue: _selectedEventType.isEmpty ? null : _selectedEventType,
+                dropdownColor: const Color(0xFF1E293B),
+                style: const TextStyle(color: Colors.white),
+                decoration: _inputDecoration('Event Type'),
+                items: _eventTypeOptions
+                    .map(
+                      (item) => DropdownMenuItem<String>(
+                        value: item,
+                        child: Text(
+                          item,
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedEventType = value ?? '';
+                  });
+                },
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Select an event type';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _venueController,
+                style: const TextStyle(color: Colors.white),
+                decoration: _inputDecoration('Venue (optional)'),
+                textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 14),
               TextFormField(

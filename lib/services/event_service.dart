@@ -55,6 +55,15 @@ class EventService {
     });
   }
 
+  Future<void> rescheduleEvent({
+    required String docId,
+    required DateTime scheduledAt,
+  }) async {
+    await _firestore.collection('events').doc(docId).update({
+      'dateTime': Timestamp.fromDate(scheduledAt),
+    });
+  }
+
   Future<void> deleteEvent({required String docId}) async {
     await _firestore.collection('events').doc(docId).delete();
   }

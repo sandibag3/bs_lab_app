@@ -56,6 +56,99 @@ class EventsScreen extends StatelessWidget {
     }
   }
 
+  bool _isCreator(
+    EventModel event, {
+    required String currentUserId,
+    required String currentUserEmail,
+  }) {
+    final creatorId = event.createdById.trim();
+    if (creatorId.isNotEmpty) {
+      return creatorId == currentUserId.trim();
+    }
+
+    final creatorIdentity = event.createdBy.trim().toLowerCase();
+    final email = currentUserEmail.trim().toLowerCase();
+    return creatorIdentity.isNotEmpty &&
+        creatorIdentity.contains('@') &&
+        creatorIdentity == email;
+  }
+
+  bool _canReschedule(EventModel event) {
+    return !event.isCompleted &&
+        event.scheduledAt.isAfter(
+          DateTime.now().add(const Duration(minutes: 15)),
+        );
+  }
+
+  Future<DateTime?> _pickRescheduledDateTime(
+    BuildContext context,
+    DateTime initial,
+  ) async {
+    final now = DateTime.now();
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: initial.isBefore(now) ? now : initial,
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: DateTime(now.year + 5),
+      builder: (context, child) {
+        return Theme(data: ThemeData.dark(), child: child!);
+      },
+    );
+
+    if (pickedDate == null) {
+      return null;
+    }
+
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+      builder: (context, child) {
+        return Theme(data: ThemeData.dark(), child: child!);
+      },
+    );
+
+    if (pickedTime == null) {
+      return null;
+    }
+
+    return DateTime(
+      pickedDate.year,
+      pickedDate.month,
+      pickedDate.day,
+      pickedTime.hour,
+      pickedTime.minute,
+    );
+  }
+
+  Future<void> _rescheduleEvent(BuildContext context, EventModel event) async {
+    final newDateTime = await _pickRescheduledDateTime(context, event.scheduledAt);
+    if (newDateTime == null) {
+      return;
+    }
+
+    try {
+      await EventService().rescheduleEvent(
+        docId: event.id,
+        scheduledAt: newDateTime,
+      );
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Event rescheduled')));
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not reschedule event: $error')),
+      );
+    }
+  }
+
   Future<void> _deleteEvent(BuildContext context, EventModel event) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -64,7 +157,7 @@ class EventsScreen extends StatelessWidget {
           backgroundColor: const Color(0xFF1E293B),
           title: const Text('Delete Event?', style: TextStyle(color: Colors.white)),
           content: Text(
-            'Remove "${event.title}" from this lab?',
+            'Remove "${event.normalizedTitle}" from this lab?',
             style: const TextStyle(color: Colors.white70, height: 1.4),
           ),
           actions: [
@@ -114,6 +207,8 @@ class EventsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final labName = AppState.instance.selectedLabName.trim();
+    final currentUserId = AppState.instance.authenticatedUserId;
+    final currentUserEmail = AppState.instance.authenticatedUserEmail;
 
     return SafeArea(
       child: StreamBuilder<List<EventModel>>(
@@ -226,7 +321,15 @@ class EventsScreen extends StatelessWidget {
               else
                 ...events.map((event) {
                   final scheduledAt = event.scheduledAt;
-                  final canMarkDone = !event.isCompleted;
+                  final isCreator = _isCreator(
+                    event,
+                    currentUserId: currentUserId,
+                    currentUserEmail: currentUserEmail,
+                  );
+                  final canMarkDone = isCreator && !event.isCompleted;
+                  final canReschedule = isCreator && _canReschedule(event);
+                  final showRescheduleLockNote =
+                      isCreator && !event.isCompleted && !canReschedule;
 
                   return Container(
                     margin: const EdgeInsets.only(bottom: 14),
@@ -246,9 +349,7 @@ class EventsScreen extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    event.title.trim().isEmpty
-                                        ? 'Untitled Event'
-                                        : event.title.trim(),
+                                    event.normalizedTitle,
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontSize: 16,
@@ -260,10 +361,18 @@ class EventsScreen extends StatelessWidget {
                                     spacing: 8,
                                     runSpacing: 8,
                                     children: [
+                                      _EventTypeChip(
+                                        label: event.normalizedEventType,
+                                      ),
                                       _EventMetaChip(
                                         icon: Icons.schedule_rounded,
                                         label: _formatDateTime(scheduledAt),
                                       ),
+                                      if (event.hasVenue)
+                                        _EventMetaChip(
+                                          icon: Icons.place_outlined,
+                                          label: event.normalizedVenue,
+                                        ),
                                       _EventMetaChip(
                                         icon: Icons.person_outline_rounded,
                                         label: event.createdBy.trim().isEmpty
@@ -281,14 +390,15 @@ class EventsScreen extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            IconButton(
-                              onPressed: () => _deleteEvent(context, event),
-                              tooltip: 'Delete event',
-                              icon: const Icon(
-                                Icons.delete_outline_rounded,
-                                color: Color(0xFFFB7185),
+                            if (isCreator)
+                              IconButton(
+                                onPressed: () => _deleteEvent(context, event),
+                                tooltip: 'Delete event',
+                                icon: const Icon(
+                                  Icons.delete_outline_rounded,
+                                  color: Color(0xFFFB7185),
+                                ),
                               ),
-                            ),
                           ],
                         ),
                         if (event.description.trim().isNotEmpty) ...[
@@ -303,37 +413,85 @@ class EventsScreen extends StatelessWidget {
                           ),
                         ],
                         const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            if (canMarkDone)
-                              OutlinedButton.icon(
-                                onPressed: () => _markDone(context, event),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF34D399),
-                                  side: const BorderSide(
+                        if (isCreator) ...[
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              if (canMarkDone)
+                                OutlinedButton.icon(
+                                  onPressed: () => _markDone(context, event),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF34D399),
+                                    side: const BorderSide(
+                                      color: Color(0xFF34D399),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.check_circle_outline_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Mark as Done'),
+                                )
+                              else
+                                const Text(
+                                  'Completed',
+                                  style: TextStyle(
                                     color: Color(0xFF34D399),
-                                  ),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 12,
+                                    fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                icon: const Icon(
-                                  Icons.check_circle_outline_rounded,
-                                  size: 18,
+                              if (!event.isCompleted)
+                                OutlinedButton.icon(
+                                  onPressed: canReschedule
+                                      ? () => _rescheduleEvent(context, event)
+                                      : null,
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF38BDF8),
+                                    disabledForegroundColor: Colors.white38,
+                                    side: BorderSide(
+                                      color: canReschedule
+                                          ? const Color(0xFF38BDF8)
+                                          : Colors.white24,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.update_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Reschedule'),
                                 ),
-                                label: const Text('Mark as Done'),
-                              )
-                            else
-                              const Text(
-                                'Completed',
-                                style: TextStyle(
-                                  color: Color(0xFF34D399),
-                                  fontWeight: FontWeight.w700,
-                                ),
+                            ],
+                          ),
+                          if (showRescheduleLockNote) ...[
+                            const SizedBox(height: 10),
+                            const Text(
+                              'Reschedule becomes unavailable within 15 minutes of start time.',
+                              style: TextStyle(
+                                color: Colors.white38,
+                                fontSize: 12,
+                                height: 1.35,
                               ),
+                            ),
                           ],
-                        ),
+                        ] else if (!event.isCompleted) ...[
+                          const Text(
+                            'Only the creator can update this event.',
+                            style: TextStyle(
+                              color: Colors.white38,
+                              fontSize: 12,
+                              height: 1.35,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   );
@@ -341,6 +499,31 @@ class EventsScreen extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _EventTypeChip extends StatelessWidget {
+  final String label;
+
+  const _EventTypeChip({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: const Color(0x2214B8A6),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Color(0xFF2DD4BF),
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

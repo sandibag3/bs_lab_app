@@ -4,6 +4,8 @@ class EventModel {
   final String id;
   final String labId;
   final String title;
+  final String eventType;
+  final String venue;
   final String description;
   final Timestamp dateTime;
   final String createdBy;
@@ -16,6 +18,8 @@ class EventModel {
     required this.id,
     required this.labId,
     required this.title,
+    required this.eventType,
+    required this.venue,
     required this.description,
     required this.dateTime,
     required this.createdBy,
@@ -32,6 +36,8 @@ class EventModel {
       id: doc.id,
       labId: (data['labId'] ?? '').toString(),
       title: (data['title'] ?? '').toString(),
+      eventType: (data['eventType'] ?? '').toString(),
+      venue: (data['venue'] ?? '').toString(),
       description: (data['description'] ?? '').toString(),
       dateTime: data['dateTime'] is Timestamp
           ? data['dateTime'] as Timestamp
@@ -49,6 +55,11 @@ class EventModel {
   }
 
   DateTime get scheduledAt => dateTime.toDate();
+  String get normalizedTitle => title.trim().isEmpty ? 'Untitled Event' : title.trim();
+  String get normalizedEventType =>
+      eventType.trim().isEmpty ? 'General' : eventType.trim();
+  String get normalizedVenue => venue.trim();
+  bool get hasVenue => normalizedVenue.isNotEmpty;
 
   bool get isUpcoming {
     return !isCompleted && !scheduledAt.isBefore(DateTime.now());
@@ -58,6 +69,8 @@ class EventModel {
     return {
       'labId': labId,
       'title': title,
+      'eventType': eventType,
+      'venue': venue,
       'description': description,
       'dateTime': dateTime,
       'createdBy': createdBy,
