@@ -647,6 +647,52 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _applyQuickStockChange({
+    required BuildContext context,
+    required _ConsumableInventoryItem item,
+    required String action,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final quantityText = item.quantityText.trim();
+    final currentQuantity = item.numericQuantity;
+    final canQuickAdjust = currentQuantity != null || quantityText.isEmpty;
+
+    if (!canQuickAdjust) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Quantity must be numeric before using quick stock actions.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    try {
+      await _applyStockChange(
+        doc: item.primaryDoc,
+        action: action,
+        quantityChanged: 1,
+        note: action == 'added' ? 'Quick +1 adjustment' : 'Quick -1 adjustment',
+        currentQuantityOverride: currentQuantity,
+      );
+
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            action == 'added' ? 'Added 1 stock.' : 'Used 1 stock.',
+          ),
+        ),
+      );
+    } catch (error) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
   void _showItemHistory({
     required BuildContext context,
     required _ConsumableInventoryItem item,
@@ -787,6 +833,10 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     final deliveredAt = _readTimestamp(data, 'deliveredAt');
     final isLowStock = _isLowStock(quantity);
     final brandStatus = brand.isEmpty ? 'Brand not set' : brand;
+    final canQuickAdjust = item.numericQuantity != null || quantity.trim().isEmpty;
+    final canQuickDecrease =
+        item.numericQuantity != null && item.numericQuantity! > 0;
+    final quickQuantityLabel = quantity.isEmpty ? '0' : quantity;
 
     return Material(
       color: const Color(0xFF1E293B),
@@ -853,13 +903,47 @@ class ConsumablesInventoryScreen extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              Text(
-                quantity.isEmpty ? 'Quantity not set' : quantity,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      quantity.isEmpty ? 'Quantity not set' : quantity,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  _QuickStockControls(
+                    quantityLabel: quickQuantityLabel,
+                    onDecrease: canQuickAdjust && canQuickDecrease
+                        ? () => _applyQuickStockChange(
+                            context: context,
+                            item: item,
+                            action: 'used',
+                          )
+                        : null,
+                    onIncrease: canQuickAdjust
+                        ? () => _applyQuickStockChange(
+                            context: context,
+                            item: item,
+                            action: 'added',
+                          )
+                        : null,
+                  ),
+                ],
               ),
+              if (!canQuickAdjust) ...[
+                const SizedBox(height: 6),
+                const Text(
+                  'Quick +/- needs a numeric quantity.',
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 11.5,
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
               Wrap(
                 spacing: 8,
@@ -1190,6 +1274,88 @@ class _StockActionButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         textStyle: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700),
       ),
+    );
+  }
+}
+
+class _QuickStockControls extends StatelessWidget {
+  final String quantityLabel;
+  final Future<void> Function()? onDecrease;
+  final Future<void> Function()? onIncrease;
+
+  const _QuickStockControls({
+    required this.quantityLabel,
+    required this.onDecrease,
+    required this.onIncrease,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _QuickStockIconButton(
+            icon: Icons.remove_rounded,
+            color: const Color(0xFFF59E0B),
+            onPressed: onDecrease,
+          ),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 64, maxWidth: 116),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text(
+                quantityLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ),
+          _QuickStockIconButton(
+            icon: Icons.add_rounded,
+            color: const Color(0xFF34D399),
+            onPressed: onIncrease,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QuickStockIconButton extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final Future<void> Function()? onPressed;
+
+  const _QuickStockIconButton({
+    required this.icon,
+    required this.color,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isEnabled = onPressed != null;
+    return IconButton(
+      onPressed: isEnabled ? () => onPressed!() : null,
+      constraints: const BoxConstraints.tightFor(width: 34, height: 34),
+      padding: EdgeInsets.zero,
+      splashRadius: 18,
+      iconSize: 18,
+      color: isEnabled ? color : Colors.white24,
+      disabledColor: Colors.white24,
+      icon: Icon(icon),
     );
   }
 }
