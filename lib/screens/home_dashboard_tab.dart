@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -337,6 +338,7 @@ class HomeDashboardTab extends StatelessWidget {
         final resolvedName = profileName.isEmpty || profileName == 'Your Name'
             ? appState.authenticatedUserName
             : profileName;
+        final photoReference = profile.photoUrl.trim();
         final selectedLabName = appState.selectedLabName.trim();
 
         return SafeArea(
@@ -405,41 +407,53 @@ class HomeDashboardTab extends StatelessWidget {
                             ],
                           ),
                           const SizedBox(height: 6),
-                          Text(
-                            resolvedName,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
                           Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
+                              _HeroProfileAvatar(
+                                photoReference: photoReference,
+                                displayName: resolvedName,
+                                fallbackEmail: appState.authenticatedUserEmail,
+                              ),
+                              const SizedBox(width: 12),
                               Expanded(
-                                child: Row(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Icon(
-                                      Icons.apartment_rounded,
-                                      color: Colors.white,
-                                      size: 15,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        selectedLabName.isEmpty
-                                            ? 'Tap to open lab actions'
-                                            : selectedLabName,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12.8,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                                    Text(
+                                      resolvedName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
                                       ),
+                                    ),
+                                    const SizedBox(height: 5),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.apartment_rounded,
+                                          color: Colors.white,
+                                          size: 15,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            selectedLabName.isEmpty
+                                                ? 'Tap to open lab actions'
+                                                : selectedLabName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12.8,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ],
                                 ),
@@ -526,6 +540,121 @@ class HomeDashboardTab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _HeroProfileAvatar extends StatelessWidget {
+  final String photoReference;
+  final String displayName;
+  final String fallbackEmail;
+
+  const _HeroProfileAvatar({
+    required this.photoReference,
+    required this.displayName,
+    required this.fallbackEmail,
+  });
+
+  ImageProvider<Object>? _resolveImageProvider() {
+    final cleanReference = photoReference.trim();
+    if (cleanReference.isEmpty) {
+      return null;
+    }
+
+    final uri = Uri.tryParse(cleanReference);
+    if (uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return NetworkImage(cleanReference);
+    }
+
+    if (uri != null && uri.scheme == 'file') {
+      final file = File.fromUri(uri);
+      if (file.existsSync()) {
+        return FileImage(file);
+      }
+    }
+
+    final file = File(cleanReference);
+    if (file.existsSync()) {
+      return FileImage(file);
+    }
+
+    return null;
+  }
+
+  String _fallbackInitials() {
+    final identity = displayName.trim().isNotEmpty
+        ? displayName.trim()
+        : fallbackEmail.trim();
+    if (identity.isEmpty) {
+      return 'U';
+    }
+
+    final words = identity
+        .split(RegExp(r'\s+'))
+        .where((word) => word.trim().isNotEmpty)
+        .toList();
+
+    if (words.length >= 2) {
+      return '${words[0][0]}${words[1][0]}'.toUpperCase();
+    }
+
+    final cleanIdentity = identity.contains('@')
+        ? identity.split('@').first
+        : identity;
+    if (cleanIdentity.isEmpty) {
+      return 'U';
+    }
+    final maxLength = cleanIdentity.length >= 2 ? 2 : 1;
+    return cleanIdentity.substring(0, maxLength).toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageProvider = _resolveImageProvider();
+    final initials = _fallbackInitials();
+
+    return Container(
+      height: 42,
+      width: 42,
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.18),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withOpacity(0.18)),
+      ),
+      child: ClipOval(
+        child: imageProvider == null
+            ? _HeroProfileInitials(initials: initials)
+            : Image(
+                image: imageProvider,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _HeroProfileInitials(initials: initials);
+                },
+              ),
+      ),
+    );
+  }
+}
+
+class _HeroProfileInitials extends StatelessWidget {
+  final String initials;
+
+  const _HeroProfileInitials({required this.initials});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white.withOpacity(0.08),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
     );
   }
 }

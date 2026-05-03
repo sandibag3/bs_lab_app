@@ -227,7 +227,6 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final bool showBackButton = activeHomeOverlay != null;
-    final bool showEditIcon = selectedIndex == 0 && activeHomeOverlay == null;
     final bool showMainAddButton = activeHomeOverlay == null;
 
     return Scaffold(
@@ -250,12 +249,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         actions: [
-          if (showEditIcon)
-            IconButton(
-              tooltip: 'Personal Information',
-              onPressed: () => changeTab(3),
-              icon: const Icon(Icons.edit_rounded, color: Color(0xFF14B8A6)),
-            ),
           PopupMenuButton<_HomeOverflowAction>(
             tooltip: 'More options',
             icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
