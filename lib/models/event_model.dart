@@ -1,6 +1,15 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 class EventModel {
+  static const List<String> eventTypeOptions = [
+    'Group Meeting',
+    'Group Activity',
+    'Celebration',
+    'Conference',
+    'Departmental Event',
+    'Institutional Event',
+  ];
+
   final String id;
   final String labId;
   final String title;

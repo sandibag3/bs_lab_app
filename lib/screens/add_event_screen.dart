@@ -12,13 +12,6 @@ class AddEventScreen extends StatefulWidget {
 }
 
 class _AddEventScreenState extends State<AddEventScreen> {
-  static const List<String> _eventTypeOptions = [
-    'Group Meeting',
-    'Group Activity',
-    'Celebration',
-    'Conference',
-  ];
-
   final _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _venueController = TextEditingController();
@@ -243,7 +236,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
                 dropdownColor: const Color(0xFF1E293B),
                 style: const TextStyle(color: Colors.white),
                 decoration: _inputDecoration('Event Type'),
-                items: _eventTypeOptions
+                items: EventModel.eventTypeOptions
                     .map(
                       (item) => DropdownMenuItem<String>(
                         value: item,
