@@ -222,6 +222,72 @@ class InventoryService {
     return true;
   }
 
+  Future<List<ChemicalModel>> getActiveBottlesForCas({
+    required String cas,
+    required String labId,
+  }) async {
+    final cleanCas = cas.trim();
+    final cleanLabId = labId.trim();
+
+    if (cleanCas.isEmpty) {
+      throw Exception('Chemical CAS is missing.');
+    }
+
+    if (cleanLabId.isEmpty) {
+      throw Exception('No lab selected.');
+    }
+
+    final snapshot = await inventoryRef
+        .where('cas', isEqualTo: cleanCas)
+        .where('labId', isEqualTo: cleanLabId)
+        .limit(50)
+        .get();
+
+    final bottles = snapshot.docs
+        .map((doc) => ChemicalModel.fromFirestore(doc))
+        .where((chemical) {
+          final availability = chemical.availability.trim().toLowerCase();
+          return availability == 'available' || availability == 'low';
+        })
+        .toList();
+
+    int availabilityPriority(ChemicalModel chemical) {
+      final availability = chemical.availability.trim().toLowerCase();
+      if (availability == 'low') return 0;
+      if (availability == 'available') return 1;
+      return 2;
+    }
+
+    bottles.sort((a, b) {
+      final priorityComparison = availabilityPriority(
+        a,
+      ).compareTo(availabilityPriority(b));
+      if (priorityComparison != 0) {
+        return priorityComparison;
+      }
+
+      return a.label.trim().toLowerCase().compareTo(
+        b.label.trim().toLowerCase(),
+      );
+    });
+
+    return bottles;
+  }
+
+  Future<void> markBottleFinishedById({
+    required String docId,
+  }) async {
+    final cleanDocId = docId.trim();
+    if (cleanDocId.isEmpty) {
+      throw Exception('Bottle id is missing.');
+    }
+
+    await inventoryRef.doc(cleanDocId).update({
+      'availability': 'finished',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<ChemicalModel?> findExistingByCas(String cas) async {
     final cleanCas = cas.trim();
     if (cleanCas.isEmpty) return null;

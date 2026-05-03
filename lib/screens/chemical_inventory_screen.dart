@@ -205,6 +205,107 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     );
   }
 
+  String _displayOrDash(String value) {
+    final clean = value.trim();
+    return clean.isEmpty ? '-' : clean;
+  }
+
+  String _statusLabel(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized == 'low') return 'Low';
+    if (normalized == 'finished') return 'Finished';
+    return 'Available';
+  }
+
+  String _buildBottleSelectionSubtitle(ChemicalModel bottle) {
+    final parts = <String>[
+      'Label: ${_displayOrDash(bottle.label)}',
+      'Location: ${_displayOrDash(bottle.location)}',
+      'Qty: ${_displayOrDash(bottle.quantity)}',
+      'Status: ${_statusLabel(bottle.availability)}',
+    ];
+
+    if (bottle.catNumber.trim().isNotEmpty) {
+      parts.add('Cat: ${bottle.catNumber.trim()}');
+    }
+
+    return parts.join('  |  ');
+  }
+
+  String _buildFinishedConfirmationMessage(ChemicalModel bottle) {
+    final lines = <String>[
+      'Brand: ${_displayOrDash(bottle.brand)}',
+      'Label: ${_displayOrDash(bottle.label)}',
+      'Location: ${_displayOrDash(bottle.location)}',
+      'Quantity: ${_displayOrDash(bottle.quantity)}',
+    ];
+
+    if (bottle.catNumber.trim().isNotEmpty) {
+      lines.add('Catalog No: ${bottle.catNumber.trim()}');
+    }
+
+    return lines.join('\n');
+  }
+
+  Future<bool> _confirmMarkBottleFinished(ChemicalModel bottle) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: const Text(
+            'Mark bottle finished?',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: Text(
+            _buildFinishedConfirmationMessage(bottle),
+            style: const TextStyle(color: Colors.white70, height: 1.45),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF14B8A6),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Mark Finished'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return confirmed == true;
+  }
+
+  Future<void> _markSpecificBottleFinished(ChemicalModel bottle) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final confirmed = await _confirmMarkBottleFinished(bottle);
+      if (!confirmed || !mounted) return;
+
+      await inventoryService.markBottleFinishedById(docId: bottle.id);
+
+      if (!mounted) return;
+      setState(() {});
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Marked bottle as finished')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
   Future<void> _markOneBottleLow(ChemicalModel chemical) async {
     final messenger = ScaffoldMessenger.of(context);
     final labId = AppState.instance.selectedLabId.trim();
@@ -242,23 +343,124 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     final labId = AppState.instance.selectedLabId.trim();
 
     try {
-      final updated = await inventoryService.markOneBottleFinishedForCas(
+      final activeBottles = await inventoryService.getActiveBottlesForCas(
         cas: chemical.cas,
         labId: labId,
       );
 
       if (!mounted) return;
 
-      if (updated) {
-        setState(() {});
-        messenger.showSnackBar(
-          const SnackBar(content: Text('Marked one bottle as finished')),
-        );
-      } else {
+      if (activeBottles.isEmpty) {
         messenger.showSnackBar(
           const SnackBar(content: Text('No active bottle found')),
         );
+        return;
       }
+
+      if (activeBottles.length == 1) {
+        await _markSpecificBottleFinished(activeBottles.first);
+        return;
+      }
+
+      final selectedBottle =
+          await showModalBottomSheet<ChemicalModel>(
+            context: context,
+            backgroundColor: const Color(0xFF111827),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+            ),
+            builder: (sheetContext) {
+              return SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Which bottle is finished?',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Select the exact active bottle to mark as finished.',
+                        style: TextStyle(
+                          color: Colors.white60,
+                          fontSize: 12.5,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxHeight:
+                              MediaQuery.of(sheetContext).size.height * 0.52,
+                        ),
+                        child: ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: activeBottles.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (sheetContext, index) {
+                            final bottle = activeBottles[index];
+                            return Material(
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(16),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(16),
+                                onTap: () =>
+                                    Navigator.of(sheetContext).pop(bottle),
+                                child: Container(
+                                  padding: const EdgeInsets.all(14),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.06),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        bottle.brand.trim().isEmpty
+                                            ? 'Brand not set'
+                                            : bottle.brand.trim(),
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14.5,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        _buildBottleSelectionSubtitle(bottle),
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 12.4,
+                                          height: 1.4,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+
+      if (selectedBottle == null || !mounted) return;
+      await _markSpecificBottleFinished(selectedBottle);
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
