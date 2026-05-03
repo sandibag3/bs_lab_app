@@ -7,6 +7,7 @@ import '../app_state.dart';
 import '../models/chemical_model.dart';
 import '../models/order_model.dart';
 import '../models/requirement_model.dart';
+import '../models/user_profile.dart';
 import '../services/inventory_service.dart';
 import '../services/order_service.dart';
 import '../services/requirement_service.dart';
@@ -557,7 +558,8 @@ class _HeroProfileAvatar extends StatelessWidget {
 
   ImageProvider<Object>? _resolveImageProvider() {
     final cleanReference = photoReference.trim();
-    if (cleanReference.isEmpty) {
+    if (cleanReference.isEmpty ||
+        UserProfile.isScientificAvatarReference(cleanReference)) {
       return null;
     }
 
@@ -611,6 +613,9 @@ class _HeroProfileAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scientificAvatar = UserProfile.scientificAvatarFromReference(
+      photoReference,
+    );
     final imageProvider = _resolveImageProvider();
     final initials = _fallbackInitials();
 
@@ -623,7 +628,9 @@ class _HeroProfileAvatar extends StatelessWidget {
         border: Border.all(color: Colors.white.withOpacity(0.18)),
       ),
       child: ClipOval(
-        child: imageProvider == null
+        child: scientificAvatar != null
+            ? _HeroProfileScientificAvatar(icon: scientificAvatar.icon)
+            : imageProvider == null
             ? _HeroProfileInitials(initials: initials)
             : Image(
                 image: imageProvider,
@@ -633,6 +640,21 @@ class _HeroProfileAvatar extends StatelessWidget {
                 },
               ),
       ),
+    );
+  }
+}
+
+class _HeroProfileScientificAvatar extends StatelessWidget {
+  final IconData icon;
+
+  const _HeroProfileScientificAvatar({required this.icon});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white.withOpacity(0.08),
+      alignment: Alignment.center,
+      child: Icon(icon, color: Colors.white, size: 22),
     );
   }
 }

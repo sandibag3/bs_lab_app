@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
@@ -76,7 +78,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
     bloodGroupController = TextEditingController(text: profile.bloodGroup);
     selectedPhotoPath = profile.photoUrl;
-    selectedPhotoName = _fileNameFromPath(profile.photoUrl);
+    selectedPhotoName = _photoSelectionLabel(profile.photoUrl);
   }
 
   @override
@@ -107,6 +109,138 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
 
     return cleanPath.split(RegExp(r'[\\/]')).last;
+  }
+
+  String _photoSelectionLabel(String reference) {
+    final avatar = UserProfile.scientificAvatarFromReference(reference);
+    if (avatar != null) {
+      return 'Scientific avatar: ${avatar.label}';
+    }
+
+    return _fileNameFromPath(reference);
+  }
+
+  ImageProvider<Object>? _resolvePhotoImageProvider(String reference) {
+    final cleanReference = reference.trim();
+    if (cleanReference.isEmpty ||
+        UserProfile.isScientificAvatarReference(cleanReference)) {
+      return null;
+    }
+
+    final uri = Uri.tryParse(cleanReference);
+    if (uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return NetworkImage(cleanReference);
+    }
+
+    if (uri != null && uri.scheme == 'file') {
+      final file = File.fromUri(uri);
+      if (file.existsSync()) {
+        return FileImage(file);
+      }
+    }
+
+    final file = File(cleanReference);
+    if (file.existsSync()) {
+      return FileImage(file);
+    }
+
+    return null;
+  }
+
+  String _fallbackInitials() {
+    final typedName = nameController.text.trim();
+    final savedName = widget.appState.authenticatedUserName.trim();
+    final fallbackEmail = widget.appState.authenticatedUserEmail.trim();
+    final identity = typedName.isNotEmpty
+        ? typedName
+        : savedName.isNotEmpty
+        ? savedName
+        : fallbackEmail;
+
+    if (identity.isEmpty) {
+      return 'U';
+    }
+
+    final words = identity
+        .split(RegExp(r'\s+'))
+        .where((word) => word.trim().isNotEmpty)
+        .toList();
+
+    if (words.length >= 2) {
+      return '${words[0][0]}${words[1][0]}'.toUpperCase();
+    }
+
+    final cleanIdentity = identity.contains('@')
+        ? identity.split('@').first
+        : identity;
+    if (cleanIdentity.isEmpty) {
+      return 'U';
+    }
+
+    final maxLength = cleanIdentity.length >= 2 ? 2 : 1;
+    return cleanIdentity.substring(0, maxLength).toUpperCase();
+  }
+
+  void _selectScientificAvatar(UserProfileScientificAvatar option) {
+    setState(() {
+      selectedPhotoPath = option.reference;
+      selectedPhotoName = 'Scientific avatar: ${option.label}';
+    });
+  }
+
+  Widget _buildPhotoFallback(String initials) {
+    return Container(
+      color: const Color(0xFF1E293B),
+      alignment: Alignment.center,
+      child: Text(
+        initials,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 28,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProfilePhotoPreview() {
+    final avatar = UserProfile.scientificAvatarFromReference(selectedPhotoPath);
+    final imageProvider = avatar == null
+        ? _resolvePhotoImageProvider(selectedPhotoPath)
+        : null;
+    final initials = _fallbackInitials();
+
+    return Container(
+      height: 90,
+      width: 90,
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: ClipOval(
+        child: avatar != null
+            ? Container(
+                color: const Color(0xFF1E293B),
+                alignment: Alignment.center,
+                child: Icon(
+                  avatar.icon,
+                  size: 42,
+                  color: const Color(0xFF14B8A6),
+                ),
+              )
+            : imageProvider == null
+            ? _buildPhotoFallback(initials)
+            : Image(
+                image: imageProvider,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return _buildPhotoFallback(initials);
+                },
+              ),
+      ),
+    );
   }
 
   Future<void> _pickProfilePhoto() async {
@@ -294,23 +428,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final profile = widget.appState.profile;
     final isComplete = profile.profileCompleted || profile.isComplete;
     final hasSelectedPhoto = selectedPhotoPath.trim().isNotEmpty;
+    final selectedScientificAvatar = UserProfile.scientificAvatarFromReference(
+      selectedPhotoPath,
+    );
 
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            CircleAvatar(
-              radius: 45,
-              backgroundColor: const Color(0xFF1E293B),
-              child: !hasSelectedPhoto
-                  ? const Icon(Icons.person, size: 45, color: Color(0xFF14B8A6))
-                  : const Icon(
-                      Icons.image_rounded,
-                      size: 42,
-                      color: Color(0xFF14B8A6),
-                    ),
-            ),
+            _buildProfilePhotoPreview(),
             const SizedBox(height: 10),
             Text(
               isComplete ? 'Profile complete' : 'Personal information optional',
@@ -365,14 +492,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.image_rounded, color: Color(0xFF14B8A6)),
+                  const Icon(
+                    Icons.account_circle_rounded,
+                    color: Color(0xFF14B8A6),
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const Text(
-                          'Profile photo',
+                          'Profile photo or avatar',
                           style: TextStyle(
                             color: Colors.white,
                             fontSize: 14,
@@ -392,9 +522,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
-                          'Storage upload TODO: Firebase Storage is not configured.',
-                          style: TextStyle(
+                        Text(
+                          selectedScientificAvatar != null
+                              ? 'Built-in scientific avatars work without file upload.'
+                              : 'Choose an image now, or pick a built-in scientific avatar below.',
+                          style: const TextStyle(
                             color: Colors.white38,
                             fontSize: 11.5,
                           ),
@@ -407,6 +539,75 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     onPressed: _pickProfilePhoto,
                     icon: const Icon(Icons.upload_file_rounded),
                     label: const Text('Choose'),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Scientific avatars',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'Pick a built-in lab-themed avatar instead of uploading a real photo.',
+                    style: TextStyle(
+                      color: Colors.white60,
+                      fontSize: 12.5,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: UserProfile.scientificAvatarOptions.map((option) {
+                      final isSelected = selectedPhotoPath.trim() == option.reference;
+
+                      return ChoiceChip(
+                        selected: isSelected,
+                        showCheckmark: false,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                        avatar: Icon(
+                          option.icon,
+                          size: 18,
+                          color: isSelected
+                              ? Colors.white
+                              : const Color(0xFF14B8A6),
+                        ),
+                        label: Text(option.label),
+                        labelStyle: TextStyle(
+                          color: isSelected ? Colors.white : Colors.white70,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        backgroundColor: const Color(0xFF0F172A),
+                        selectedColor: const Color(0x3314B8A6),
+                        side: BorderSide(
+                          color: isSelected
+                              ? const Color(0xFF14B8A6)
+                              : Colors.white10,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        onSelected: (_) => _selectScientificAvatar(option),
+                      );
+                    }).toList(),
                   ),
                 ],
               ),

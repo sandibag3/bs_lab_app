@@ -1,6 +1,65 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/material.dart';
+
+class UserProfileScientificAvatar {
+  final String id;
+  final String label;
+  final IconData icon;
+
+  const UserProfileScientificAvatar({
+    required this.id,
+    required this.label,
+    required this.icon,
+  });
+
+  String get reference => '${UserProfile.scientificAvatarPrefix}$id';
+}
 
 class UserProfile {
+  static const String scientificAvatarPrefix = 'avatar:';
+  static const List<UserProfileScientificAvatar> scientificAvatarOptions = [
+    UserProfileScientificAvatar(
+      id: 'flask',
+      label: 'Flask',
+      icon: Icons.science,
+    ),
+    UserProfileScientificAvatar(
+      id: 'molecule',
+      label: 'Molecule',
+      icon: Icons.bubble_chart,
+    ),
+    UserProfileScientificAvatar(
+      id: 'microscope',
+      label: 'Microscope',
+      icon: Icons.biotech,
+    ),
+    UserProfileScientificAvatar(
+      id: 'atom',
+      label: 'Atom',
+      icon: Icons.blur_circular,
+    ),
+    UserProfileScientificAvatar(
+      id: 'test_tube',
+      label: 'Test Tube',
+      icon: Icons.science_outlined,
+    ),
+    UserProfileScientificAvatar(
+      id: 'dna',
+      label: 'DNA',
+      icon: Icons.biotech_outlined,
+    ),
+    UserProfileScientificAvatar(
+      id: 'crystal',
+      label: 'Crystal',
+      icon: Icons.change_history,
+    ),
+    UserProfileScientificAvatar(
+      id: 'lab_coat',
+      label: 'Lab Coat',
+      icon: Icons.medical_services,
+    ),
+  ];
+
   final String prefix;
   final String name;
   final String joinAs;
@@ -199,6 +258,35 @@ class UserProfile {
         'firstLoginAt': Timestamp.fromDate(firstLoginAt!),
       'updatedAt': FieldValue.serverTimestamp(),
     };
+  }
+
+  static bool isScientificAvatarReference(String value) {
+    return scientificAvatarFromReference(value) != null;
+  }
+
+  static UserProfileScientificAvatar? scientificAvatarFromReference(
+    String value,
+  ) {
+    final cleanValue = value.trim();
+    if (!cleanValue.startsWith(scientificAvatarPrefix)) {
+      return null;
+    }
+
+    final avatarId = cleanValue
+        .substring(scientificAvatarPrefix.length)
+        .trim()
+        .toLowerCase();
+    if (avatarId.isEmpty) {
+      return null;
+    }
+
+    for (final option in scientificAvatarOptions) {
+      if (option.id == avatarId) {
+        return option;
+      }
+    }
+
+    return null;
   }
 
   static DateTime? _dateTimeFromValue(dynamic value) {
