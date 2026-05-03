@@ -8,6 +8,7 @@ import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../app_state.dart';
 
 class ImportInventoryScreen extends StatefulWidget {
   const ImportInventoryScreen({super.key});
@@ -25,103 +26,144 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
   String statusMessage =
       'Pick a cleaned inventory file (.xlsx or .csv) to replace Firestore inventory.';
   int importedCount = 0;
+  int skippedCount = 0;
+  int rowsReadCount = 0;
+  String lastImportedLabId = '';
 
   Future<void> pickAndImportFile() async {
-  setState(() {
-    isImporting = true;
-    statusMessage = 'Opening file picker...';
-    importedCount = 0;
-  });
+    final currentLabId = AppState.instance.resolveWriteLabId();
 
-  try {
-    final result = await FilePicker.pickFiles(
-      type: FileType.any,
-      allowMultiple: false,
-      withData: true,
+    setState(() {
+      isImporting = true;
+      statusMessage = 'Opening file picker...';
+      importedCount = 0;
+      skippedCount = 0;
+      rowsReadCount = 0;
+      lastImportedLabId = currentLabId;
+    });
+
+    debugPrint(
+      '[Inventory Import] Starting import. '
+      'labId="${currentLabId.isEmpty ? '<legacy-empty>' : currentLabId}"',
     );
 
-    if (result == null || result.files.isEmpty) {
-      setState(() {
-        isImporting = false;
-        statusMessage = 'No file selected.';
-      });
-      return;
-    }
+    try {
+      final result = await FilePicker.pickFiles(
+        type: FileType.any,
+        allowMultiple: false,
+        withData: true,
+      );
 
-    final pickedFile = result.files.first;
-    final fileName = pickedFile.name.trim().toLowerCase();
+      if (result == null || result.files.isEmpty) {
+        setState(() {
+          isImporting = false;
+          statusMessage = 'No file selected.';
+        });
+        return;
+      }
 
-    Uint8List? bytes = pickedFile.bytes;
+      final pickedFile = result.files.first;
+      final fileName = pickedFile.name.trim().toLowerCase();
 
-    if ((bytes == null || bytes.isEmpty) &&
-        !kIsWeb &&
-        pickedFile.path != null) {
-      final file = File(pickedFile.path!);
-      bytes = await file.readAsBytes();
-    }
+      Uint8List? bytes = pickedFile.bytes;
 
-    if (bytes == null || bytes.isEmpty) {
-      setState(() {
-        isImporting = false;
-        statusMessage = 'Could not read file bytes.';
-      });
-      return;
-    }
+      if ((bytes == null || bytes.isEmpty) &&
+          !kIsWeb &&
+          pickedFile.path != null) {
+        final file = File(pickedFile.path!);
+        bytes = await file.readAsBytes();
+      }
 
-    if (fileName.endsWith('.xlsx')) {
-      setState(() {
-        statusMessage = 'Reading Excel file...';
-      });
-      await _freshReplaceFromExcelBytes(bytes);
-    } else if (fileName.endsWith('.csv')) {
-      setState(() {
-        statusMessage = 'Reading CSV file...';
-      });
-      await _freshReplaceFromCsvBytes(bytes);
-    } else {
-      setState(() {
-        isImporting = false;
-        statusMessage = 'Please select a valid .xlsx or .csv file.';
-      });
+      if (bytes == null || bytes.isEmpty) {
+        setState(() {
+          isImporting = false;
+          statusMessage = 'Could not read file bytes.';
+        });
+        return;
+      }
+
+      if (fileName.endsWith('.xlsx')) {
+        setState(() {
+          statusMessage = 'Reading Excel file...';
+        });
+        final importResult = await _freshReplaceFromExcelBytes(
+          bytes,
+          currentLabId,
+        );
+        _applyImportResult(importResult);
+      } else if (fileName.endsWith('.csv')) {
+        setState(() {
+          statusMessage = 'Reading CSV file...';
+        });
+        final importResult = await _freshReplaceFromCsvBytes(
+          bytes,
+          currentLabId,
+        );
+        _applyImportResult(importResult);
+      } else {
+        setState(() {
+          isImporting = false;
+          statusMessage = 'Please select a valid .xlsx or .csv file.';
+        });
+
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please select a valid .xlsx or .csv file'),
+          ),
+        );
+        return;
+      }
 
       if (!mounted) return;
+
+      setState(() {
+        isImporting = false;
+        statusMessage = _buildImportCompleteMessage(currentLabId);
+      });
+
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select a valid .xlsx or .csv file'),
+        SnackBar(
+          content: Text(
+            'Imported $importedCount chemicals, skipped $skippedCount rows.',
+          ),
         ),
       );
-      return;
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        isImporting = false;
+        statusMessage = 'Import failed: $e';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Import failed: $e'),
+        ),
+      );
     }
-
-    if (!mounted) return;
-
-    setState(() {
-      isImporting = false;
-      statusMessage = 'Import complete.';
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Imported $importedCount chemicals successfully'),
-      ),
-    );
-  } catch (e) {
-    if (!mounted) return;
-
-    setState(() {
-      isImporting = false;
-      statusMessage = 'Import failed: $e';
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Import failed: $e'),
-      ),
-    );
   }
-}
 
-  Future<void> _freshReplaceFromExcelBytes(Uint8List bytes) async {
+  void _applyImportResult(_InventoryImportResult result) {
+    importedCount = result.importedCount;
+    skippedCount = result.skippedCount;
+    rowsReadCount = result.rowsReadCount;
+  }
+
+  String _buildImportCompleteMessage(String labId) {
+    final labLabel = labId.isEmpty ? 'legacy/unscoped inventory' : labId;
+    return 'Import complete. '
+        'Rows read: $rowsReadCount. '
+        'Imported: $importedCount. '
+        'Skipped: $skippedCount. '
+        'Lab: $labLabel.';
+  }
+
+  Future<_InventoryImportResult> _freshReplaceFromExcelBytes(
+    Uint8List bytes,
+    String labId,
+  ) async {
     await _deleteAllInventory();
 
     final excel = Excel.decodeBytes(bytes);
@@ -129,6 +171,14 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
     WriteBatch batch = firestore.batch();
     int batchCount = 0;
     int successCount = 0;
+    int skippedRows = 0;
+    int rowsRead = 0;
+
+    debugPrint(
+      '[Inventory Import] Excel workbook loaded. '
+      'sheets=${excel.tables.length}, '
+      'labId="${labId.isEmpty ? '<legacy-empty>' : labId}"',
+    );
 
     for (final sheetName in excel.tables.keys) {
       final sheet = excel.tables[sheetName];
@@ -141,6 +191,7 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
 
       for (int i = 1; i < rows.length; i++) {
         final row = rows[i];
+        rowsRead++;
 
         final rowMap = <String, String>{};
         for (int j = 0; j < headers.length; j++) {
@@ -152,7 +203,10 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
         }
 
         final chemicalName = rowMap['Chemical Name'] ?? '';
-        if (chemicalName.trim().isEmpty) continue;
+        if (chemicalName.trim().isEmpty) {
+          skippedRows++;
+          continue;
+        }
 
         final currentLabel = rowMap['Current Label'] ?? rowMap['Label'] ?? '';
         final suggestedLabel = rowMap['Suggested Label'] ?? '';
@@ -189,6 +243,7 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
         final docRef = inventoryRef.doc();
 
         batch.set(docRef, {
+          'labId': labId,
           'label': finalLabel,
           'chemicalName': chemicalName,
           'cas': cas,
@@ -223,10 +278,23 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
       await batch.commit();
     }
 
-    importedCount = successCount;
+    debugPrint(
+      '[Inventory Import] Excel import complete. '
+      'rowsRead=$rowsRead, imported=$successCount, skipped=$skippedRows, '
+      'labId="${labId.isEmpty ? '<legacy-empty>' : labId}"',
+    );
+
+    return _InventoryImportResult(
+      rowsReadCount: rowsRead,
+      importedCount: successCount,
+      skippedCount: skippedRows,
+    );
   }
 
-  Future<void> _freshReplaceFromCsvBytes(Uint8List bytes) async {
+  Future<_InventoryImportResult> _freshReplaceFromCsvBytes(
+    Uint8List bytes,
+    String labId,
+  ) async {
     await _deleteAllInventory();
 
     final csvString = utf8.decode(bytes);
@@ -249,16 +317,29 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
     WriteBatch batch = firestore.batch();
     int batchCount = 0;
     int successCount = 0;
+    int skippedRows = 0;
+    int rowsRead = 0;
+
+    debugPrint(
+      '[Inventory Import] CSV loaded. '
+      'rows=${rows.length - 1}, '
+      'labId="${labId.isEmpty ? '<legacy-empty>' : labId}"',
+    );
 
     for (int i = 1; i < rows.length; i++) {
       final row = rows[i];
+      rowsRead++;
       final chemicalName = _csvCell(row, headerMap, 'Chemical Name');
 
-      if (chemicalName.isEmpty) continue;
+      if (chemicalName.isEmpty) {
+        skippedRows++;
+        continue;
+      }
 
       final docRef = inventoryRef.doc();
 
       batch.set(docRef, {
+        'labId': labId,
         'label': _csvCell(row, headerMap, 'Current Label').isNotEmpty
             ? _csvCell(row, headerMap, 'Current Label')
             : _csvCell(row, headerMap, 'Label'),
@@ -306,7 +387,17 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
       await batch.commit();
     }
 
-    importedCount = successCount;
+    debugPrint(
+      '[Inventory Import] CSV import complete. '
+      'rowsRead=$rowsRead, imported=$successCount, skipped=$skippedRows, '
+      'labId="${labId.isEmpty ? '<legacy-empty>' : labId}"',
+    );
+
+    return _InventoryImportResult(
+      rowsReadCount: rowsRead,
+      importedCount: successCount,
+      skippedCount: skippedRows,
+    );
   }
 
   Future<void> _deleteAllInventory() async {
@@ -377,13 +468,23 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
                     ),
                     const SizedBox(height: 10),
                     Text(
-                      'Imported rows: $importedCount',
+                      'Imported: $importedCount | Skipped: $skippedCount',
                       style: const TextStyle(
                         color: Color(0xFF14B8A6),
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (lastImportedLabId.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Current lab: $lastImportedLabId',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -420,4 +521,16 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
       ),
     );
   }
+}
+
+class _InventoryImportResult {
+  final int rowsReadCount;
+  final int importedCount;
+  final int skippedCount;
+
+  const _InventoryImportResult({
+    required this.rowsReadCount,
+    required this.importedCount,
+    required this.skippedCount,
+  });
 }
