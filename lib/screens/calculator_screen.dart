@@ -94,6 +94,13 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     await prefs.remove(_historyStorageKey);
   }
 
+  void _showQuickActionMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   bool _isOperator(String value) {
     return value == '+' || value == '-' || value == '*' || value == '/';
   }
@@ -323,6 +330,50 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     });
   }
 
+  bool _isDigitChar(String value) {
+    return value.codeUnitAt(0) >= 48 && value.codeUnitAt(0) <= 57;
+  }
+
+  void _appendOpeningParenthesis() {
+    if (_hasError || _justEvaluated) {
+      _expression = '';
+      _result = '0';
+      _hasError = false;
+      _justEvaluated = false;
+    }
+
+    if (_expression.isEmpty) {
+      _expression = '(';
+      _refreshPreview();
+      return;
+    }
+
+    final last = _expression[_expression.length - 1];
+    if (_isDigitChar(last) || last == ')' || last == '%') {
+      _expression += '*(';
+    } else {
+      _expression += '(';
+    }
+
+    _refreshPreview();
+  }
+
+  void _appendClosingParenthesis() {
+    if (_expression.isEmpty || _hasError) return;
+
+    final openCount = '('.allMatches(_expression).length;
+    final closeCount = ')'.allMatches(_expression).length;
+    if (openCount <= closeCount) return;
+
+    final last = _expression[_expression.length - 1];
+    if (_isOperator(last) || last == '(' || last == '.') {
+      return;
+    }
+
+    _expression += ')';
+    _refreshPreview();
+  }
+
   Future<void> _openHistorySheet() async {
     await showModalBottomSheet<void>(
       context: context,
@@ -485,6 +536,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     setState(() {
       if (_isOperator(value)) {
         _appendOperator(value);
+      } else if (value == '(') {
+        _appendOpeningParenthesis();
+      } else if (value == ')') {
+        _appendClosingParenthesis();
       } else if (value == '.') {
         _appendDecimal();
       } else if (value == '%') {
@@ -495,26 +550,49 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     });
   }
 
+  void _showChemistryUtilityMessage(String utility) {
+    switch (utility) {
+      case 'MW':
+        _showQuickActionMessage('Molecular weight calculator coming soon');
+        break;
+      case 'mmol':
+        _showQuickActionMessage('mmol calculator coming soon');
+        break;
+      case 'Dilution':
+        _showQuickActionMessage('Dilution calculator coming soon');
+        break;
+      case 'Yield':
+        _showQuickActionMessage('Yield calculator coming soon');
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    final displayColor = isDark
-        ? const Color(0xFF111315)
-        : const Color(0xFFFFFFFF);
+    final accentColor = const Color(0xFF14B8A6);
+    final cardColor = isDark ? const Color(0xFF111827) : Colors.white;
+    final utilityCardColor = isDark
+        ? const Color(0xFF0F172A)
+        : const Color(0xFFF8FAFC);
+    final keypadCardColor = isDark
+        ? const Color(0xFF0F172A)
+        : const Color(0xFFF8FAFC);
+    final borderColor = isDark
+        ? Colors.white.withOpacity(0.06)
+        : const Color(0xFFE2E8F0);
     final numberButtonColor = isDark
-        ? const Color(0xFF1F2328)
-        : const Color(0xFFF1F3F4);
+        ? const Color(0xFF1E293B)
+        : const Color(0xFFF1F5F9);
     final functionButtonColor = isDark
-        ? const Color(0xFF2A2F36)
-        : const Color(0xFFE8F0FE);
+        ? const Color(0xFF243244)
+        : const Color(0xFFE2E8F0);
     final operatorButtonColor = isDark
-        ? const Color(0xFF25384C)
-        : const Color(0xFFD2E3FC);
-    final equalsButtonColor = isDark
-        ? const Color(0xFF8AB4F8)
-        : const Color(0xFF1A73E8);
+        ? const Color(0xFF1F4F4D)
+        : const Color(0xFFD7F3EE);
+    final equalsButtonColor = accentColor;
 
     final expressionText = _expression.isEmpty ? '0' : _expression;
     final resultText = _result == _expression && !_hasError
@@ -522,239 +600,432 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         : _result;
 
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-        child: Column(
-          children: [
-            Expanded(
-              flex: 4,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: displayColor,
-                  borderRadius: BorderRadius.circular(28),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.08),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxHeight < 760;
+          final displayHeight = (constraints.maxHeight * 0.18)
+              .clamp(120.0, 154.0)
+              .toDouble();
+          final buttonHeight = compact ? 58.0 : 64.0;
+          final keypadGap = compact ? 8.0 : 10.0;
+          final keypadPadding = compact ? 12.0 : 14.0;
+          final utilityIconSize = compact ? 18.0 : 20.0;
+
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+            child: Column(
+              children: [
+                SizedBox(
+                  height: displayHeight,
+                  child: Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.all(compact ? 12 : 14),
+                    decoration: BoxDecoration(
+                      color: cardColor,
+                      borderRadius: BorderRadius.circular(26),
+                      border: Border.all(color: borderColor),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(isDark ? 0.16 : 0.08),
+                          blurRadius: 18,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        const Spacer(),
-                        IconButton(
-                          tooltip: 'History',
-                          onPressed: _openHistorySheet,
-                          icon: Icon(
-                            Icons.history_rounded,
-                            color: theme.colorScheme.onSurfaceVariant,
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: accentColor.withOpacity(
+                                  isDark ? 0.16 : 0.10,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                'Chemistry Utility',
+                                style: TextStyle(
+                                  color: accentColor,
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const Spacer(),
+                            Material(
+                              color: functionButtonColor,
+                              borderRadius: BorderRadius.circular(14),
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(14),
+                                onTap: _openHistorySheet,
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Icon(
+                                    Icons.history_rounded,
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    size: compact ? 18 : 20,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: compact ? 8 : 10),
+                        Flexible(
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              reverse: true,
+                              child: Text(
+                                _prettyExpression(expressionText),
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontSize: compact ? 16 : 18,
+                                  fontWeight: FontWeight.w500,
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: compact ? 4 : 6),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              resultText,
+                              textAlign: TextAlign.right,
+                              style: TextStyle(
+                                fontSize: compact ? 34 : 40,
+                                fontWeight: FontWeight.w800,
+                                color: _hasError
+                                    ? Colors.redAccent
+                                    : theme.colorScheme.onSurface,
+                              ),
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    const Spacer(),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      reverse: true,
-                      child: Text(
-                        _prettyExpression(expressionText),
-                        textAlign: TextAlign.right,
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w500,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerRight,
-                        child: Text(
-                          resultText,
-                          textAlign: TextAlign.right,
-                          style: TextStyle(
-                            fontSize: 48,
-                            fontWeight: FontWeight.w800,
-                            color: _hasError
-                                ? Colors.redAccent
-                                : theme.colorScheme.onSurface,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
-              ),
+                const SizedBox(height: 10),
+                Expanded(
+                  child: Container(
+                    padding: EdgeInsets.all(keypadPadding),
+                    decoration: BoxDecoration(
+                      color: keypadCardColor,
+                      borderRadius: BorderRadius.circular(26),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildButtonRow(
+                          context,
+                          [
+                            _CalcButtonData(
+                              value: 'AC',
+                              label: 'AC',
+                              kind: _CalcButtonKind.function,
+                            ),
+                            _CalcButtonData(
+                              value: '(',
+                              label: '(',
+                              kind: _CalcButtonKind.function,
+                            ),
+                            _CalcButtonData(
+                              value: ')',
+                              label: ')',
+                              kind: _CalcButtonKind.function,
+                            ),
+                            _CalcButtonData(
+                              value: '%',
+                              label: '%',
+                              kind: _CalcButtonKind.function,
+                            ),
+                            _CalcButtonData(
+                              value: 'backspace',
+                              icon: Icons.backspace_outlined,
+                              kind: _CalcButtonKind.function,
+                            ),
+                            _CalcButtonData(
+                              value: '/',
+                              label: '\u00F7',
+                              kind: _CalcButtonKind.operator,
+                            ),
+                          ],
+                          numberButtonColor: numberButtonColor,
+                          functionButtonColor: functionButtonColor,
+                          operatorButtonColor: operatorButtonColor,
+                          equalsButtonColor: equalsButtonColor,
+                          isDark: isDark,
+                          buttonHeight: buttonHeight,
+                        ),
+                        SizedBox(height: keypadGap),
+                        _buildButtonRow(
+                          context,
+                          [
+                            _CalcButtonData(
+                              value: '7',
+                              label: '7',
+                              kind: _CalcButtonKind.number,
+                            ),
+                            _CalcButtonData(
+                              value: '8',
+                              label: '8',
+                              kind: _CalcButtonKind.number,
+                            ),
+                            _CalcButtonData(
+                              value: '9',
+                              label: '9',
+                              kind: _CalcButtonKind.number,
+                            ),
+                            _CalcButtonData(
+                              value: '*',
+                              label: '\u00D7',
+                              kind: _CalcButtonKind.operator,
+                            ),
+                          ],
+                          numberButtonColor: numberButtonColor,
+                          functionButtonColor: functionButtonColor,
+                          operatorButtonColor: operatorButtonColor,
+                          equalsButtonColor: equalsButtonColor,
+                          isDark: isDark,
+                          buttonHeight: buttonHeight,
+                        ),
+                        SizedBox(height: keypadGap),
+                        _buildButtonRow(
+                          context,
+                          [
+                            _CalcButtonData(
+                              value: '4',
+                              label: '4',
+                              kind: _CalcButtonKind.number,
+                            ),
+                            _CalcButtonData(
+                              value: '5',
+                              label: '5',
+                              kind: _CalcButtonKind.number,
+                            ),
+                            _CalcButtonData(
+                              value: '6',
+                              label: '6',
+                              kind: _CalcButtonKind.number,
+                            ),
+                            _CalcButtonData(
+                              value: '-',
+                              label: '\u2212',
+                              kind: _CalcButtonKind.operator,
+                            ),
+                          ],
+                          numberButtonColor: numberButtonColor,
+                          functionButtonColor: functionButtonColor,
+                          operatorButtonColor: operatorButtonColor,
+                          equalsButtonColor: equalsButtonColor,
+                          isDark: isDark,
+                          buttonHeight: buttonHeight,
+                        ),
+                        SizedBox(height: keypadGap),
+                        _buildButtonRow(
+                          context,
+                          [
+                            _CalcButtonData(
+                              value: '1',
+                              label: '1',
+                              kind: _CalcButtonKind.number,
+                            ),
+                            _CalcButtonData(
+                              value: '2',
+                              label: '2',
+                              kind: _CalcButtonKind.number,
+                            ),
+                            _CalcButtonData(
+                              value: '3',
+                              label: '3',
+                              kind: _CalcButtonKind.number,
+                            ),
+                            _CalcButtonData(
+                              value: '+',
+                              label: '+',
+                              kind: _CalcButtonKind.operator,
+                            ),
+                          ],
+                          numberButtonColor: numberButtonColor,
+                          functionButtonColor: functionButtonColor,
+                          operatorButtonColor: operatorButtonColor,
+                          equalsButtonColor: equalsButtonColor,
+                          isDark: isDark,
+                          buttonHeight: buttonHeight,
+                        ),
+                        SizedBox(height: keypadGap),
+                        _buildButtonRow(
+                          context,
+                          [
+                            _CalcButtonData(
+                              value: '0',
+                              label: '0',
+                              kind: _CalcButtonKind.number,
+                              flex: 2,
+                            ),
+                            _CalcButtonData(
+                              value: '.',
+                              label: '.',
+                              kind: _CalcButtonKind.number,
+                            ),
+                            _CalcButtonData(
+                              value: '=',
+                              label: '=',
+                              kind: _CalcButtonKind.equals,
+                            ),
+                          ],
+                          numberButtonColor: numberButtonColor,
+                          functionButtonColor: functionButtonColor,
+                          operatorButtonColor: operatorButtonColor,
+                          equalsButtonColor: equalsButtonColor,
+                          isDark: isDark,
+                          buttonHeight: buttonHeight,
+                        ),
+                        const Spacer(),
+                        _buildChemistryUtilityStrip(
+                          compact: compact,
+                          iconSize: utilityIconSize,
+                          utilityCardColor: utilityCardColor,
+                          numberButtonColor: numberButtonColor,
+                          foregroundColor: theme.colorScheme.onSurface,
+                          secondaryTextColor:
+                              theme.colorScheme.onSurfaceVariant,
+                          borderColor: borderColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 18),
-            Expanded(
-              flex: 7,
-              child: Column(
-                children: [
-                  _buildButtonRow(
-                    context,
-                    [
-                      _CalcButtonData(
-                        value: 'AC',
-                        label: 'AC',
-                        kind: _CalcButtonKind.function,
-                      ),
-                      _CalcButtonData(
-                        value: 'backspace',
-                        icon: Icons.backspace_outlined,
-                        kind: _CalcButtonKind.function,
-                      ),
-                      _CalcButtonData(
-                        value: '%',
-                        label: '%',
-                        kind: _CalcButtonKind.function,
-                      ),
-                      _CalcButtonData(
-                        value: '/',
-                        label: '\u00F7',
-                        kind: _CalcButtonKind.operator,
-                      ),
-                    ],
-                    numberButtonColor: numberButtonColor,
-                    functionButtonColor: functionButtonColor,
-                    operatorButtonColor: operatorButtonColor,
-                    equalsButtonColor: equalsButtonColor,
-                    isDark: isDark,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildUtilityButton({
+    required String label,
+    required IconData icon,
+    required double iconSize,
+    required Color backgroundColor,
+    required Color foregroundColor,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: Material(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(18),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(18),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, size: iconSize, color: foregroundColor),
+                const SizedBox(height: 6),
+                Text(
+                  label,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: foregroundColor,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
                   ),
-                  const SizedBox(height: 12),
-                  _buildButtonRow(
-                    context,
-                    [
-                      _CalcButtonData(
-                        value: '7',
-                        label: '7',
-                        kind: _CalcButtonKind.number,
-                      ),
-                      _CalcButtonData(
-                        value: '8',
-                        label: '8',
-                        kind: _CalcButtonKind.number,
-                      ),
-                      _CalcButtonData(
-                        value: '9',
-                        label: '9',
-                        kind: _CalcButtonKind.number,
-                      ),
-                      _CalcButtonData(
-                        value: '*',
-                        label: '\u00D7',
-                        kind: _CalcButtonKind.operator,
-                      ),
-                    ],
-                    numberButtonColor: numberButtonColor,
-                    functionButtonColor: functionButtonColor,
-                    operatorButtonColor: operatorButtonColor,
-                    equalsButtonColor: equalsButtonColor,
-                    isDark: isDark,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildButtonRow(
-                    context,
-                    [
-                      _CalcButtonData(
-                        value: '4',
-                        label: '4',
-                        kind: _CalcButtonKind.number,
-                      ),
-                      _CalcButtonData(
-                        value: '5',
-                        label: '5',
-                        kind: _CalcButtonKind.number,
-                      ),
-                      _CalcButtonData(
-                        value: '6',
-                        label: '6',
-                        kind: _CalcButtonKind.number,
-                      ),
-                      _CalcButtonData(
-                        value: '-',
-                        label: '\u2212',
-                        kind: _CalcButtonKind.operator,
-                      ),
-                    ],
-                    numberButtonColor: numberButtonColor,
-                    functionButtonColor: functionButtonColor,
-                    operatorButtonColor: operatorButtonColor,
-                    equalsButtonColor: equalsButtonColor,
-                    isDark: isDark,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildButtonRow(
-                    context,
-                    [
-                      _CalcButtonData(
-                        value: '1',
-                        label: '1',
-                        kind: _CalcButtonKind.number,
-                      ),
-                      _CalcButtonData(
-                        value: '2',
-                        label: '2',
-                        kind: _CalcButtonKind.number,
-                      ),
-                      _CalcButtonData(
-                        value: '3',
-                        label: '3',
-                        kind: _CalcButtonKind.number,
-                      ),
-                      _CalcButtonData(
-                        value: '+',
-                        label: '+',
-                        kind: _CalcButtonKind.operator,
-                      ),
-                    ],
-                    numberButtonColor: numberButtonColor,
-                    functionButtonColor: functionButtonColor,
-                    operatorButtonColor: operatorButtonColor,
-                    equalsButtonColor: equalsButtonColor,
-                    isDark: isDark,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildButtonRow(
-                    context,
-                    [
-                      _CalcButtonData(
-                        value: '0',
-                        label: '0',
-                        kind: _CalcButtonKind.number,
-                        flex: 2,
-                      ),
-                      _CalcButtonData(
-                        value: '.',
-                        label: '.',
-                        kind: _CalcButtonKind.number,
-                      ),
-                      _CalcButtonData(
-                        value: '=',
-                        label: '=',
-                        kind: _CalcButtonKind.equals,
-                      ),
-                    ],
-                    numberButtonColor: numberButtonColor,
-                    functionButtonColor: functionButtonColor,
-                    operatorButtonColor: operatorButtonColor,
-                    equalsButtonColor: equalsButtonColor,
-                    isDark: isDark,
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildChemistryUtilityStrip({
+    required bool compact,
+    required double iconSize,
+    required Color utilityCardColor,
+    required Color numberButtonColor,
+    required Color foregroundColor,
+    required Color secondaryTextColor,
+    required Color borderColor,
+  }) {
+    return Container(
+      padding: EdgeInsets.all(compact ? 10 : 12),
+      decoration: BoxDecoration(
+        color: utilityCardColor,
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Quick chemistry tools',
+            style: TextStyle(
+              color: secondaryTextColor,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              _buildUtilityButton(
+                label: 'MW',
+                icon: Icons.science_outlined,
+                iconSize: iconSize,
+                backgroundColor: numberButtonColor,
+                foregroundColor: foregroundColor,
+                onTap: () => _showChemistryUtilityMessage('MW'),
+              ),
+              const SizedBox(width: 8),
+              _buildUtilityButton(
+                label: 'mmol',
+                icon: Icons.functions_rounded,
+                iconSize: iconSize,
+                backgroundColor: numberButtonColor,
+                foregroundColor: foregroundColor,
+                onTap: () => _showChemistryUtilityMessage('mmol'),
+              ),
+              const SizedBox(width: 8),
+              _buildUtilityButton(
+                label: 'Dilution',
+                icon: Icons.water_drop_outlined,
+                iconSize: iconSize,
+                backgroundColor: numberButtonColor,
+                foregroundColor: foregroundColor,
+                onTap: () => _showChemistryUtilityMessage('Dilution'),
+              ),
+              const SizedBox(width: 8),
+              _buildUtilityButton(
+                label: 'Yield',
+                icon: Icons.show_chart_rounded,
+                iconSize: iconSize,
+                backgroundColor: numberButtonColor,
+                foregroundColor: foregroundColor,
+                onTap: () => _showChemistryUtilityMessage('Yield'),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -767,6 +1038,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
     required Color operatorButtonColor,
     required Color equalsButtonColor,
     required bool isDark,
+    required double buttonHeight,
   }) {
     return Row(
       children: buttons.map((button) {
@@ -799,7 +1071,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         return Expanded(
           flex: button.flex,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
+            padding: const EdgeInsets.symmetric(horizontal: 3),
             child: Material(
               color: backgroundColor,
               borderRadius: BorderRadius.circular(26),
@@ -807,7 +1079,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                 borderRadius: BorderRadius.circular(26),
                 onTap: () => _handleInput(button),
                 child: Container(
-                  height: 72,
+                  height: buttonHeight,
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(26),
