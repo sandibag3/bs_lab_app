@@ -24,14 +24,41 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
 
   bool isImporting = false;
   String statusMessage =
-      'Pick a cleaned inventory file (.xlsx or .csv) to replace Firestore inventory.';
+      'Pick a cleaned inventory file (.xlsx or .csv) to replace the current lab inventory.';
   int importedCount = 0;
   int skippedCount = 0;
   int rowsReadCount = 0;
   String lastImportedLabId = '';
 
   Future<void> pickAndImportFile() async {
-    final currentLabId = AppState.instance.resolveWriteLabId();
+    final currentLabId = AppState.instance.resolveWriteLabId().trim();
+
+    if (currentLabId.isEmpty) {
+      debugPrint(
+        '[Inventory Import] Import blocked. No labId resolved for current session.',
+      );
+
+      if (!mounted) return;
+
+      setState(() {
+        isImporting = false;
+        importedCount = 0;
+        skippedCount = 0;
+        rowsReadCount = 0;
+        lastImportedLabId = '';
+        statusMessage =
+            'Import blocked: no lab selected. Please select a lab before importing inventory.';
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No lab selected. Please choose a lab before importing inventory.',
+          ),
+        ),
+      );
+      return;
+    }
 
     setState(() {
       isImporting = true;
@@ -164,7 +191,7 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
     Uint8List bytes,
     String labId,
   ) async {
-    await _deleteAllInventory();
+    await _deleteInventoryForLab(labId);
 
     final excel = Excel.decodeBytes(bytes);
 
@@ -295,7 +322,7 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
     Uint8List bytes,
     String labId,
   ) async {
-    await _deleteAllInventory();
+    await _deleteInventoryForLab(labId);
 
     final csvString = utf8.decode(bytes);
     final rows = CsvToListConverter(
@@ -400,17 +427,36 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
     );
   }
 
-  Future<void> _deleteAllInventory() async {
+  Future<void> _deleteInventoryForLab(String labId) async {
+    final cleanLabId = labId.trim();
+    if (cleanLabId.isEmpty) {
+      throw Exception('No lab selected. Import was blocked before delete.');
+    }
+
+    int deletedCount = 0;
+    debugPrint(
+      '[Inventory Import] Deleting existing inventory for labId="$cleanLabId".',
+    );
+
     while (true) {
-      final snapshot = await inventoryRef.limit(300).get();
+      final snapshot = await inventoryRef
+          .where('labId', isEqualTo: cleanLabId)
+          .limit(300)
+          .get();
       if (snapshot.docs.isEmpty) break;
 
       final batch = firestore.batch();
       for (final doc in snapshot.docs) {
         batch.delete(doc.reference);
+        deletedCount++;
       }
       await batch.commit();
     }
+
+    debugPrint(
+      '[Inventory Import] Deleted $deletedCount existing inventory docs for '
+      'labId="$cleanLabId" before import.',
+    );
   }
 
   String _excelCellToString(Data? cell) {
