@@ -70,6 +70,158 @@ class InventoryService {
     });
   }
 
+  Future<bool> markOneBottleLowForCas({
+    required String cas,
+    required String labId,
+  }) async {
+    final cleanCas = cas.trim();
+    final cleanLabId = labId.trim();
+
+    if (cleanCas.isEmpty) {
+      throw Exception('Chemical CAS is missing.');
+    }
+
+    if (cleanLabId.isEmpty) {
+      throw Exception('No lab selected.');
+    }
+
+    final snapshot = await inventoryRef
+        .where('cas', isEqualTo: cleanCas)
+        .where('labId', isEqualTo: cleanLabId)
+        .limit(50)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      return false;
+    }
+
+    final docs = snapshot.docs.toList();
+    docs.sort((a, b) {
+      final aData = a.data() as Map<String, dynamic>;
+      final bData = b.data() as Map<String, dynamic>;
+
+      final aAvailability = (aData['availability'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+      final bAvailability = (bData['availability'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+
+      final aAvailable = aAvailability == 'available';
+      final bAvailable = bAvailability == 'available';
+
+      if (aAvailable != bAvailable) {
+        return aAvailable ? -1 : 1;
+      }
+
+      final aLabel = (aData['label'] ?? '').toString().trim().toLowerCase();
+      final bLabel = (bData['label'] ?? '').toString().trim().toLowerCase();
+      return aLabel.compareTo(bLabel);
+    });
+
+    DocumentSnapshot? targetDoc;
+    for (final doc in docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final availability = (data['availability'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+
+      if (availability == 'available') {
+        targetDoc = doc;
+        break;
+      }
+    }
+
+    if (targetDoc == null) {
+      return false;
+    }
+
+    await inventoryRef.doc(targetDoc.id).update({
+      'availability': 'low',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    return true;
+  }
+
+  Future<bool> markOneBottleFinishedForCas({
+    required String cas,
+    required String labId,
+  }) async {
+    final cleanCas = cas.trim();
+    final cleanLabId = labId.trim();
+
+    if (cleanCas.isEmpty) {
+      throw Exception('Chemical CAS is missing.');
+    }
+
+    if (cleanLabId.isEmpty) {
+      throw Exception('No lab selected.');
+    }
+
+    final snapshot = await inventoryRef
+        .where('cas', isEqualTo: cleanCas)
+        .where('labId', isEqualTo: cleanLabId)
+        .limit(50)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      return false;
+    }
+
+    final docs = snapshot.docs.toList();
+    int availabilityPriority(Map<String, dynamic> data) {
+      final availability = (data['availability'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+
+      if (availability == 'low') return 0;
+      if (availability == 'available') return 1;
+      return 2;
+    }
+
+    docs.sort((a, b) {
+      final aData = a.data() as Map<String, dynamic>;
+      final bData = b.data() as Map<String, dynamic>;
+
+      final priorityComparison = availabilityPriority(
+        aData,
+      ).compareTo(availabilityPriority(bData));
+      if (priorityComparison != 0) {
+        return priorityComparison;
+      }
+
+      final aLabel = (aData['label'] ?? '').toString().trim().toLowerCase();
+      final bLabel = (bData['label'] ?? '').toString().trim().toLowerCase();
+      return aLabel.compareTo(bLabel);
+    });
+
+    DocumentSnapshot? targetDoc;
+    for (final doc in docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final priority = availabilityPriority(data);
+      if (priority < 2) {
+        targetDoc = doc;
+        break;
+      }
+    }
+
+    if (targetDoc == null) {
+      return false;
+    }
+
+    await inventoryRef.doc(targetDoc.id).update({
+      'availability': 'finished',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    return true;
+  }
+
   Future<ChemicalModel?> findExistingByCas(String cas) async {
     final cleanCas = cas.trim();
     if (cleanCas.isEmpty) return null;

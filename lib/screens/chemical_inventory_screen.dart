@@ -236,6 +236,38 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     }
   }
 
+  Future<void> _markOneBottleFinished(ChemicalModel chemical) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final labId = AppState.instance.selectedLabId.trim();
+
+    try {
+      final updated = await inventoryService.markOneBottleFinishedForCas(
+        cas: chemical.cas,
+        labId: labId,
+      );
+
+      if (!mounted) return;
+
+      if (updated) {
+        setState(() {});
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Marked one bottle as finished')),
+        );
+      } else {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('No active bottle found')),
+        );
+      }
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
   Widget _buildQuickActionButton({
     String? label,
     required IconData icon,
@@ -446,9 +478,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                               label: 'Finished',
                               icon: Icons.cancel_outlined,
                               color: Colors.white70,
-                              onTap: () => _showQuickActionMessage(
-                                'Mark finished coming soon',
-                              ),
+                              onTap: () => _markOneBottleFinished(main),
                             ),
                           ),
                           const SizedBox(width: 8),
