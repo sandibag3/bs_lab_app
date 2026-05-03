@@ -20,6 +20,11 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     with SingleTickerProviderStateMixin {
   final InventoryService inventoryService = InventoryService();
   final PubChemService pubChemService = PubChemService();
+  static const List<String> _allowedBottleStatuses = [
+    'available',
+    'low',
+    'finished',
+  ];
 
   late Future<PubChemChemicalDetails?> pubChemFuture;
   late AnimationController _animationController;
@@ -62,6 +67,25 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     if (v.contains('finished')) return Colors.redAccent;
     if (v.contains('low') || v.contains('about')) return Colors.orangeAccent;
     return Colors.greenAccent;
+  }
+
+  String _safeBottleStatus(String rawStatus) {
+    final normalized = rawStatus.trim().toLowerCase();
+    return _allowedBottleStatuses.contains(normalized)
+        ? normalized
+        : 'available';
+  }
+
+  String _bottleStatusLabel(String status) {
+    switch (status) {
+      case 'low':
+        return 'Low';
+      case 'finished':
+        return 'Finished';
+      case 'available':
+      default:
+        return 'Available';
+    }
   }
 
   Widget sectionTitle(String title) {
@@ -318,6 +342,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   }
 
   Widget bottleCard(ChemicalModel b, int index) {
+    final safeStatus = _safeBottleStatus(b.availability);
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
@@ -339,14 +365,14 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                   ),
                   const Spacer(),
                   DropdownButton<String>(
-                    value: b.availability,
+                    value: safeStatus,
                     dropdownColor: const Color(0xFF1E293B),
                     style: const TextStyle(color: Colors.white),
-                    items: ['Available', 'Low', 'Finished']
+                    items: _allowedBottleStatuses
                         .map(
-                          (e) => DropdownMenuItem(
-                            value: e,
-                            child: Text(e),
+                          (status) => DropdownMenuItem<String>(
+                            value: status,
+                            child: Text(_bottleStatusLabel(status)),
                           ),
                         )
                         .toList(),
@@ -354,7 +380,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                       if (value == null) return;
 
                       await inventoryService.inventoryRef.doc(b.id).update({
-                        'availability': value,
+                        'availability': _safeBottleStatus(value),
                         'updatedAt': DateTime.now(),
                       });
 
