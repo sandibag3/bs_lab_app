@@ -288,6 +288,20 @@ class InventoryService {
     });
   }
 
+  Future<void> markBottleLowById({
+    required String docId,
+  }) async {
+    final cleanDocId = docId.trim();
+    if (cleanDocId.isEmpty) {
+      throw Exception('Bottle id is missing.');
+    }
+
+    await inventoryRef.doc(cleanDocId).update({
+      'availability': 'low',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<ChemicalModel?> findExistingByCas(String cas) async {
     final cleanCas = cas.trim();
     if (cleanCas.isEmpty) return null;

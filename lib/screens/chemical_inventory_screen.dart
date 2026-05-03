@@ -232,7 +232,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     return parts.join('  |  ');
   }
 
-  String _buildFinishedConfirmationMessage(ChemicalModel bottle) {
+  String _buildBottleConfirmationMessage(ChemicalModel bottle) {
     final lines = <String>[
       'Brand: ${_displayOrDash(bottle.brand)}',
       'Label: ${_displayOrDash(bottle.label)}',
@@ -247,18 +247,22 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     return lines.join('\n');
   }
 
-  Future<bool> _confirmMarkBottleFinished(ChemicalModel bottle) async {
+  Future<bool> _confirmBottleStatusAction({
+    required ChemicalModel bottle,
+    required String title,
+    required String confirmLabel,
+  }) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
           backgroundColor: const Color(0xFF1E293B),
-          title: const Text(
-            'Mark bottle finished?',
-            style: TextStyle(color: Colors.white),
+          title: Text(
+            title,
+            style: const TextStyle(color: Colors.white),
           ),
           content: Text(
-            _buildFinishedConfirmationMessage(bottle),
+            _buildBottleConfirmationMessage(bottle),
             style: const TextStyle(color: Colors.white70, height: 1.45),
           ),
           actions: [
@@ -272,7 +276,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                 backgroundColor: const Color(0xFF14B8A6),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Mark Finished'),
+              child: Text(confirmLabel),
             ),
           ],
         );
@@ -282,11 +286,113 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     return confirmed == true;
   }
 
+  Future<ChemicalModel?> _pickBottleForStatusAction({
+    required String title,
+    required String subtitle,
+    required List<ChemicalModel> bottles,
+  }) async {
+    return showModalBottomSheet<ChemicalModel>(
+      context: context,
+      backgroundColor: const Color(0xFF111827),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (sheetContext) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  subtitle,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12.5,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(sheetContext).size.height * 0.52,
+                  ),
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    itemCount: bottles.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (sheetContext, index) {
+                      final bottle = bottles[index];
+                      return Material(
+                        color: const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(16),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(16),
+                          onTap: () => Navigator.of(sheetContext).pop(bottle),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.06),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  bottle.brand.trim().isEmpty
+                                      ? 'Brand not set'
+                                      : bottle.brand.trim(),
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  _buildBottleSelectionSubtitle(bottle),
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12.4,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _markSpecificBottleFinished(ChemicalModel bottle) async {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      final confirmed = await _confirmMarkBottleFinished(bottle);
+      final confirmed = await _confirmBottleStatusAction(
+        bottle: bottle,
+        title: 'Mark bottle finished?',
+        confirmLabel: 'Mark Finished',
+      );
       if (!confirmed || !mounted) return;
 
       await inventoryService.markBottleFinishedById(docId: bottle.id);
@@ -306,28 +412,66 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     }
   }
 
+  Future<void> _markSpecificBottleLow(ChemicalModel bottle) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final confirmed = await _confirmBottleStatusAction(
+        bottle: bottle,
+        title: 'Mark bottle as low?',
+        confirmLabel: 'Mark Low',
+      );
+      if (!confirmed || !mounted) return;
+
+      await inventoryService.markBottleLowById(docId: bottle.id);
+
+      if (!mounted) return;
+      setState(() {});
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Marked bottle as low')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
   Future<void> _markOneBottleLow(ChemicalModel chemical) async {
     final messenger = ScaffoldMessenger.of(context);
     final labId = AppState.instance.selectedLabId.trim();
 
     try {
-      final updated = await inventoryService.markOneBottleLowForCas(
+      final activeBottles = await inventoryService.getActiveBottlesForCas(
         cas: chemical.cas,
         labId: labId,
       );
 
       if (!mounted) return;
 
-      if (updated) {
-        setState(() {});
+      if (activeBottles.isEmpty) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Marked one bottle as low')),
+          const SnackBar(content: Text('No active bottle found')),
         );
-      } else {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('No available bottle found')),
-        );
+        return;
       }
+
+      if (activeBottles.length == 1) {
+        await _markSpecificBottleLow(activeBottles.first);
+        return;
+      }
+
+      final selectedBottle = await _pickBottleForStatusAction(
+        title: 'Which bottle is low?',
+        subtitle: 'Select the exact active bottle to mark as low.',
+        bottles: activeBottles,
+      );
+
+      if (selectedBottle == null || !mounted) return;
+      await _markSpecificBottleLow(selectedBottle);
     } catch (error) {
       if (!mounted) return;
       messenger.showSnackBar(
@@ -362,102 +506,11 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
         return;
       }
 
-      final selectedBottle =
-          await showModalBottomSheet<ChemicalModel>(
-            context: context,
-            backgroundColor: const Color(0xFF111827),
-            shape: const RoundedRectangleBorder(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
-            ),
-            builder: (sheetContext) {
-              return SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Which bottle is finished?',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Select the exact active bottle to mark as finished.',
-                        style: TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      ConstrainedBox(
-                        constraints: BoxConstraints(
-                          maxHeight:
-                              MediaQuery.of(sheetContext).size.height * 0.52,
-                        ),
-                        child: ListView.separated(
-                          shrinkWrap: true,
-                          itemCount: activeBottles.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 8),
-                          itemBuilder: (sheetContext, index) {
-                            final bottle = activeBottles[index];
-                            return Material(
-                              color: const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(16),
-                              child: InkWell(
-                                borderRadius: BorderRadius.circular(16),
-                                onTap: () =>
-                                    Navigator.of(sheetContext).pop(bottle),
-                                child: Container(
-                                  padding: const EdgeInsets.all(14),
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.06),
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        bottle.brand.trim().isEmpty
-                                            ? 'Brand not set'
-                                            : bottle.brand.trim(),
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 14.5,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        _buildBottleSelectionSubtitle(bottle),
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 12.4,
-                                          height: 1.4,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
+      final selectedBottle = await _pickBottleForStatusAction(
+        title: 'Which bottle is finished?',
+        subtitle: 'Select the exact active bottle to mark as finished.',
+        bottles: activeBottles,
+      );
 
       if (selectedBottle == null || !mounted) return;
       await _markSpecificBottleFinished(selectedBottle);
