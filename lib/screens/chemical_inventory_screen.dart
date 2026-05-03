@@ -197,6 +197,50 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     }
   }
 
+  void _showQuickActionMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  Widget _buildQuickActionButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.04),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withOpacity(0.28)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 15, color: color),
+              const SizedBox(width: 5),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 11.8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
  Widget buildGroupedChemicalCard(List<ChemicalModel> bottles) {
   final main = bottles.first;
   final int total = bottles.length;
@@ -278,87 +322,120 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
             });
           }
         },
-        child: Row(
-          children: [
-            Container(
-              width: 5,
-              height: 130,
-              decoration: BoxDecoration(
-                color: statusColor,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(18),
-                  bottomLeft: Radius.circular(18),
+        child: IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                width: 5,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(18),
+                    bottomLeft: Radius.circular(18),
+                  ),
                 ),
               ),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0x2214B8A6),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            main.label,
-                            style: const TextStyle(
-                              color: Color(0xFF14B8A6),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0x2214B8A6),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              main.label,
+                              style: const TextStyle(
+                                color: Color(0xFF14B8A6),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
                             ),
                           ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          summaryStatus,
-                          style: TextStyle(
-                            color: statusColor,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12.5,
+                          const Spacer(),
+                          Text(
+                            summaryStatus,
+                            style: TextStyle(
+                              color: statusColor,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12.5,
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Icon(
-                          Icons.chevron_right_rounded,
-                          color: Colors.white38,
-                          size: 18,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      main.chemicalName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15.5,
-                        fontWeight: FontWeight.bold,
-                        height: 1.25,
+                          const SizedBox(width: 6),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: Colors.white38,
+                            size: 18,
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        chip('CAS: ${main.cas.isEmpty ? "-" : main.cas}'),
-                        chip('Loc: $locationSummary'),
-                        chip('Bottles: $total'),
-                      ],
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        main.chemicalName,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.bold,
+                          height: 1.25,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          chip('CAS: ${main.cas.isEmpty ? "-" : main.cas}'),
+                          chip('Loc: $locationSummary'),
+                          chip('Bottles: $total'),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildQuickActionButton(
+                            label: 'Use',
+                            icon: Icons.remove_circle_outline,
+                            color: const Color(0xFFF59E0B),
+                            onTap: () => _showQuickActionMessage(
+                              'Use stock coming soon',
+                            ),
+                          ),
+                          _buildQuickActionButton(
+                            label: 'Low',
+                            icon: Icons.warning_amber_rounded,
+                            color: const Color(0xFFFB7185),
+                            onTap: () => _showQuickActionMessage(
+                              'Mark low coming soon',
+                            ),
+                          ),
+                          _buildQuickActionButton(
+                            label: 'Add Bottle',
+                            icon: Icons.add_circle_outline,
+                            color: const Color(0xFF14B8A6),
+                            onTap: () => _showQuickActionMessage(
+                              'Quick add bottle coming soon',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     ),
