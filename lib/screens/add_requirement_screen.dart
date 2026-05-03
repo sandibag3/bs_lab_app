@@ -27,6 +27,10 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
   final TextEditingController chemicalNameController = TextEditingController();
   final TextEditingController casController = TextEditingController();
   final TextEditingController catalogNoController = TextEditingController();
+  final TextEditingController manualConsumableVariantController =
+      TextEditingController();
+  final TextEditingController manualConsumableNameController =
+      TextEditingController();
 
   // Custom manual entry controllers
   final TextEditingController customBrandController = TextEditingController();
@@ -37,6 +41,8 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
   String? selectedBrand;
   String? selectedVendor;
   String? selectedChemicalType;
+  String? selectedConsumableCategory;
+  String? selectedConsumableVariant;
   String? selectedConsumableType;
   String? selectedModeOfPurchase;
   String? selectedQuantity;
@@ -94,31 +100,32 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     'Bulk Solvent',
   ];
 
-  final List<String> consumableTypes = [
-    'Gloves - Large',
-    'Gloves - Medium',
-    'Gloves - Small',
-    'Syringe - 1 mL',
-    'Syringe - 2 mL',
-    'Syringe - 5 mL',
-    'Syringe - 10 mL',
-    'Syringe - 20 mL',
-    'Syringe - 50 mL',
+  final List<String> consumableCategories = [
+    'Gloves',
+    'Syringes',
     'Balloon',
     'Needle',
     'Filter Paper',
-    'Silica - 230-400 mesh',
-    'Silica - 100-200 mesh',
-    'TLC Plate',
-    'Glass Apparatus',
+    'Silica',
+    'TLC Plates',
     'Cotton',
     'Rubber Band',
-    'Clips - 14',
-    'Clips - 19',
-    'Clips - 24',
     'Tubes',
-    'Misc',
+    'Joint Clips',
+    'Grease',
+    'Teflon',
+    'Reflux Pumps',
+    'Column Pumps',
+    'Others',
   ];
+
+  final Map<String, List<String>> consumableVariantsByCategory = const {
+    'Gloves': ['Small', 'Medium', 'Large'],
+    'Syringes': ['1 mL', '2 mL', '5 mL', '10 mL', '20 mL', '50 mL'],
+    'Silica': ['100-200 mesh', '230-400 mesh'],
+    'TLC Plates': ['Normal TLC Plate', 'Preparative TLC Plate'],
+    'Joint Clips': ['14', '19', '24'],
+  };
 
   final List<String> purchaseModes = ['indent', 'direct'];
 
@@ -126,6 +133,87 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     final estimate = double.tryParse(estimatedCostController.text.trim()) ?? 0;
     final qty = int.tryParse(selectedQuantity ?? '0') ?? 0;
     return estimate * qty;
+  }
+
+  bool get hasFixedConsumableVariants {
+    final category = selectedConsumableCategory?.trim() ?? '';
+    return consumableVariantsByCategory.containsKey(category);
+  }
+
+  bool get isOtherConsumableCategory {
+    return (selectedConsumableCategory ?? '').trim() == 'Others';
+  }
+
+  bool get shouldShowManualConsumableVariantField {
+    final category = selectedConsumableCategory?.trim() ?? '';
+    return category.isNotEmpty &&
+        !hasFixedConsumableVariants &&
+        !isOtherConsumableCategory;
+  }
+
+  List<String> get currentConsumableVariants {
+    final category = selectedConsumableCategory?.trim() ?? '';
+    return consumableVariantsByCategory[category] ?? const [];
+  }
+
+  String _buildConsumableTypeValue() {
+    final category = selectedConsumableCategory?.trim() ?? '';
+    final variant = selectedConsumableVariant?.trim() ?? '';
+    final manualVariant = manualConsumableVariantController.text.trim();
+    final manualName = manualConsumableNameController.text.trim();
+
+    if (category.isEmpty) {
+      return '';
+    }
+
+    if (category == 'Others') {
+      return manualName;
+    }
+
+    if (category == 'Gloves') {
+      return variant.isEmpty ? '' : 'Gloves - $variant';
+    }
+
+    if (category == 'Syringes') {
+      return variant.isEmpty ? '' : 'Syringe - $variant';
+    }
+
+    if (category == 'Silica') {
+      return variant.isEmpty ? '' : 'Silica - $variant';
+    }
+
+    if (category == 'TLC Plates') {
+      if (variant == 'Normal TLC Plate') {
+        return 'TLC Plate';
+      }
+      if (variant == 'Preparative TLC Plate') {
+        return 'Preparative TLC Plate';
+      }
+      return '';
+    }
+
+    if (category == 'Joint Clips') {
+      return variant.isEmpty ? '' : 'Clips - $variant';
+    }
+
+    if (manualVariant.isNotEmpty) {
+      return '$category - $manualVariant';
+    }
+
+    return category;
+  }
+
+  void _refreshConsumableTypePreview() {
+    final value = _buildConsumableTypeValue();
+    selectedConsumableType = value.isEmpty ? null : value;
+  }
+
+  void _resetConsumableSelection() {
+    selectedConsumableCategory = null;
+    selectedConsumableVariant = null;
+    selectedConsumableType = null;
+    manualConsumableVariantController.clear();
+    manualConsumableNameController.clear();
   }
 
   InputDecoration inputDecoration(String label, {Widget? suffixIcon}) {
@@ -368,6 +456,18 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final service = RequirementService();
+    final consumableTypeValue = selectedMainType == 'consumable'
+        ? _buildConsumableTypeValue()
+        : '';
+
+    if (selectedMainType == 'consumable' && consumableTypeValue.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select a valid consumable category and variant'),
+        ),
+      );
+      return;
+    }
 
     final req = RequirementModel(
       id: '',
@@ -395,7 +495,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
           ? (selectedChemicalType ?? '')
           : '',
       consumableType: selectedMainType == 'consumable'
-          ? (selectedConsumableType ?? '')
+          ? consumableTypeValue
           : '',
       status: 'pending',
       userName: AppState.instance.authenticatedUserName,
@@ -431,6 +531,8 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     chemicalNameController.dispose();
     casController.dispose();
     catalogNoController.dispose();
+    manualConsumableVariantController.dispose();
+    manualConsumableNameController.dispose();
     customBrandController.dispose();
     customVendorController.dispose();
     super.dispose();
@@ -459,6 +561,11 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                 items: const ['chemical', 'consumable'],
                 onChanged: (value) {
                   selectedMainType = value ?? 'chemical';
+                  if (selectedMainType != 'consumable') {
+                    _resetConsumableSelection();
+                  } else {
+                    _refreshConsumableTypePreview();
+                  }
                 },
               ),
               const SizedBox(height: 14),
@@ -541,12 +648,113 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
 
               if (selectedMainType == 'consumable') ...[
                 buildDropdown(
-                  label: 'Consumable Type',
-                  value: selectedConsumableType,
-                  items: consumableTypes,
-                  onChanged: (value) => selectedConsumableType = value,
+                  label: 'Consumable Category',
+                  value: selectedConsumableCategory,
+                  items: consumableCategories,
+                  onChanged: (value) {
+                    selectedConsumableCategory = value;
+                    selectedConsumableVariant = null;
+                    manualConsumableVariantController.clear();
+                    manualConsumableNameController.clear();
+                    _refreshConsumableTypePreview();
+                  },
+                  validator: (value) {
+                    if (selectedMainType == 'consumable' &&
+                        (value == null || value.isEmpty)) {
+                      return 'Select consumable category';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 14),
+                if (hasFixedConsumableVariants) ...[
+                  buildDropdown(
+                    label: 'Consumable Subcategory / Variant',
+                    value: selectedConsumableVariant,
+                    items: currentConsumableVariants,
+                    onChanged: (value) {
+                      selectedConsumableVariant = value;
+                      _refreshConsumableTypePreview();
+                    },
+                    validator: (value) {
+                      if (selectedMainType == 'consumable' &&
+                          hasFixedConsumableVariants &&
+                          (value == null || value.isEmpty)) {
+                        return 'Select subcategory / variant';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                if (shouldShowManualConsumableVariantField) ...[
+                  TextFormField(
+                    controller: manualConsumableVariantController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: inputDecoration(
+                      'Consumable Subcategory / Variant (optional)',
+                    ),
+                    onChanged: (_) {
+                      setState(() {
+                        _refreshConsumableTypePreview();
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                if (isOtherConsumableCategory) ...[
+                  TextFormField(
+                    controller: manualConsumableNameController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: inputDecoration(
+                      'Consumable Item Name / Variant',
+                    ),
+                    onChanged: (_) {
+                      setState(() {
+                        _refreshConsumableTypePreview();
+                      });
+                    },
+                    validator: (value) {
+                      if (selectedMainType == 'consumable' &&
+                          isOtherConsumableCategory &&
+                          (value == null || value.trim().isEmpty)) {
+                        return 'Enter consumable item name';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                if ((selectedConsumableType ?? '').trim().isNotEmpty) ...[
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(
+                          Icons.inventory_2_outlined,
+                          color: Color(0xFF14B8A6),
+                          size: 18,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Will save as: ${selectedConsumableType!}',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                ],
               ],
 
               buildDropdown(
