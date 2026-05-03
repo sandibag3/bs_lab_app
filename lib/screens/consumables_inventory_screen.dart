@@ -47,6 +47,25 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     return consumableType.trim().toLowerCase();
   }
 
+  static const List<String> _categoryOrder = [
+    'Gloves',
+    'Syringes',
+    'Balloons',
+    'Needles',
+    'Filter Paper',
+    'Silica',
+    'TLC Plates',
+    'Cotton',
+    'Rubber Band',
+    'Tubes',
+    'Joint Clips',
+    'Grease',
+    'Teflon',
+    'Reflux Pumps',
+    'Column Pumps',
+    'Others',
+  ];
+
   bool _matchesCurrentLab(Map<String, dynamic> data) {
     final labId = (data['labId'] ?? '').toString().trim();
     return AppState.instance.matchesSelectedLabId(labId);
@@ -159,6 +178,255 @@ class ConsumablesInventoryScreen extends StatelessWidget {
             : vendors.first,
       );
     }).toList();
+  }
+
+  _ConsumableTypeParts _parseConsumableType(String consumableType) {
+    final cleanType = consumableType.trim();
+    if (cleanType.isEmpty) {
+      return const _ConsumableTypeParts(
+        category: 'Others',
+        variant: 'Unnamed',
+      );
+    }
+
+    final normalized = cleanType.toLowerCase();
+
+    if (normalized.contains('preparative tlc')) {
+      return const _ConsumableTypeParts(
+        category: 'TLC Plates',
+        variant: 'Preparative',
+      );
+    }
+
+    if (normalized.contains('tlc')) {
+      return const _ConsumableTypeParts(
+        category: 'TLC Plates',
+        variant: 'Normal',
+      );
+    }
+
+    if (normalized.startsWith('gloves')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Gloves',
+      );
+    }
+
+    if (normalized.startsWith('syringe')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Syringes',
+      );
+    }
+
+    if (normalized.startsWith('balloon') || normalized.contains('balloon')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Balloons',
+      );
+    }
+
+    if (normalized.startsWith('needle') || normalized.contains('needle')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Needles',
+      );
+    }
+
+    if (normalized.contains('filter paper')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Filter Paper',
+      );
+    }
+
+    if (normalized.startsWith('silica') || normalized.contains('silica')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Silica',
+      );
+    }
+
+    if (normalized.startsWith('cotton') || normalized.contains('cotton')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Cotton',
+      );
+    }
+
+    if (normalized.contains('rubber band')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Rubber Band',
+      );
+    }
+
+    if (normalized.startsWith('tube') || normalized.contains('tube')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Tubes',
+      );
+    }
+
+    if (normalized.startsWith('clips') ||
+        normalized.startsWith('clip') ||
+        normalized.contains('joint clip')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Joint Clips',
+      );
+    }
+
+    if (normalized.startsWith('grease') || normalized.contains('grease')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Grease',
+      );
+    }
+
+    if (normalized.startsWith('teflon') || normalized.contains('teflon')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Teflon',
+      );
+    }
+
+    if (normalized.startsWith('reflux pump') ||
+        normalized.contains('reflux pump')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Reflux Pumps',
+      );
+    }
+
+    if (normalized.startsWith('column pump') ||
+        normalized.contains('column pump')) {
+      return _mapTypeWithSuffix(
+        originalType: cleanType,
+        category: 'Column Pumps',
+      );
+    }
+
+    return _ConsumableTypeParts(category: 'Others', variant: cleanType);
+  }
+
+  _ConsumableTypeParts _mapTypeWithSuffix({
+    required String originalType,
+    required String category,
+    String defaultVariant = 'Standard',
+  }) {
+    final suffix = _extractVariantSuffix(originalType);
+    return _ConsumableTypeParts(
+      category: category,
+      variant: suffix.isEmpty ? defaultVariant : suffix,
+    );
+  }
+
+  String _extractVariantSuffix(String originalType) {
+    final parts = originalType.split(RegExp(r'\s*-\s*'));
+    if (parts.length <= 1) {
+      return '';
+    }
+
+    return parts.sublist(1).join(' - ').trim();
+  }
+
+  int _categorySortIndex(String category) {
+    final index = _categoryOrder.indexOf(category);
+    return index == -1 ? _categoryOrder.length : index;
+  }
+
+  int _variantSortWeight(String variant) {
+    final normalized = variant.trim().toLowerCase();
+    const specialWeights = {
+      'normal': 0,
+      'standard': 0,
+      'small': 1,
+      'medium': 2,
+      'large': 3,
+      'preparative': 4,
+    };
+
+    final specialWeight = specialWeights[normalized];
+    if (specialWeight != null) {
+      return specialWeight;
+    }
+
+    final numericMatch = RegExp(r'[-+]?\d*\.?\d+').firstMatch(normalized);
+    if (numericMatch != null) {
+      final value = double.tryParse(numericMatch.group(0) ?? '');
+      if (value != null) {
+        return 100 + (value * 10).round();
+      }
+    }
+
+    return 1000;
+  }
+
+  List<_ConsumableCategoryGroup> _groupItemsByCategory(
+    List<_ConsumableInventoryItem> items,
+  ) {
+    final grouped = <String, List<_ConsumableVariantItem>>{};
+
+    for (final item in items) {
+      final data = item.primaryDoc.data();
+      final consumableType = _readText(data, 'consumableType');
+      final parsedType = _parseConsumableType(consumableType);
+
+      grouped.putIfAbsent(parsedType.category, () => []).add(
+        _ConsumableVariantItem(
+          item: item,
+          variant: parsedType.variant,
+          consumableType: consumableType,
+        ),
+      );
+    }
+
+    final groups = grouped.entries.map((entry) {
+      final variants = [...entry.value];
+      variants.sort((a, b) {
+        final weightComparison = _variantSortWeight(
+          a.variant,
+        ).compareTo(_variantSortWeight(b.variant));
+        if (weightComparison != 0) {
+          return weightComparison;
+        }
+
+        return a.variant.toLowerCase().compareTo(b.variant.toLowerCase());
+      });
+
+      final totalQuantity = variants.fold<double?>(0, (total, variant) {
+        if (total == null || variant.item.numericQuantity == null) {
+          return null;
+        }
+        return total + variant.item.numericQuantity!;
+      });
+
+      final lowStockCount = variants.where((variant) {
+        final quantity = variant.item.numericQuantity;
+        return quantity != null && quantity <= 2;
+      }).length;
+
+      return _ConsumableCategoryGroup(
+        category: entry.key,
+        variants: variants,
+        totalQuantity: totalQuantity,
+        lowStockCount: lowStockCount,
+      );
+    }).toList();
+
+    groups.sort((a, b) {
+      final orderComparison = _categorySortIndex(
+        a.category,
+      ).compareTo(_categorySortIndex(b.category));
+      if (orderComparison != 0) {
+        return orderComparison;
+      }
+
+      return a.category.toLowerCase().compareTo(b.category.toLowerCase());
+    });
+
+    return groups;
   }
 
   Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _stockLogsStream({
@@ -411,6 +679,267 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     );
   }
 
+  void _openCategoryDetails({
+    required BuildContext context,
+    required _ConsumableCategoryGroup categoryGroup,
+  }) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => _ConsumableCategoryDetailScreen(
+          categoryGroup: categoryGroup,
+          formatQuantityNumber: _formatQuantityNumber,
+          variantCardBuilder: (screenContext, variantItem) {
+            return _buildVariantCard(
+              context: screenContext,
+              variantItem: variantItem,
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryTile({
+    required BuildContext context,
+    required _ConsumableCategoryGroup categoryGroup,
+  }) {
+    final totalQuantityLabel = categoryGroup.totalQuantity == null
+        ? 'Mixed'
+        : _formatQuantityNumber(categoryGroup.totalQuantity!);
+
+    return Material(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(20),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () =>
+            _openCategoryDetails(context: context, categoryGroup: categoryGroup),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white.withOpacity(0.06)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      categoryGroup.category,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                        height: 1.2,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    color: Colors.white38,
+                  ),
+                ],
+              ),
+              const Spacer(),
+              Text(
+                '${categoryGroup.variants.length} '
+                '${categoryGroup.variants.length == 1 ? 'variant' : 'variants'}',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _InfoChip(label: 'Total: $totalQuantityLabel'),
+                  _InfoChip(label: 'Low stock: ${categoryGroup.lowStockCount}'),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVariantCard({
+    required BuildContext context,
+    required _ConsumableVariantItem variantItem,
+  }) {
+    final item = variantItem.item;
+    final data = item.primaryDoc.data();
+    final quantity = item.quantityText;
+    final brand = item.brandLabel;
+    final vendor = item.vendorLabel;
+    final orderedBy = _readText(data, 'orderedBy');
+    final receivedBy = _readText(data, 'receivedBy');
+    final modeOfPurchase = _readText(data, 'modeOfPurchase');
+    final deliveredAt = _readTimestamp(data, 'deliveredAt');
+    final isLowStock = _isLowStock(quantity);
+    final brandStatus = brand.isEmpty ? 'Brand not set' : brand;
+
+    return Material(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _showItemHistory(context: context, item: item),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withOpacity(0.06)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          variantItem.variant,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        if (variantItem.consumableType.isNotEmpty &&
+                            variantItem.consumableType != variantItem.variant) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            variantItem.consumableType,
+                            style: const TextStyle(
+                              color: Colors.white54,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  if (isLowStock)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0x22FB7185),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        'Low Stock',
+                        style: TextStyle(
+                          color: Color(0xFFFB7185),
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                quantity.isEmpty ? 'Quantity not set' : quantity,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _InfoChip(label: 'Brand: $brandStatus'),
+                  if (vendor.isNotEmpty) _InfoChip(label: 'Vendor: $vendor'),
+                  if (modeOfPurchase.isNotEmpty)
+                    _InfoChip(label: 'Mode: $modeOfPurchase'),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Ordered by: ${orderedBy.isEmpty ? '-' : orderedBy}',
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 12.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Received by: ${receivedBy.isEmpty ? '-' : receivedBy}',
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 12.5,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Delivered on: ${_formatDate(deliveredAt)}',
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 12.5,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _StockActionButton(
+                    label: 'Use Stock',
+                    icon: Icons.remove_circle_outline_rounded,
+                    color: const Color(0xFFF59E0B),
+                    onTap: () => _openStockSheet(
+                      context: context,
+                      doc: item.primaryDoc,
+                      action: 'used',
+                      currentQuantityOverride: item.numericQuantity,
+                    ),
+                  ),
+                  _StockActionButton(
+                    label: 'Add Stock',
+                    icon: Icons.add_circle_outline_rounded,
+                    color: const Color(0xFF34D399),
+                    onTap: () => _openStockSheet(
+                      context: context,
+                      doc: item.primaryDoc,
+                      action: 'added',
+                      currentQuantityOverride: item.numericQuantity,
+                    ),
+                  ),
+                  _StockActionButton(
+                    label: 'View History',
+                    icon: Icons.history_rounded,
+                    color: const Color(0xFF38BDF8),
+                    onTap: () => _showItemHistory(
+                      context: context,
+                      item: item,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -447,8 +976,9 @@ class ConsumablesInventoryScreen extends StatelessWidget {
                   .toList(),
             );
             final items = _groupDocs(docs);
+            final categoryGroups = _groupItemsByCategory(items);
 
-            if (items.isEmpty) {
+            if (categoryGroups.isEmpty) {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
@@ -461,182 +991,29 @@ class ConsumablesInventoryScreen extends StatelessWidget {
               );
             }
 
-            return ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: items.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                final item = items[index];
-                final data = item.primaryDoc.data();
-                final consumableType = _readText(data, 'consumableType');
-                final quantity = item.quantityText;
-                final brand = item.brandLabel;
-                final vendor = item.vendorLabel;
-                final orderedBy = _readText(data, 'orderedBy');
-                final receivedBy = _readText(data, 'receivedBy');
-                final modeOfPurchase = _readText(data, 'modeOfPurchase');
-                final deliveredAt = _readTimestamp(data, 'deliveredAt');
-                final isLowStock = _isLowStock(quantity);
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final crossAxisCount = constraints.maxWidth >= 980
+                    ? 4
+                    : constraints.maxWidth >= 720
+                    ? 3
+                    : 2;
 
-                return Material(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(18),
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(18),
-                    onTap: () => _showItemHistory(context: context, item: item),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.06),
-                        ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  consumableType.isEmpty
-                                      ? 'Consumable'
-                                      : consumableType,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0x2238BDF8),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Text(
-                                  'Consumable',
-                                  style: TextStyle(
-                                    color: Color(0xFF38BDF8),
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              if (isLowStock) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 5,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0x22FB7185),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: const Text(
-                                    'Low Stock',
-                                    style: TextStyle(
-                                      color: Color(0xFFFB7185),
-                                      fontSize: 11.5,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            quantity.isEmpty ? 'Quantity not set' : quantity,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              if (brand.isNotEmpty)
-                                _InfoChip(label: 'Brand: $brand'),
-                              if (vendor.isNotEmpty)
-                                _InfoChip(label: 'Vendor: $vendor'),
-                              if (modeOfPurchase.isNotEmpty)
-                                _InfoChip(label: 'Mode: $modeOfPurchase'),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Ordered by: ${orderedBy.isEmpty ? '-' : orderedBy}',
-                            style: const TextStyle(
-                              color: Colors.white60,
-                              fontSize: 12.5,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Received by: ${receivedBy.isEmpty ? '-' : receivedBy}',
-                            style: const TextStyle(
-                              color: Colors.white60,
-                              fontSize: 12.5,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Delivered on: ${_formatDate(deliveredAt)}',
-                            style: const TextStyle(
-                              color: Colors.white60,
-                              fontSize: 12.5,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              _StockActionButton(
-                                label: 'Use Stock',
-                                icon: Icons.remove_circle_outline_rounded,
-                                color: const Color(0xFFF59E0B),
-                                onTap: () => _openStockSheet(
-                                  context: context,
-                                  doc: item.primaryDoc,
-                                  action: 'used',
-                                  currentQuantityOverride: item.numericQuantity,
-                                ),
-                              ),
-                              _StockActionButton(
-                                label: 'Add Stock',
-                                icon: Icons.add_circle_outline_rounded,
-                                color: const Color(0xFF34D399),
-                                onTap: () => _openStockSheet(
-                                  context: context,
-                                  doc: item.primaryDoc,
-                                  action: 'added',
-                                  currentQuantityOverride: item.numericQuantity,
-                                ),
-                              ),
-                              _StockActionButton(
-                                label: 'View History',
-                                icon: Icons.history_rounded,
-                                color: const Color(0xFF38BDF8),
-                                onTap: () => _showItemHistory(
-                                  context: context,
-                                  item: item,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
+                return GridView.builder(
+                  padding: const EdgeInsets.all(16),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: crossAxisCount,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: constraints.maxWidth >= 720 ? 1.35 : 1.2,
                   ),
+                  itemCount: categoryGroups.length,
+                  itemBuilder: (context, index) {
+                    return _buildCategoryTile(
+                      context: context,
+                      categoryGroup: categoryGroups[index],
+                    );
+                  },
                 );
               },
             );
@@ -663,6 +1040,104 @@ class _ConsumableInventoryItem {
     required this.brandLabel,
     required this.vendorLabel,
   });
+}
+
+class _ConsumableTypeParts {
+  final String category;
+  final String variant;
+
+  const _ConsumableTypeParts({
+    required this.category,
+    required this.variant,
+  });
+}
+
+class _ConsumableVariantItem {
+  final _ConsumableInventoryItem item;
+  final String variant;
+  final String consumableType;
+
+  const _ConsumableVariantItem({
+    required this.item,
+    required this.variant,
+    required this.consumableType,
+  });
+}
+
+class _ConsumableCategoryGroup {
+  final String category;
+  final List<_ConsumableVariantItem> variants;
+  final double? totalQuantity;
+  final int lowStockCount;
+
+  const _ConsumableCategoryGroup({
+    required this.category,
+    required this.variants,
+    required this.totalQuantity,
+    required this.lowStockCount,
+  });
+}
+
+class _ConsumableCategoryDetailScreen extends StatelessWidget {
+  final _ConsumableCategoryGroup categoryGroup;
+  final String Function(double) formatQuantityNumber;
+  final Widget Function(BuildContext, _ConsumableVariantItem) variantCardBuilder;
+
+  const _ConsumableCategoryDetailScreen({
+    required this.categoryGroup,
+    required this.formatQuantityNumber,
+    required this.variantCardBuilder,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final totalQuantityLabel = categoryGroup.totalQuantity == null
+        ? 'Mixed'
+        : formatQuantityNumber(categoryGroup.totalQuantity!);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(
+          categoryGroup.category,
+          style: const TextStyle(color: Colors.white),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.white.withOpacity(0.06)),
+              ),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _InfoChip(
+                    label:
+                        '${categoryGroup.variants.length} ${categoryGroup.variants.length == 1 ? 'variant' : 'variants'}',
+                  ),
+                  _InfoChip(label: 'Total: $totalQuantityLabel'),
+                  _InfoChip(label: 'Low stock: ${categoryGroup.lowStockCount}'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 14),
+            ...categoryGroup.variants.map((variant) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: variantCardBuilder(context, variant),
+              );
+            }),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _InfoChip extends StatelessWidget {
