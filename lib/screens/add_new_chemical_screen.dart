@@ -10,8 +10,9 @@ import '../services/chemical_label_service.dart';
 
 class AddNewChemicalScreen extends StatefulWidget {
   final OrderModel? order;
+  final ChemicalModel? manualPrefill;
 
-  const AddNewChemicalScreen({super.key, this.order});
+  const AddNewChemicalScreen({super.key, this.order, this.manualPrefill});
 
   @override
   State<AddNewChemicalScreen> createState() => _AddNewChemicalScreenState();
@@ -129,27 +130,53 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     super.initState();
 
     final order = widget.order;
+    final manualPrefill = widget.manualPrefill;
     final deliveredDate = order?.deliveredAt?.toDate();
 
     chemicalNameController = TextEditingController(
-      text: order?.chemicalName ?? '',
+      text: manualPrefill?.chemicalName ?? order?.chemicalName ?? '',
     );
-    casController = TextEditingController(text: order?.cas ?? '');
-    brandController = TextEditingController(text: order?.brand ?? '');
-    quantityController = TextEditingController(text: order?.quantity ?? '');
-    formulaController = TextEditingController();
-    molWtController = TextEditingController();
-    catNumberController = TextEditingController();
+    casController = TextEditingController(
+      text: manualPrefill?.cas ?? order?.cas ?? '',
+    );
+    brandController = TextEditingController(
+      text: manualPrefill?.brand ?? order?.brand ?? '',
+    );
+    quantityController = TextEditingController(
+      text: manualPrefill?.quantity ?? order?.quantity ?? '',
+    );
+    formulaController = TextEditingController(text: manualPrefill?.formula ?? '');
+    molWtController = TextEditingController(text: manualPrefill?.molWt ?? '');
+    catNumberController = TextEditingController(
+      text: manualPrefill?.catNumber ?? '',
+    );
     arrivalDateController = TextEditingController(
-      text: deliveredDate == null
-          ? ''
-          : '${deliveredDate.day.toString().padLeft(2, '0')}/${deliveredDate.month.toString().padLeft(2, '0')}/${deliveredDate.year}',
+      text: manualPrefill?.arrivalDate ??
+          (deliveredDate == null
+              ? ''
+              : '${deliveredDate.day.toString().padLeft(2, '0')}/${deliveredDate.month.toString().padLeft(2, '0')}/${deliveredDate.year}'),
     );
-    orderedByController = TextEditingController(text: order?.orderedBy ?? '');
-    labelController = TextEditingController();
+    orderedByController = TextEditingController(
+      text: manualPrefill?.orderedBy ?? order?.orderedBy ?? '',
+    );
+    labelController = TextEditingController(text: manualPrefill?.label ?? '');
     sheetTabController = TextEditingController();
     carbonCountController = TextEditingController();
     catalystMetalController = TextEditingController();
+
+    selectedLocation = locationOptions.contains(manualPrefill?.location)
+        ? manualPrefill!.location
+        : null;
+    selectedTexture = textureOptions.contains(manualPrefill?.texture)
+        ? manualPrefill!.texture
+        : null;
+    if ((manualPrefill?.functionalGroups ?? '').trim().isNotEmpty) {
+      selectedFunctionalGroups = manualPrefill!.functionalGroups
+          .split(',')
+          .map((e) => e.trim())
+          .where((e) => functionalGroupOptions.contains(e))
+          .toList();
+    }
 
     _prefillFromCas();
   }

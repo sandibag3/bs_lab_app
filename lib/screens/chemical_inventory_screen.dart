@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/chemical_model.dart';
 import '../services/inventory_service.dart';
+import 'add_new_chemical_screen.dart';
 import 'chemical_detail_screen.dart';
 
 enum InventorySortOption {
@@ -268,6 +269,48 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     }
   }
 
+  Future<void> _startManualEntry(ChemicalModel chemical) async {
+    final shouldContinue = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF1E293B),
+          title: const Text(
+            'Manual stock entry',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: const Text(
+            'Use this only for old stock, external purchases, or bottles not added through Orders.',
+            style: TextStyle(color: Colors.white70, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF14B8A6),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Continue'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldContinue != true || !mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddNewChemicalScreen(manualPrefill: chemical),
+      ),
+    );
+  }
+
   Widget _buildQuickActionButton({
     String? label,
     required IconData icon,
@@ -494,9 +537,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                           _buildQuickActionButton(
                             icon: Icons.add_circle_outline,
                             color: const Color(0xFF14B8A6),
-                            onTap: () => _showQuickActionMessage(
-                              'Manual entry coming soon',
-                            ),
+                            onTap: () => _startManualEntry(main),
                           ),
                         ],
                       ),
