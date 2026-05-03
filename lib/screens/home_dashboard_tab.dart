@@ -1,13 +1,14 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/chemical_model.dart';
+import '../models/event_model.dart';
 import '../models/order_model.dart';
 import '../models/requirement_model.dart';
 import '../models/user_profile.dart';
+import '../services/event_service.dart';
 import '../services/inventory_service.dart';
 import '../services/order_service.dart';
 import '../services/requirement_service.dart';
@@ -681,72 +682,41 @@ class _HeroProfileInitials extends StatelessWidget {
   }
 }
 
-class _DashboardEvent {
-  final String title;
-  final String detail;
-
-  const _DashboardEvent({required this.title, required this.detail});
-}
-
-class _UpcomingEventsPreview extends StatefulWidget {
+class _UpcomingEventsPreview extends StatelessWidget {
   final VoidCallback onViewAll;
 
   const _UpcomingEventsPreview({required this.onViewAll});
 
-  @override
-  State<_UpcomingEventsPreview> createState() => _UpcomingEventsPreviewState();
-}
+  String _formatDateTime(DateTime value) {
+    final monthNames = const [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+    final minute = value.minute.toString().padLeft(2, '0');
+    final meridiem = value.hour >= 12 ? 'PM' : 'AM';
+    return '${value.day} ${monthNames[value.month - 1]}, $hour:$minute $meridiem';
+  }
 
-class _UpcomingEventsPreviewState extends State<_UpcomingEventsPreview> {
+  List<EventModel> _nextUpcomingEvents(List<EventModel> events) {
+    final now = DateTime.now();
+    return events
+        .where((event) => !event.isCompleted && !event.scheduledAt.isBefore(now))
+        .take(3)
+        .toList();
+  }
+
   static const double _eventItemHeight = 52;
-  static const List<_DashboardEvent> _events = [
-    _DashboardEvent(
-      title: 'Research Seminar',
-      detail: 'Today, 3:00 PM · CSB Seminar Hall',
-    ),
-    _DashboardEvent(
-      title: 'Solvent Collection',
-      detail: 'Tomorrow, 11:00 AM · Lab',
-    ),
-    _DashboardEvent(
-      title: 'Waste Disposal',
-      detail: 'Friday, 4:30 PM · Collection point',
-    ),
-    _DashboardEvent(
-      title: 'Instrument Booking Review',
-      detail: 'Monday, 10:00 AM · CSB-4202',
-    ),
-  ];
-
-  late final PageController _controller;
-  Timer? _timer;
-  int _page = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = PageController(viewportFraction: 1 / 3);
-    _timer = Timer.periodic(const Duration(milliseconds: 2600), (_) {
-      if (!mounted || !_controller.hasClients) {
-        return;
-      }
-
-      _page += 1;
-      _controller.animateToPage(
-        _page,
-        duration: const Duration(milliseconds: 520),
-        curve: Curves.easeOutCubic,
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _controller.dispose();
-    super.dispose();
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -770,7 +740,7 @@ class _UpcomingEventsPreviewState extends State<_UpcomingEventsPreview> {
                 ),
               ),
               TextButton(
-                onPressed: widget.onViewAll,
+                onPressed: onViewAll,
                 style: TextButton.styleFrom(
                   foregroundColor: const Color(0xFFF59E0B),
                   padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -785,18 +755,51 @@ class _UpcomingEventsPreviewState extends State<_UpcomingEventsPreview> {
             ],
           ),
           const SizedBox(height: 6),
-          SizedBox(
-            height: _eventItemHeight * 3,
-            child: PageView.builder(
-              controller: _controller,
-              scrollDirection: Axis.vertical,
-              physics: const NeverScrollableScrollPhysics(),
-              padEnds: false,
-              itemBuilder: (context, index) {
-                final event = _events[index % _events.length];
-                return _UpcomingEventTile(event: event);
-              },
-            ),
+          StreamBuilder<List<EventModel>>(
+            stream: EventService().getEvents(),
+            builder: (context, snapshot) {
+              final upcomingEvents = _nextUpcomingEvents(snapshot.data ?? []);
+
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  upcomingEvents.isEmpty) {
+                return const SizedBox(
+                  height: _eventItemHeight,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      color: Color(0xFF14B8A6),
+                    ),
+                  ),
+                );
+              }
+
+              if (upcomingEvents.isEmpty) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'No upcoming events for this lab yet.',
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12.8,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              return Column(
+                children: upcomingEvents.map((event) {
+                  return _UpcomingEventTile(
+                    title: event.title.trim().isEmpty
+                        ? 'Untitled Event'
+                        : event.title.trim(),
+                    detail: _formatDateTime(event.scheduledAt),
+                  );
+                }).toList(),
+              );
+            },
           ),
         ],
       ),
@@ -805,14 +808,15 @@ class _UpcomingEventsPreviewState extends State<_UpcomingEventsPreview> {
 }
 
 class _UpcomingEventTile extends StatelessWidget {
-  final _DashboardEvent event;
+  final String title;
+  final String detail;
 
-  const _UpcomingEventTile({required this.event});
+  const _UpcomingEventTile({required this.title, required this.detail});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: _UpcomingEventsPreviewState._eventItemHeight,
+      height: _UpcomingEventsPreview._eventItemHeight,
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
@@ -831,7 +835,7 @@ class _UpcomingEventTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  event.title,
+                  title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -842,7 +846,7 @@ class _UpcomingEventTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  event.detail,
+                  detail,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1094,3 +1098,4 @@ class _LabActionTile extends StatelessWidget {
     );
   }
 }
+

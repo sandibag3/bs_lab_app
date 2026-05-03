@@ -1,4 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import '../app_state.dart';
+import '../models/event_model.dart';
+import '../services/event_service.dart';
 
 class AddEventScreen extends StatefulWidget {
   const AddEventScreen({super.key});
@@ -9,30 +13,14 @@ class AddEventScreen extends StatefulWidget {
 
 class _AddEventScreenState extends State<AddEventScreen> {
   final _formKey = GlobalKey<FormState>();
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final EventService _eventService = EventService();
 
-  String? selectedEventType;
-  String? selectedVenue;
+  DateTime? _selectedDateTime;
+  bool _isSaving = false;
 
-  final TextEditingController dateTimeController = TextEditingController();
-
-  final List<String> eventTypes = [
-    'Research Seminar',
-    'Literature Seminar',
-    'Solvent Collection',
-    'Waste Disposal',
-    'Chemical Rearrangement',
-    'Celebrations',
-  ];
-
-  final List<String> venues = [
-    'CSB-4202',
-    'CSB-2206',
-    'CSB-Seminar Hall',
-    'LHC',
-    'Lab',
-  ];
-
-  InputDecoration inputDecoration(String label) {
+  InputDecoration _inputDecoration(String label) {
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(color: Colors.white70),
@@ -45,69 +33,150 @@ class _AddEventScreenState extends State<AddEventScreen> {
     );
   }
 
-  Future<void> pickDateTime() async {
-    final DateTime now = DateTime.now();
+  String _formatDateTime(DateTime value) {
+    final monthNames = const [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final hour = value.hour % 12 == 0 ? 12 : value.hour % 12;
+    final minute = value.minute.toString().padLeft(2, '0');
+    final meridiem = value.hour >= 12 ? 'PM' : 'AM';
+    return '${value.day} ${monthNames[value.month - 1]} ${value.year}, $hour:$minute $meridiem';
+  }
 
-    final DateTime? pickedDate = await showDatePicker(
+  Future<void> _pickDateTime() async {
+    final now = DateTime.now();
+    final initial = _selectedDateTime ?? now;
+    final pickedDate = await showDatePicker(
       context: context,
-      initialDate: now,
-      firstDate: now.subtract(const Duration(days: 1)),
+      initialDate: initial,
+      firstDate: now.subtract(const Duration(days: 365)),
       lastDate: DateTime(now.year + 5),
       builder: (context, child) {
-        return Theme(
-          data: ThemeData.dark(),
-          child: child!,
-        );
+        return Theme(data: ThemeData.dark(), child: child!);
       },
     );
 
-    if (pickedDate == null) return;
+    if (pickedDate == null) {
+      return;
+    }
 
-    final TimeOfDay? pickedTime = await showTimePicker(
+    final pickedTime = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.now(),
+      initialTime: TimeOfDay.fromDateTime(initial),
       builder: (context, child) {
-        return Theme(
-          data: ThemeData.dark(),
-          child: child!,
-        );
+        return Theme(data: ThemeData.dark(), child: child!);
       },
     );
 
-    if (pickedTime == null) return;
+    if (pickedTime == null) {
+      return;
+    }
 
     setState(() {
-      dateTimeController.text =
-          '${pickedDate.day}/${pickedDate.month}/${pickedDate.year}  ${pickedTime.format(context)}';
+      _selectedDateTime = DateTime(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime.hour,
+        pickedTime.minute,
+      );
     });
   }
 
-  void submitEvent() {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _saveEvent() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Event added successfully'),
-      ),
-    );
+    final scheduledAt = _selectedDateTime;
+    if (scheduledAt == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select a date and time for the event')),
+      );
+      return;
+    }
 
-    Navigator.pop(context);
+    final appState = AppState.instance;
+    final labId = appState.resolveWriteLabId().trim();
+    if (labId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Select or join a lab before creating an event'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final event = EventModel(
+        id: '',
+        labId: labId,
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        dateTime: Timestamp.fromDate(scheduledAt),
+        createdBy: appState.authenticatedUserName,
+        createdById: appState.authenticatedUserId,
+        isCompleted: false,
+        createdAt: Timestamp.now(),
+        completedAt: null,
+      );
+
+      await _eventService.addEvent(event);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Event created')));
+      Navigator.pop(context);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not create event: $error')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   @override
   void dispose() {
-    dateTimeController.dispose();
+    _titleController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final selectedLabName = AppState.instance.selectedLabName.trim();
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Add Event',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Create Event', style: TextStyle(color: Colors.white)),
       ),
       body: SafeArea(
         child: Form(
@@ -115,76 +184,83 @@ class _AddEventScreenState extends State<AddEventScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              DropdownButtonFormField<String>(
-                value: selectedEventType,
-                dropdownColor: const Color(0xFF1E293B),
-                style: const TextStyle(color: Colors.white),
-                decoration: inputDecoration('Event Type'),
-                items: eventTypes
-                    .map(
-                      (item) => DropdownMenuItem<String>(
-                        value: item,
+              if (selectedLabName.isNotEmpty) ...[
+                Container(
+                  margin: const EdgeInsets.only(bottom: 16),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.apartment_rounded,
+                        color: Color(0xFF14B8A6),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
                         child: Text(
-                          item,
-                          style: const TextStyle(color: Colors.white),
+                          'Creating event for $selectedLabName',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13.5,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedEventType = value;
-                  });
-                },
+                    ],
+                  ),
+                ),
+              ],
+              TextFormField(
+                controller: _titleController,
+                style: const TextStyle(color: Colors.white),
+                decoration: _inputDecoration('Title'),
+                textInputAction: TextInputAction.next,
                 validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Select event type';
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Enter an event title';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 14),
               TextFormField(
-                controller: dateTimeController,
-                readOnly: true,
+                controller: _descriptionController,
                 style: const TextStyle(color: Colors.white),
-                decoration: inputDecoration('Date & Time'),
-                onTap: pickDateTime,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Select date and time';
-                  }
-                  return null;
-                },
+                decoration: _inputDecoration('Description (optional)'),
+                maxLines: 3,
               ),
               const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                value: selectedVenue,
-                dropdownColor: const Color(0xFF1E293B),
-                style: const TextStyle(color: Colors.white),
-                decoration: inputDecoration('Venue'),
-                items: venues
-                    .map(
-                      (item) => DropdownMenuItem<String>(
-                        value: item,
+              InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: _pickDateTime,
+                child: InputDecorator(
+                  decoration: _inputDecoration('Date & Time'),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.schedule_rounded,
+                        color: Color(0xFF14B8A6),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
                         child: Text(
-                          item,
-                          style: const TextStyle(color: Colors.white),
+                          _selectedDateTime == null
+                              ? 'Select date and time'
+                              : _formatDateTime(_selectedDateTime!),
+                          style: TextStyle(
+                            color: _selectedDateTime == null
+                                ? Colors.white60
+                                : Colors.white,
+                            fontSize: 14,
+                          ),
                         ),
                       ),
-                    )
-                    .toList(),
-                onChanged: (value) {
-                  setState(() {
-                    selectedVenue = value;
-                  });
-                },
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Select venue';
-                  }
-                  return null;
-                },
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 18),
               Container(
@@ -194,7 +270,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: const Text(
-                  'Later this will support automatic movement from upcoming events to past events, and creator editing until 15 minutes before the event.',
+                  'Events stay lab-specific and show up on the dashboard upcoming events list automatically.',
                   style: TextStyle(
                     color: Colors.white60,
                     fontSize: 12.5,
@@ -206,16 +282,25 @@ class _AddEventScreenState extends State<AddEventScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: submitEvent,
+                  onPressed: _isSaving ? null : _saveEvent,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF14B8A6),
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text(
-                    'Add Event',
-                    style: TextStyle(fontSize: 15),
-                  ),
+                  child: _isSaving
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          'Create Event',
+                          style: TextStyle(fontSize: 15),
+                        ),
                 ),
               ),
             ],
