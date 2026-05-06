@@ -9,14 +9,65 @@ import '../services/instrument_service.dart';
 import 'add_instrument_screen.dart';
 import 'instrument_detail_screen.dart';
 
-class InstrumentsScreen extends StatelessWidget {
+class InstrumentsScreen extends StatefulWidget {
   const InstrumentsScreen({super.key});
+
+  @override
+  State<InstrumentsScreen> createState() => _InstrumentsScreenState();
+}
+
+class _InstrumentsScreenState extends State<InstrumentsScreen> {
+  static const List<String> _statusFilterOptions = [
+    'All',
+    'Working',
+    'Needs service',
+    'Under maintenance',
+    'Out of order',
+  ];
+
+  final TextEditingController _searchController = TextEditingController();
+  String _selectedStatusFilter = _statusFilterOptions.first;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   void _openAddInstrument(BuildContext context) {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const AddInstrumentScreen()),
     );
+  }
+
+  bool _matchesSearch(InstrumentModel instrument, String query) {
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) {
+      return true;
+    }
+
+    final searchableText = [
+      instrument.normalizedName,
+      instrument.brand,
+      instrument.normalizedCategory,
+      instrument.serialNo,
+      instrument.instrumentIncharge,
+    ].join(' ').toLowerCase();
+
+    return searchableText.contains(normalizedQuery);
+  }
+
+  List<InstrumentModel> _applyFilters(List<InstrumentModel> instruments) {
+    final query = _searchController.text.trim();
+
+    return instruments.where((instrument) {
+      final matchesSearch = _matchesSearch(instrument, query);
+      final matchesStatus = _selectedStatusFilter == 'All'
+          ? true
+          : instrument.normalizedStatus == _selectedStatusFilter;
+      return matchesSearch && matchesStatus;
+    }).toList();
   }
 
   List<_InstrumentCategoryGroup> _buildCategoryGroups(
@@ -35,6 +86,87 @@ class InstrumentsScreen extends StatelessWidget {
 
       return _InstrumentCategoryGroup(category: category, instruments: items);
     }).toList();
+  }
+
+  bool get _hasActiveFilters {
+    return _searchController.text.trim().isNotEmpty ||
+        _selectedStatusFilter != 'All';
+  }
+
+  Widget _buildSearchBar() {
+    return TextField(
+      controller: _searchController,
+      style: const TextStyle(color: Colors.white),
+      onChanged: (_) {
+        setState(() {});
+      },
+      decoration: InputDecoration(
+        hintText: 'Search by name, brand, category, serial no, or in-charge',
+        hintStyle: const TextStyle(color: Colors.white54),
+        prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70),
+        suffixIcon: _searchController.text.trim().isEmpty
+            ? null
+            : IconButton(
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {});
+                },
+                icon: const Icon(
+                  Icons.close_rounded,
+                  color: Colors.white54,
+                ),
+              ),
+        filled: true,
+        fillColor: const Color(0xFF111827),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(18),
+          borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusFilters() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: _statusFilterOptions.map((status) {
+          final isSelected = status == _selectedStatusFilter;
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(status),
+              selected: isSelected,
+              onSelected: (_) {
+                setState(() {
+                  _selectedStatusFilter = status;
+                });
+              },
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : Colors.white70,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+              ),
+              backgroundColor: const Color(0xFF111827),
+              selectedColor: const Color(0xFF14B8A6),
+              side: BorderSide(
+                color: isSelected
+                    ? const Color(0xFF14B8A6)
+                    : Colors.white.withOpacity(0.08),
+              ),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(999),
+              ),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+          );
+        }).toList(),
+      ),
+    );
   }
 
   @override
@@ -64,7 +196,8 @@ class InstrumentsScreen extends StatelessWidget {
           }
 
           final instruments = snapshot.data ?? [];
-          final categoryGroups = _buildCategoryGroups(instruments);
+          final filteredInstruments = _applyFilters(instruments);
+          final categoryGroups = _buildCategoryGroups(filteredInstruments);
 
           return Padding(
             padding: const EdgeInsets.all(16),
@@ -76,18 +209,28 @@ class InstrumentsScreen extends StatelessWidget {
                   onAddInstrument: () => _openAddInstrument(context),
                 ),
                 const SizedBox(height: 14),
+                _buildSearchBar(),
+                const SizedBox(height: 12),
+                _buildStatusFilters(),
+                const SizedBox(height: 14),
                 if (instruments.isEmpty) ...[
                   const _InstrumentEmptyState(),
+                  const SizedBox(height: 14),
+                ] else if (filteredInstruments.isEmpty) ...[
+                  const _InstrumentFilteredEmptyState(),
                   const SizedBox(height: 14),
                 ],
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final crossAxisCount = constraints.maxWidth >= 980
-                          ? 3
-                          : constraints.maxWidth >= 640
-                          ? 2
-                          : 1;
+                      final crossAxisCount = constraints.maxWidth >= 1100
+                          ? 5
+                          : constraints.maxWidth >= 840
+                          ? 4
+                          : 3;
+                      final childAspectRatio = constraints.maxWidth >= 840
+                          ? 0.98
+                          : 0.84;
 
                       return GridView.builder(
                         itemCount: categoryGroups.length,
@@ -95,9 +238,7 @@ class InstrumentsScreen extends StatelessWidget {
                           crossAxisCount: crossAxisCount,
                           mainAxisSpacing: 12,
                           crossAxisSpacing: 12,
-                          childAspectRatio: constraints.maxWidth >= 640
-                              ? 1.45
-                              : 1.65,
+                          childAspectRatio: childAspectRatio,
                         ),
                         itemBuilder: (context, index) {
                           final group = categoryGroups[index];
@@ -109,6 +250,8 @@ class InstrumentsScreen extends StatelessWidget {
                                 MaterialPageRoute(
                                   builder: (_) => _InstrumentCategoryScreen(
                                     category: group.category,
+                                    instruments: group.instruments,
+                                    hasActiveFilters: _hasActiveFilters,
                                   ),
                                 ),
                               );
@@ -265,6 +408,32 @@ class _InstrumentEmptyState extends StatelessWidget {
   }
 }
 
+class _InstrumentFilteredEmptyState extends StatelessWidget {
+  const _InstrumentFilteredEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: const Text(
+        'No instruments match current filters.',
+        style: TextStyle(
+          color: Colors.white70,
+          fontSize: 13.2,
+          fontWeight: FontWeight.w600,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+}
+
 class _InstrumentCategoryTile extends StatelessWidget {
   final _InstrumentCategoryGroup group;
   final VoidCallback onTap;
@@ -283,58 +452,46 @@ class _InstrumentCategoryTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _InstrumentPreviewBox(
                 photoReference: group.previewPhoto,
                 fallbackIcon: _iconForCategory(group.category),
-                size: 74,
+                size: 48,
               ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      group.category,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        height: 1.25,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.06),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '${group.count} ${group.count == 1 ? 'instrument' : 'instruments'}',
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
+              const SizedBox(height: 10),
+              Text(
+                group.category,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11.8,
+                  fontWeight: FontWeight.w700,
+                  height: 1.2,
                 ),
               ),
-              const SizedBox(width: 10),
-              const Icon(
-                Icons.arrow_forward_ios_rounded,
-                color: Colors.white38,
-                size: 16,
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.06),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${group.count} ${group.count == 1 ? 'item' : 'items'}',
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
               ),
             ],
           ),
@@ -346,75 +503,52 @@ class _InstrumentCategoryTile extends StatelessWidget {
 
 class _InstrumentCategoryScreen extends StatelessWidget {
   final String category;
+  final List<InstrumentModel> instruments;
+  final bool hasActiveFilters;
 
-  const _InstrumentCategoryScreen({required this.category});
+  const _InstrumentCategoryScreen({
+    required this.category,
+    required this.instruments,
+    required this.hasActiveFilters,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final instrumentService = InstrumentService();
-
     return Scaffold(
       appBar: AppBar(
         title: Text(category, style: const TextStyle(color: Colors.white)),
       ),
       body: SafeArea(
-        child: StreamBuilder<List<InstrumentModel>>(
-          stream: instrumentService.getInstruments(),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return _InstrumentAccessState(
-                title: FirestoreAccessGuard.messageFor(snapshot.error),
-              );
-            }
-
-            if (!snapshot.hasData) {
-              return const Center(
-                child: CircularProgressIndicator(color: Color(0xFF14B8A6)),
-              );
-            }
-
-            final instruments = snapshot.data!
-                .where((instrument) => instrument.normalizedCategory == category)
-                .toList();
-
-            instruments.sort((a, b) {
-              return a.normalizedName.toLowerCase().compareTo(
-                b.normalizedName.toLowerCase(),
-              );
-            });
-
-            return ListView(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            Container(
               padding: const EdgeInsets.all(16),
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: Colors.white.withOpacity(0.06)),
-                  ),
-                  child: Text(
-                    '${instruments.length} ${instruments.length == 1 ? 'instrument' : 'instruments'} in this category.',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 13,
-                      height: 1.4,
-                    ),
-                  ),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: Colors.white.withOpacity(0.06)),
+              ),
+              child: Text(
+                '${instruments.length} ${instruments.length == 1 ? 'instrument' : 'instruments'} in this category.',
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.4,
                 ),
-                const SizedBox(height: 14),
-                if (instruments.isEmpty)
-                  const _CategoryEmptyState()
-                else
-                  ...instruments.map((instrument) {
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _InstrumentCard(instrument: instrument),
-                    );
-                  }),
-              ],
-            );
-          },
+              ),
+            ),
+            const SizedBox(height: 14),
+            if (instruments.isEmpty)
+              _CategoryEmptyState(hasActiveFilters: hasActiveFilters)
+            else
+              ...instruments.map((instrument) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _InstrumentCard(instrument: instrument),
+                );
+              }),
+          ],
         ),
       ),
     );
@@ -422,7 +556,9 @@ class _InstrumentCategoryScreen extends StatelessWidget {
 }
 
 class _CategoryEmptyState extends StatelessWidget {
-  const _CategoryEmptyState();
+  final bool hasActiveFilters;
+
+  const _CategoryEmptyState({required this.hasActiveFilters});
 
   @override
   Widget build(BuildContext context) {
@@ -433,9 +569,11 @@ class _CategoryEmptyState extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: Colors.white.withOpacity(0.06)),
       ),
-      child: const Text(
-        'No instruments added in this category yet.',
-        style: TextStyle(
+      child: Text(
+        hasActiveFilters
+            ? 'No instruments match current filters.'
+            : 'No instruments added in this category yet.',
+        style: const TextStyle(
           color: Colors.white70,
           fontSize: 13,
           height: 1.4,
@@ -505,6 +643,8 @@ class _InstrumentCard extends StatelessWidget {
                         height: 1.25,
                       ),
                     ),
+                    const SizedBox(height: 8),
+                    _InstrumentStatusBadge(status: instrument.normalizedStatus),
                     if (brand.isNotEmpty) ...[
                       const SizedBox(height: 8),
                       Text(
@@ -539,6 +679,58 @@ class _InstrumentCard extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _InstrumentStatusBadge extends StatelessWidget {
+  final String status;
+
+  const _InstrumentStatusBadge({required this.status});
+
+  Color _backgroundColor() {
+    switch (status) {
+      case 'Needs service':
+        return const Color(0xFF7C2D12);
+      case 'Out of order':
+        return const Color(0xFF7F1D1D);
+      case 'Under maintenance':
+        return const Color(0xFF1E3A8A);
+      default:
+        return const Color(0xFF14532D);
+    }
+  }
+
+  Color _textColor() {
+    switch (status) {
+      case 'Needs service':
+        return const Color(0xFFFBBF24);
+      case 'Out of order':
+        return const Color(0xFFFCA5A5);
+      case 'Under maintenance':
+        return const Color(0xFFBFDBFE);
+      default:
+        return const Color(0xFFBBF7D0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: _backgroundColor().withOpacity(0.3),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _textColor().withOpacity(0.35)),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          color: _textColor(),
+          fontSize: 11.8,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
