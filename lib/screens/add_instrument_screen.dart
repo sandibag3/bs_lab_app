@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../app_state.dart';
 import '../models/instrument_model.dart';
@@ -21,6 +24,7 @@ class AddInstrumentScreen extends StatefulWidget {
 class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
   final _formKey = GlobalKey<FormState>();
   final InstrumentService _instrumentService = InstrumentService();
+  final ImagePicker _imagePicker = ImagePicker();
 
   late final TextEditingController _nameController;
   late final TextEditingController _brandController;
@@ -34,7 +38,8 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
   late final TextEditingController _instrumentInchargeContactNoController;
   late final TextEditingController _serviceDetailsController;
 
-  final List<TextEditingController> _photoUrlControllers = [];
+  final List<String> _existingPhotoUrls = [];
+  final List<XFile> _pendingPhotoFiles = [];
 
   String _selectedCategory = InstrumentModel.categories.first;
   DateTime? _arrivedOn;
@@ -82,20 +87,11 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
       _instrumentInchargeContactNoController.text =
           existing.instrumentInchargeContactNo;
       _serviceDetailsController.text = existing.serviceDetails;
-
-      final photoUrls = existing.photoUrls
-          .where((value) => value.trim().isNotEmpty)
-          .toList();
-
-      if (photoUrls.isEmpty) {
-        _photoUrlControllers.add(TextEditingController());
-      } else {
-        for (final photoUrl in photoUrls) {
-          _photoUrlControllers.add(TextEditingController(text: photoUrl));
-        }
-      }
-    } else {
-      _photoUrlControllers.add(TextEditingController());
+      _existingPhotoUrls.addAll(
+        existing.photoUrls
+            .map((value) => value.trim())
+            .where((value) => value.isNotEmpty),
+      );
     }
   }
 
@@ -112,9 +108,6 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     _instrumentInchargeController.dispose();
     _instrumentInchargeContactNoController.dispose();
     _serviceDetailsController.dispose();
-    for (final controller in _photoUrlControllers) {
-      controller.dispose();
-    }
     super.dispose();
   }
 
@@ -155,6 +148,16 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     );
   }
 
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   Future<void> _selectArrivedOn() async {
     final picked = await _pickDate(_arrivedOn);
     if (picked == null) return;
@@ -185,7 +188,9 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
 
   Future<void> _selectInstrumentInchargeTenureTo() async {
     final picked = await _pickDate(
-      _instrumentInchargeTenureTo ?? _instrumentInchargeTenureFrom ?? _arrivedOn,
+      _instrumentInchargeTenureTo ??
+          _instrumentInchargeTenureFrom ??
+          _arrivedOn,
     );
     if (picked == null) return;
     setState(() {
@@ -193,28 +198,38 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     });
   }
 
-  void _addPhotoField() {
+  Future<void> _pickInstrumentPhoto() async {
+    try {
+      final pickedFile = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+      );
+      if (pickedFile == null) {
+        return;
+      }
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _pendingPhotoFiles.add(pickedFile);
+      });
+    } catch (_) {
+      _showMessage('Unable to pick image right now');
+    }
+  }
+
+  void _removeExistingPhoto(int index) {
     setState(() {
-      _photoUrlControllers.add(TextEditingController());
+      _existingPhotoUrls.removeAt(index);
     });
   }
 
-  void _removePhotoField(int index) {
-    if (_photoUrlControllers.length == 1) {
-      _photoUrlControllers.first.clear();
-      return;
-    }
-
-    final controller = _photoUrlControllers.removeAt(index);
-    controller.dispose();
-    setState(() {});
-  }
-
-  List<String> _collectPhotoUrls() {
-    return _photoUrlControllers
-        .map((controller) => controller.text.trim())
-        .where((value) => value.isNotEmpty)
-        .toList();
+  void _removePendingPhoto(int index) {
+    setState(() {
+      _pendingPhotoFiles.removeAt(index);
+    });
   }
 
   Widget _buildSectionCard({
@@ -309,19 +324,13 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     }
 
     if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(FirestoreAccessGuard.userMessage)),
-      );
+      _showMessage(FirestoreAccessGuard.userMessage);
       return;
     }
 
     final labId = AppState.instance.resolveWriteLabId().trim();
     if (labId.isEmpty) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text(FirestoreAccessGuard.userMessage)),
-      );
+      _showMessage(FirestoreAccessGuard.userMessage);
       return;
     }
 
@@ -332,8 +341,20 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     try {
       final existing = widget.existingInstrument;
       final now = Timestamp.now();
+      final instrumentId =
+          existing?.id.trim().isNotEmpty == true
+              ? existing!.id.trim()
+              : _instrumentService.createInstrumentId();
+
+      final photoUrls = [
+        ..._existingPhotoUrls,
+        ..._pendingPhotoFiles
+            .map((file) => file.path.trim())
+            .where((path) => path.isNotEmpty),
+      ];
+
       final instrument = InstrumentModel(
-        id: existing?.id ?? '',
+        id: instrumentId,
         labId: labId,
         name: _nameController.text.trim(),
         category: _selectedCategory,
@@ -362,18 +383,15 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
             existing?.serviceHistory ?? const <InstrumentServiceHistoryRecord>[],
         inchargeHistory:
             existing?.inchargeHistory ?? const <InstrumentInchargeHistoryRecord>[],
-        photoUrls: _collectPhotoUrls(),
+        photoUrls: photoUrls,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
       );
 
-      InstrumentModel savedInstrument = instrument;
-
       if (_isEditMode) {
         await _instrumentService.updateInstrument(instrument);
       } else {
-        final docId = await _instrumentService.addInstrument(instrument);
-        savedInstrument = instrument.copyWith(id: docId);
+        await _instrumentService.addInstrument(instrument);
       }
 
       if (!mounted) return;
@@ -386,12 +404,9 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
           ),
         ),
       );
-      Navigator.pop(context, savedInstrument);
+      Navigator.pop(context, instrument);
     } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(FirestoreAccessGuard.messageFor(error))),
-      );
+      _showMessage(FirestoreAccessGuard.messageFor(error));
     } finally {
       if (mounted) {
         setState(() {
@@ -403,6 +418,8 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final totalPhotos = _existingPhotoUrls.length + _pendingPhotoFiles.length;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -418,10 +435,9 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
             children: [
               _buildSectionCard(
                 title: 'Basic Information',
-                subtitle:
-                    _isEditMode
-                        ? 'Update the current lab-scoped instrument record. Photo upload is kept as URL or path text for now.'
-                        : 'Create a lab-scoped instrument record. Photo upload is kept as URL or path text for now.',
+                subtitle: _isEditMode
+                    ? 'Update the current lab-scoped instrument record.'
+                    : 'Create a lab-scoped instrument record.',
                 children: [
                   TextFormField(
                     controller: _nameController,
@@ -570,44 +586,71 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
               _buildSectionCard(
                 title: 'Instrument Photos',
                 subtitle:
-                    'Add one or more image URLs or local file paths for preview cards. File upload can come later.',
+                    'Pick instrument photos from the device. For now, selected local photo paths are saved directly with the instrument record.',
                 children: [
-                  ...List.generate(_photoUrlControllers.length, (index) {
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index == _photoUrlControllers.length - 1 ? 0 : 12,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: TextFormField(
-                              controller: _photoUrlControllers[index],
-                              style: const TextStyle(color: Colors.white),
-                              decoration: _inputDecoration(
-                                'Photo URL or local path ${index + 1}',
-                              ),
-                            ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          totalPhotos == 0
+                              ? 'No photos selected yet'
+                              : '$totalPhotos photo${totalPhotos == 1 ? '' : 's'} selected',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12.8,
                           ),
-                          const SizedBox(width: 10),
-                          IconButton(
-                            onPressed: _isSaving
-                                ? null
-                                : () => _removePhotoField(index),
-                            icon: const Icon(
-                              Icons.remove_circle_outline_rounded,
-                              color: Color(0xFFFB7185),
-                            ),
-                          ),
-                        ],
+                        ),
                       ),
-                    );
-                  }),
-                  const SizedBox(height: 12),
-                  OutlinedButton.icon(
-                    onPressed: _isSaving ? null : _addPhotoField,
-                    icon: const Icon(Icons.add_link_rounded),
-                    label: const Text('Add another photo reference'),
+                      OutlinedButton.icon(
+                        onPressed: _isSaving ? null : _pickInstrumentPhoto,
+                        icon: const Icon(Icons.add_a_photo_outlined),
+                        label: const Text('Add photo'),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 12),
+                  if (totalPhotos == 0)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF111827),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: const Text(
+                        'Selected photos will appear here before save.',
+                        style: TextStyle(
+                          color: Colors.white60,
+                          fontSize: 12.8,
+                          height: 1.4,
+                        ),
+                      ),
+                    )
+                  else
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        ...List.generate(_existingPhotoUrls.length, (index) {
+                          return _InstrumentPhotoPreviewTile(
+                            previewSource: _existingPhotoUrls[index],
+                            label: 'Saved',
+                            onRemove: _isSaving
+                                ? null
+                                : () => _removeExistingPhoto(index),
+                          );
+                        }),
+                        ...List.generate(_pendingPhotoFiles.length, (index) {
+                          return _InstrumentPhotoPreviewTile(
+                            previewSource: _pendingPhotoFiles[index].path,
+                            label: 'New',
+                            onRemove: _isSaving
+                                ? null
+                                : () => _removePendingPhoto(index),
+                          );
+                        }),
+                      ],
+                    ),
                 ],
               ),
               const SizedBox(height: 18),
@@ -642,6 +685,126 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _InstrumentPhotoPreviewTile extends StatelessWidget {
+  final String previewSource;
+  final String label;
+  final VoidCallback? onRemove;
+
+  const _InstrumentPhotoPreviewTile({
+    required this.previewSource,
+    required this.label,
+    required this.onRemove,
+  });
+
+  ImageProvider<Object>? _resolveImageProvider() {
+    final cleanReference = previewSource.trim();
+    if (cleanReference.isEmpty) {
+      return null;
+    }
+
+    final uri = Uri.tryParse(cleanReference);
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
+      return NetworkImage(cleanReference);
+    }
+
+    if (uri != null && uri.scheme == 'file') {
+      final file = File.fromUri(uri);
+      if (file.existsSync()) {
+        return FileImage(file);
+      }
+    }
+
+    final file = File(cleanReference);
+    if (file.existsSync()) {
+      return FileImage(file);
+    }
+
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final imageProvider = _resolveImageProvider();
+
+    return Container(
+      width: 104,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Stack(
+            children: [
+              Container(
+                height: 86,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: imageProvider == null
+                      ? const Center(
+                          child: Icon(
+                            Icons.image_not_supported_outlined,
+                            color: Colors.white38,
+                          ),
+                        )
+                      : Image(
+                          image: imageProvider,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) {
+                            return const Center(
+                              child: Icon(
+                                Icons.image_not_supported_outlined,
+                                color: Colors.white38,
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
+              Positioned(
+                top: 4,
+                right: 4,
+                child: Material(
+                  color: Colors.black54,
+                  borderRadius: BorderRadius.circular(999),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: onRemove,
+                    child: const Padding(
+                      padding: EdgeInsets.all(4),
+                      child: Icon(
+                        Icons.close_rounded,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11.8,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
