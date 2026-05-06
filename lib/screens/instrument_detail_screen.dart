@@ -47,6 +47,48 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
     return '$day/$month/$year';
   }
 
+  String _formatTenure(Timestamp? from, Timestamp? to) {
+    final fromText = from == null ? '' : _formatDate(from);
+    final toText = to == null ? '' : _formatDate(to);
+
+    if (fromText.isEmpty && toText.isEmpty) {
+      return 'Not set';
+    }
+
+    if (fromText.isNotEmpty && toText.isNotEmpty) {
+      return '$fromText to $toText';
+    }
+
+    if (fromText.isNotEmpty) {
+      return 'From $fromText';
+    }
+
+    return 'Until $toText';
+  }
+
+  Future<DateTime?> _pickDate(DateTime? initialDate) async {
+    final now = DateTime.now();
+    return showDatePicker(
+      context: context,
+      initialDate: initialDate ?? now,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(now.year + 15),
+      builder: (context, child) {
+        return Theme(data: ThemeData.dark(), child: child!);
+      },
+    );
+  }
+
+  void _showMessage(String message) {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   Future<void> _openEdit() async {
     final result = await Navigator.push<InstrumentModel>(
       context,
@@ -102,8 +144,6 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
       return;
     }
 
-    final messenger = ScaffoldMessenger.of(context);
-
     try {
       await _instrumentService.deleteInstrument(docId: _instrument.id);
 
@@ -111,19 +151,24 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
         return;
       }
 
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Instrument deleted')),
-      );
+      _showMessage('Instrument deleted');
       Navigator.pop(context, true);
     } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      messenger.showSnackBar(
-        SnackBar(content: Text(FirestoreAccessGuard.messageFor(error))),
-      );
+      _showMessage(FirestoreAccessGuard.messageFor(error));
     }
+  }
+
+  InputDecoration _sheetInputDecoration(String label) {
+    return InputDecoration(
+      labelText: label,
+      labelStyle: const TextStyle(color: Colors.white70),
+      filled: true,
+      fillColor: const Color(0xFF111827),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(16),
+        borderSide: BorderSide.none,
+      ),
+    );
   }
 
   Widget _buildField(String label, String value) {
@@ -161,6 +206,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
 
   Widget _buildSection({
     required String title,
+    String? actionLabel,
+    VoidCallback? onAction,
     required List<Widget> children,
   }) {
     return Container(
@@ -174,19 +221,577 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15.5,
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              if (actionLabel != null && onAction != null)
+                TextButton.icon(
+                  onPressed: onAction,
+                  icon: const Icon(
+                    Icons.add_circle_outline_rounded,
+                    size: 18,
+                  ),
+                  label: Text(actionLabel),
+                ),
+            ],
           ),
           const SizedBox(height: 14),
           ...children,
         ],
       ),
     );
+  }
+
+  Widget _buildDatePickerTile({
+    required String label,
+    required DateTime? value,
+    required VoidCallback onTap,
+  }) {
+    final display = value == null
+        ? 'Select date'
+        : '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}';
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF111827),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    display,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.calendar_today_rounded, color: Color(0xFF14B8A6)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHistoryEmptyState(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(
+          color: Colors.white60,
+          fontSize: 13,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildServiceHistoryCard(InstrumentServiceHistoryRecord record) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _displayValue(record.serviceIncharge),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Service date: ${_formatDate(record.serviceDate)}',
+            style: const TextStyle(color: Colors.white70, fontSize: 12.8),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Contact: ${_displayValue(record.serviceInchargeContactNo)}',
+            style: const TextStyle(color: Colors.white70, fontSize: 12.8),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Details: ${_displayValue(record.serviceDetails)}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12.8,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Added on: ${_formatDate(record.createdAt)}',
+            style: const TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInchargeHistoryCard(InstrumentInchargeHistoryRecord record) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _displayValue(record.instrumentIncharge),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Contact: ${_displayValue(record.instrumentInchargeContactNo)}',
+            style: const TextStyle(color: Colors.white70, fontSize: 12.8),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Tenure: ${_formatTenure(record.tenureFrom, record.tenureTo)}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12.8,
+              height: 1.4,
+            ),
+          ),
+          if (record.notes.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Notes: ${record.notes.trim()}',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12.8,
+                height: 1.4,
+              ),
+            ),
+          ],
+          const SizedBox(height: 6),
+          Text(
+            'Added on: ${_formatDate(record.createdAt)}',
+            style: const TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _addServiceRecord() async {
+    final formKey = GlobalKey<FormState>();
+    final serviceInchargeController = TextEditingController(
+      text: _instrument.serviceIncharge,
+    );
+    final contactController = TextEditingController(
+      text: _instrument.serviceInchargeContactNo,
+    );
+    final detailsController = TextEditingController();
+    DateTime? serviceDate = _instrument.serviceDate?.toDate() ?? DateTime.now();
+
+    final record = await showModalBottomSheet<InstrumentServiceHistoryRecord>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E293B),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: SafeArea(
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Add service record',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        _buildDatePickerTile(
+                          label: 'Service date',
+                          value: serviceDate,
+                          onTap: () async {
+                            final picked = await _pickDate(serviceDate);
+                            if (picked == null) {
+                              return;
+                            }
+                            setSheetState(() {
+                              serviceDate = picked;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: serviceInchargeController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: _sheetInputDecoration('Service incharge'),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter service incharge';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: contactController,
+                          style: const TextStyle(color: Colors.white),
+                          keyboardType: TextInputType.phone,
+                          decoration: _sheetInputDecoration(
+                            'Service incharge contact no',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: detailsController,
+                          style: const TextStyle(color: Colors.white),
+                          maxLines: 3,
+                          decoration: _sheetInputDecoration('Service details'),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter service details';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  if (!formKey.currentState!.validate()) {
+                                    return;
+                                  }
+                                  Navigator.pop(
+                                    context,
+                                    InstrumentServiceHistoryRecord(
+                                      serviceDate: serviceDate == null
+                                          ? null
+                                          : Timestamp.fromDate(serviceDate!),
+                                      serviceDetails:
+                                          detailsController.text.trim(),
+                                      serviceIncharge:
+                                          serviceInchargeController.text.trim(),
+                                      serviceInchargeContactNo:
+                                          contactController.text.trim(),
+                                      createdAt: Timestamp.now(),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF14B8A6),
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Save'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    serviceInchargeController.dispose();
+    contactController.dispose();
+    detailsController.dispose();
+
+    if (record == null) {
+      return;
+    }
+
+    try {
+      await _instrumentService.addServiceHistoryRecord(
+        instrumentId: _instrument.id,
+        record: record,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _instrument = _instrument.copyWith(
+          serviceHistory: [
+            ..._instrument.serviceHistory,
+            record,
+          ],
+          updatedAt: Timestamp.now(),
+        );
+      });
+      _showMessage('Service record added');
+    } catch (error) {
+      _showMessage(FirestoreAccessGuard.messageFor(error));
+    }
+  }
+
+  Future<void> _addInchargeRecord() async {
+    final formKey = GlobalKey<FormState>();
+    final inchargeController = TextEditingController(
+      text: _instrument.instrumentIncharge,
+    );
+    final contactController = TextEditingController(
+      text: _instrument.instrumentInchargeContactNo,
+    );
+    final notesController = TextEditingController();
+    DateTime? tenureFrom =
+        _instrument.instrumentInchargeTenureFrom?.toDate() ?? DateTime.now();
+    DateTime? tenureTo = _instrument.instrumentInchargeTenureTo?.toDate();
+
+    final record = await showModalBottomSheet<InstrumentInchargeHistoryRecord>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E293B),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16,
+                right: 16,
+                top: 16,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+              ),
+              child: SafeArea(
+                child: Form(
+                  key: formKey,
+                  child: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Add in-charge record',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: inchargeController,
+                          style: const TextStyle(color: Colors.white),
+                          decoration: _sheetInputDecoration(
+                            'Instrument in-charge',
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Enter instrument in-charge';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: contactController,
+                          style: const TextStyle(color: Colors.white),
+                          keyboardType: TextInputType.phone,
+                          decoration: _sheetInputDecoration(
+                            'Instrument in-charge contact no',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildDatePickerTile(
+                          label: 'Tenure from',
+                          value: tenureFrom,
+                          onTap: () async {
+                            final picked = await _pickDate(tenureFrom);
+                            if (picked == null) {
+                              return;
+                            }
+                            setSheetState(() {
+                              tenureFrom = picked;
+                              if (tenureTo != null && tenureTo!.isBefore(picked)) {
+                                tenureTo = picked;
+                              }
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        _buildDatePickerTile(
+                          label: 'Tenure to',
+                          value: tenureTo,
+                          onTap: () async {
+                            final picked = await _pickDate(tenureTo ?? tenureFrom);
+                            if (picked == null) {
+                              return;
+                            }
+                            setSheetState(() {
+                              tenureTo = picked;
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 12),
+                        TextFormField(
+                          controller: notesController,
+                          style: const TextStyle(color: Colors.white),
+                          maxLines: 3,
+                          decoration: _sheetInputDecoration('Notes'),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: const Text(
+                                  'Cancel',
+                                  style: TextStyle(color: Colors.white70),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  if (!formKey.currentState!.validate()) {
+                                    return;
+                                  }
+                                  Navigator.pop(
+                                    context,
+                                    InstrumentInchargeHistoryRecord(
+                                      instrumentIncharge:
+                                          inchargeController.text.trim(),
+                                      instrumentInchargeContactNo:
+                                          contactController.text.trim(),
+                                      tenureFrom: tenureFrom == null
+                                          ? null
+                                          : Timestamp.fromDate(tenureFrom!),
+                                      tenureTo: tenureTo == null
+                                          ? null
+                                          : Timestamp.fromDate(tenureTo!),
+                                      notes: notesController.text.trim(),
+                                      createdAt: Timestamp.now(),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: const Color(0xFF14B8A6),
+                                  foregroundColor: Colors.white,
+                                ),
+                                child: const Text('Save'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    inchargeController.dispose();
+    contactController.dispose();
+    notesController.dispose();
+
+    if (record == null) {
+      return;
+    }
+
+    try {
+      await _instrumentService.addInchargeHistoryRecord(
+        instrumentId: _instrument.id,
+        record: record,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _instrument = _instrument.copyWith(
+          inchargeHistory: [
+            ..._instrument.inchargeHistory,
+            record,
+          ],
+          updatedAt: Timestamp.now(),
+        );
+      });
+      _showMessage('In-charge record added');
+    } catch (error) {
+      _showMessage(FirestoreAccessGuard.messageFor(error));
+    }
   }
 
   @override
@@ -279,11 +884,6 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                 ),
                 const SizedBox(height: 10),
                 _buildField(
-                  'Service incharge',
-                  _displayValue(_instrument.serviceIncharge),
-                ),
-                const SizedBox(height: 10),
-                _buildField(
                   'Specification',
                   _displayValue(_instrument.specification),
                 ),
@@ -299,22 +899,74 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                   'Instrument in-charge',
                   _displayValue(_instrument.instrumentIncharge),
                 ),
+                const SizedBox(height: 10),
+                _buildField(
+                  'Instrument in-charge contact no',
+                  _displayValue(_instrument.instrumentInchargeContactNo),
+                ),
+                const SizedBox(height: 10),
+                _buildField(
+                  'Current tenure',
+                  _formatTenure(
+                    _instrument.instrumentInchargeTenureFrom,
+                    _instrument.instrumentInchargeTenureTo,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 14),
             _buildSection(
-              title: 'Servicing',
+              title: 'Current Servicing',
               children: [
                 _buildField(
-                  'Service date',
-                  _formatDate(_instrument.serviceDate),
+                  'Service incharge',
+                  _displayValue(_instrument.serviceIncharge),
                 ),
+                const SizedBox(height: 10),
+                _buildField(
+                  'Service incharge contact no',
+                  _displayValue(_instrument.serviceInchargeContactNo),
+                ),
+                const SizedBox(height: 10),
+                _buildField('Service date', _formatDate(_instrument.serviceDate)),
                 const SizedBox(height: 10),
                 _buildField(
                   'Service details',
                   _displayValue(_instrument.serviceDetails),
                 ),
               ],
+            ),
+            const SizedBox(height: 14),
+            _buildSection(
+              title: 'Service History',
+              actionLabel: 'Add service record',
+              onAction: _addServiceRecord,
+              children: _instrument.serviceHistory.isEmpty
+                  ? [
+                      _buildHistoryEmptyState('No service history yet'),
+                    ]
+                  : _instrument.serviceHistory.map((record) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _buildServiceHistoryCard(record),
+                      );
+                    }).toList(),
+            ),
+            const SizedBox(height: 14),
+            _buildSection(
+              title: 'In-charge History',
+              actionLabel: 'Add in-charge record',
+              onAction: _addInchargeRecord,
+              children: _instrument.inchargeHistory.isEmpty
+                  ? [
+                      _buildHistoryEmptyState('No in-charge history yet'),
+                    ]
+                  : _instrument.inchargeHistory.map((record) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _buildInchargeHistoryCard(record),
+                      );
+                    }).toList(),
             ),
           ],
         ),
@@ -402,8 +1054,7 @@ class _InstrumentDetailPreview extends StatelessWidget {
     }
 
     final uri = Uri.tryParse(cleanReference);
-    if (uri != null &&
-        (uri.scheme == 'http' || uri.scheme == 'https')) {
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
       return NetworkImage(cleanReference);
     }
 

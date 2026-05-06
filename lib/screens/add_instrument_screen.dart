@@ -27,9 +27,11 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
   late final TextEditingController _serialNoController;
   late final TextEditingController _catalogNumberController;
   late final TextEditingController _serviceInchargeController;
+  late final TextEditingController _serviceInchargeContactNoController;
   late final TextEditingController _specificationController;
   late final TextEditingController _userGuideController;
   late final TextEditingController _instrumentInchargeController;
+  late final TextEditingController _instrumentInchargeContactNoController;
   late final TextEditingController _serviceDetailsController;
 
   final List<TextEditingController> _photoUrlControllers = [];
@@ -37,6 +39,8 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
   String _selectedCategory = InstrumentModel.categories.first;
   DateTime? _arrivedOn;
   DateTime? _serviceDate;
+  DateTime? _instrumentInchargeTenureFrom;
+  DateTime? _instrumentInchargeTenureTo;
   bool _isSaving = false;
 
   bool get _isEditMode => widget.existingInstrument != null;
@@ -50,23 +54,33 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     _serialNoController = TextEditingController();
     _catalogNumberController = TextEditingController();
     _serviceInchargeController = TextEditingController();
+    _serviceInchargeContactNoController = TextEditingController();
     _specificationController = TextEditingController();
     _userGuideController = TextEditingController();
     _instrumentInchargeController = TextEditingController();
+    _instrumentInchargeContactNoController = TextEditingController();
     _serviceDetailsController = TextEditingController();
 
     if (existing != null) {
       _selectedCategory = existing.normalizedCategory;
       _arrivedOn = existing.arrivedOn?.toDate();
       _serviceDate = existing.serviceDate?.toDate();
+      _instrumentInchargeTenureFrom =
+          existing.instrumentInchargeTenureFrom?.toDate();
+      _instrumentInchargeTenureTo =
+          existing.instrumentInchargeTenureTo?.toDate();
       _nameController.text = existing.name;
       _brandController.text = existing.brand;
       _serialNoController.text = existing.serialNo;
       _catalogNumberController.text = existing.catalogNumber;
       _serviceInchargeController.text = existing.serviceIncharge;
+      _serviceInchargeContactNoController.text =
+          existing.serviceInchargeContactNo;
       _specificationController.text = existing.specification;
       _userGuideController.text = existing.userGuide;
       _instrumentInchargeController.text = existing.instrumentIncharge;
+      _instrumentInchargeContactNoController.text =
+          existing.instrumentInchargeContactNo;
       _serviceDetailsController.text = existing.serviceDetails;
 
       final photoUrls = existing.photoUrls
@@ -92,9 +106,11 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     _serialNoController.dispose();
     _catalogNumberController.dispose();
     _serviceInchargeController.dispose();
+    _serviceInchargeContactNoController.dispose();
     _specificationController.dispose();
     _userGuideController.dispose();
     _instrumentInchargeController.dispose();
+    _instrumentInchargeContactNoController.dispose();
     _serviceDetailsController.dispose();
     for (final controller in _photoUrlControllers) {
       controller.dispose();
@@ -152,6 +168,28 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     if (picked == null) return;
     setState(() {
       _serviceDate = picked;
+    });
+  }
+
+  Future<void> _selectInstrumentInchargeTenureFrom() async {
+    final picked = await _pickDate(_instrumentInchargeTenureFrom ?? _arrivedOn);
+    if (picked == null) return;
+    setState(() {
+      _instrumentInchargeTenureFrom = picked;
+      if (_instrumentInchargeTenureTo != null &&
+          _instrumentInchargeTenureTo!.isBefore(picked)) {
+        _instrumentInchargeTenureTo = picked;
+      }
+    });
+  }
+
+  Future<void> _selectInstrumentInchargeTenureTo() async {
+    final picked = await _pickDate(
+      _instrumentInchargeTenureTo ?? _instrumentInchargeTenureFrom ?? _arrivedOn,
+    );
+    if (picked == null) return;
+    setState(() {
+      _instrumentInchargeTenureTo = picked;
     });
   }
 
@@ -304,13 +342,26 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
         serialNo: _serialNoController.text.trim(),
         catalogNumber: _catalogNumberController.text.trim(),
         serviceIncharge: _serviceInchargeController.text.trim(),
+        serviceInchargeContactNo: _serviceInchargeContactNoController.text.trim(),
         specification: _specificationController.text.trim(),
         userGuide: _userGuideController.text.trim(),
         instrumentIncharge: _instrumentInchargeController.text.trim(),
+        instrumentInchargeContactNo:
+            _instrumentInchargeContactNoController.text.trim(),
+        instrumentInchargeTenureFrom: _instrumentInchargeTenureFrom == null
+            ? null
+            : Timestamp.fromDate(_instrumentInchargeTenureFrom!),
+        instrumentInchargeTenureTo: _instrumentInchargeTenureTo == null
+            ? null
+            : Timestamp.fromDate(_instrumentInchargeTenureTo!),
         serviceDate: _serviceDate == null
             ? null
             : Timestamp.fromDate(_serviceDate!),
         serviceDetails: _serviceDetailsController.text.trim(),
+        serviceHistory:
+            existing?.serviceHistory ?? const <InstrumentServiceHistoryRecord>[],
+        inchargeHistory:
+            existing?.inchargeHistory ?? const <InstrumentInchargeHistoryRecord>[],
         photoUrls: _collectPhotoUrls(),
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
@@ -442,6 +493,13 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
                   ),
                   const SizedBox(height: 12),
                   TextFormField(
+                    controller: _serviceInchargeContactNoController,
+                    style: const TextStyle(color: Colors.white),
+                    keyboardType: TextInputType.phone,
+                    decoration: _inputDecoration('Service incharge contact no'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
                     controller: _specificationController,
                     style: const TextStyle(color: Colors.white),
                     maxLines: 3,
@@ -465,6 +523,27 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
                     controller: _instrumentInchargeController,
                     style: const TextStyle(color: Colors.white),
                     decoration: _inputDecoration('Instrument in-charge'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _instrumentInchargeContactNoController,
+                    style: const TextStyle(color: Colors.white),
+                    keyboardType: TextInputType.phone,
+                    decoration: _inputDecoration(
+                      'Instrument in-charge contact no',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDateField(
+                    label: 'Tenure from',
+                    value: _instrumentInchargeTenureFrom,
+                    onTap: _selectInstrumentInchargeTenureFrom,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDateField(
+                    label: 'Tenure to',
+                    value: _instrumentInchargeTenureTo,
+                    onTap: _selectInstrumentInchargeTenureTo,
                   ),
                 ],
               ),

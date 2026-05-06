@@ -91,12 +91,56 @@ class InstrumentService {
         'serialNo': instrument.serialNo,
         'catalogNumber': instrument.catalogNumber,
         'serviceIncharge': instrument.serviceIncharge,
+        'serviceInchargeContactNo': instrument.serviceInchargeContactNo,
         'specification': instrument.specification,
         'userGuide': instrument.userGuide,
         'instrumentIncharge': instrument.instrumentIncharge,
+        'instrumentInchargeContactNo': instrument.instrumentInchargeContactNo,
+        'instrumentInchargeTenureFrom': instrument.instrumentInchargeTenureFrom,
+        'instrumentInchargeTenureTo': instrument.instrumentInchargeTenureTo,
         'serviceDate': instrument.serviceDate,
         'serviceDetails': instrument.serviceDetails,
+        'serviceHistory': instrument.serviceHistory
+            .map((item) => item.toMap())
+            .toList(),
+        'inchargeHistory': instrument.inchargeHistory
+            .map((item) => item.toMap())
+            .toList(),
         'photoUrls': instrument.photoUrls,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
+  Future<void> addServiceHistoryRecord({
+    required String instrumentId,
+    required InstrumentServiceHistoryRecord record,
+  }) async {
+    await _runGuarded(() async {
+      final cleanId = instrumentId.trim();
+      if (cleanId.isEmpty) {
+        throw Exception('Instrument id is missing.');
+      }
+
+      await _instrumentsRef.doc(cleanId).update({
+        'serviceHistory': FieldValue.arrayUnion([record.toMap()]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
+  Future<void> addInchargeHistoryRecord({
+    required String instrumentId,
+    required InstrumentInchargeHistoryRecord record,
+  }) async {
+    await _runGuarded(() async {
+      final cleanId = instrumentId.trim();
+      if (cleanId.isEmpty) {
+        throw Exception('Instrument id is missing.');
+      }
+
+      await _instrumentsRef.doc(cleanId).update({
+        'inchargeHistory': FieldValue.arrayUnion([record.toMap()]),
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
