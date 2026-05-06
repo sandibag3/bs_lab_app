@@ -74,4 +74,42 @@ class InstrumentService {
       return doc.id;
     });
   }
+
+  Future<void> updateInstrument(InstrumentModel instrument) async {
+    await _runGuarded(() async {
+      final cleanId = instrument.id.trim();
+      if (cleanId.isEmpty) {
+        throw Exception('Instrument id is missing.');
+      }
+
+      await _instrumentsRef.doc(cleanId).update({
+        'labId': instrument.labId,
+        'name': instrument.name,
+        'category': instrument.category,
+        'arrivedOn': instrument.arrivedOn,
+        'brand': instrument.brand,
+        'serialNo': instrument.serialNo,
+        'catalogNumber': instrument.catalogNumber,
+        'serviceIncharge': instrument.serviceIncharge,
+        'specification': instrument.specification,
+        'userGuide': instrument.userGuide,
+        'instrumentIncharge': instrument.instrumentIncharge,
+        'serviceDate': instrument.serviceDate,
+        'serviceDetails': instrument.serviceDetails,
+        'photoUrls': instrument.photoUrls,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
+  Future<void> deleteInstrument({required String docId}) async {
+    await _runGuarded(() async {
+      final cleanId = docId.trim();
+      if (cleanId.isEmpty) {
+        throw Exception('Instrument id is missing.');
+      }
+
+      await _instrumentsRef.doc(cleanId).delete();
+    });
+  }
 }

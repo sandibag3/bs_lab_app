@@ -7,7 +7,12 @@ import '../services/firestore_access_guard.dart';
 import '../services/instrument_service.dart';
 
 class AddInstrumentScreen extends StatefulWidget {
-  const AddInstrumentScreen({super.key});
+  final InstrumentModel? existingInstrument;
+
+  const AddInstrumentScreen({
+    super.key,
+    this.existingInstrument,
+  });
 
   @override
   State<AddInstrumentScreen> createState() => _AddInstrumentScreenState();
@@ -34,9 +39,12 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
   DateTime? _serviceDate;
   bool _isSaving = false;
 
+  bool get _isEditMode => widget.existingInstrument != null;
+
   @override
   void initState() {
     super.initState();
+    final existing = widget.existingInstrument;
     _nameController = TextEditingController();
     _brandController = TextEditingController();
     _serialNoController = TextEditingController();
@@ -46,7 +54,35 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     _userGuideController = TextEditingController();
     _instrumentInchargeController = TextEditingController();
     _serviceDetailsController = TextEditingController();
-    _photoUrlControllers.add(TextEditingController());
+
+    if (existing != null) {
+      _selectedCategory = existing.normalizedCategory;
+      _arrivedOn = existing.arrivedOn?.toDate();
+      _serviceDate = existing.serviceDate?.toDate();
+      _nameController.text = existing.name;
+      _brandController.text = existing.brand;
+      _serialNoController.text = existing.serialNo;
+      _catalogNumberController.text = existing.catalogNumber;
+      _serviceInchargeController.text = existing.serviceIncharge;
+      _specificationController.text = existing.specification;
+      _userGuideController.text = existing.userGuide;
+      _instrumentInchargeController.text = existing.instrumentIncharge;
+      _serviceDetailsController.text = existing.serviceDetails;
+
+      final photoUrls = existing.photoUrls
+          .where((value) => value.trim().isNotEmpty)
+          .toList();
+
+      if (photoUrls.isEmpty) {
+        _photoUrlControllers.add(TextEditingController());
+      } else {
+        for (final photoUrl in photoUrls) {
+          _photoUrlControllers.add(TextEditingController(text: photoUrl));
+        }
+      }
+    } else {
+      _photoUrlControllers.add(TextEditingController());
+    }
   }
 
   @override
@@ -256,8 +292,10 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     });
 
     try {
+      final existing = widget.existingInstrument;
+      final now = Timestamp.now();
       final instrument = InstrumentModel(
-        id: '',
+        id: existing?.id ?? '',
         labId: labId,
         name: _nameController.text.trim(),
         category: _selectedCategory,
@@ -274,17 +312,30 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
             : Timestamp.fromDate(_serviceDate!),
         serviceDetails: _serviceDetailsController.text.trim(),
         photoUrls: _collectPhotoUrls(),
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
       );
 
-      await _instrumentService.addInstrument(instrument);
+      InstrumentModel savedInstrument = instrument;
+
+      if (_isEditMode) {
+        await _instrumentService.updateInstrument(instrument);
+      } else {
+        final docId = await _instrumentService.addInstrument(instrument);
+        savedInstrument = instrument.copyWith(id: docId);
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Instrument added successfully')),
+        SnackBar(
+          content: Text(
+            _isEditMode
+                ? 'Instrument updated successfully'
+                : 'Instrument added successfully',
+          ),
+        ),
       );
-      Navigator.pop(context);
+      Navigator.pop(context, savedInstrument);
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -303,7 +354,10 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Instrument', style: TextStyle(color: Colors.white)),
+        title: Text(
+          _isEditMode ? 'Edit Instrument' : 'Add Instrument',
+          style: const TextStyle(color: Colors.white),
+        ),
       ),
       body: SafeArea(
         child: Form(
@@ -314,7 +368,9 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
               _buildSectionCard(
                 title: 'Basic Information',
                 subtitle:
-                    'Create a lab-scoped instrument record. Photo upload is kept as URL or path text for now.',
+                    _isEditMode
+                        ? 'Update the current lab-scoped instrument record. Photo upload is kept as URL or path text for now.'
+                        : 'Create a lab-scoped instrument record. Photo upload is kept as URL or path text for now.',
                 children: [
                   TextFormField(
                     controller: _nameController,
@@ -495,7 +551,13 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
                           ),
                         )
                       : const Icon(Icons.save_rounded),
-                  label: Text(_isSaving ? 'Saving...' : 'Save Instrument'),
+                  label: Text(
+                    _isSaving
+                        ? (_isEditMode ? 'Updating...' : 'Saving...')
+                        : (_isEditMode
+                              ? 'Update Instrument'
+                              : 'Save Instrument'),
+                  ),
                 ),
               ),
             ],

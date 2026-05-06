@@ -118,6 +118,48 @@ class InstrumentModel {
     return '';
   }
 
+  InstrumentModel copyWith({
+    String? id,
+    String? labId,
+    String? name,
+    String? category,
+    Timestamp? arrivedOn,
+    bool clearArrivedOn = false,
+    String? brand,
+    String? serialNo,
+    String? catalogNumber,
+    String? serviceIncharge,
+    String? specification,
+    String? userGuide,
+    String? instrumentIncharge,
+    Timestamp? serviceDate,
+    bool clearServiceDate = false,
+    String? serviceDetails,
+    List<String>? photoUrls,
+    Timestamp? createdAt,
+    Timestamp? updatedAt,
+  }) {
+    return InstrumentModel(
+      id: id ?? this.id,
+      labId: labId ?? this.labId,
+      name: name ?? this.name,
+      category: category ?? this.category,
+      arrivedOn: clearArrivedOn ? null : (arrivedOn ?? this.arrivedOn),
+      brand: brand ?? this.brand,
+      serialNo: serialNo ?? this.serialNo,
+      catalogNumber: catalogNumber ?? this.catalogNumber,
+      serviceIncharge: serviceIncharge ?? this.serviceIncharge,
+      specification: specification ?? this.specification,
+      userGuide: userGuide ?? this.userGuide,
+      instrumentIncharge: instrumentIncharge ?? this.instrumentIncharge,
+      serviceDate: clearServiceDate ? null : (serviceDate ?? this.serviceDate),
+      serviceDetails: serviceDetails ?? this.serviceDetails,
+      photoUrls: photoUrls ?? this.photoUrls,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'labId': labId,

@@ -7,6 +7,7 @@ import '../services/firestore_access_guard.dart';
 import '../models/instrument_model.dart';
 import '../services/instrument_service.dart';
 import 'add_instrument_screen.dart';
+import 'instrument_detail_screen.dart';
 
 class InstrumentsScreen extends StatelessWidget {
   const InstrumentsScreen({super.key});
@@ -107,7 +108,7 @@ class InstrumentsScreen extends StatelessWidget {
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => _InstrumentCategoryScreen(
-                                    group: group,
+                                    category: group.category,
                                   ),
                                 ),
                               );
@@ -344,47 +345,76 @@ class _InstrumentCategoryTile extends StatelessWidget {
 }
 
 class _InstrumentCategoryScreen extends StatelessWidget {
-  final _InstrumentCategoryGroup group;
+  final String category;
 
-  const _InstrumentCategoryScreen({required this.group});
+  const _InstrumentCategoryScreen({required this.category});
 
   @override
   Widget build(BuildContext context) {
+    final instrumentService = InstrumentService();
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(group.category, style: const TextStyle(color: Colors.white)),
+        title: Text(category, style: const TextStyle(color: Colors.white)),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Container(
+        child: StreamBuilder<List<InstrumentModel>>(
+          stream: instrumentService.getInstruments(),
+          builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _InstrumentAccessState(
+                title: FirestoreAccessGuard.messageFor(snapshot.error),
+              );
+            }
+
+            if (!snapshot.hasData) {
+              return const Center(
+                child: CircularProgressIndicator(color: Color(0xFF14B8A6)),
+              );
+            }
+
+            final instruments = snapshot.data!
+                .where((instrument) => instrument.normalizedCategory == category)
+                .toList();
+
+            instruments.sort((a, b) {
+              return a.normalizedName.toLowerCase().compareTo(
+                b.normalizedName.toLowerCase(),
+              );
+            });
+
+            return ListView(
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withOpacity(0.06)),
-              ),
-              child: Text(
-                '${group.count} ${group.count == 1 ? 'instrument' : 'instruments'} in this category.',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                  height: 1.4,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  ),
+                  child: Text(
+                    '${instruments.length} ${instruments.length == 1 ? 'instrument' : 'instruments'} in this category.',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            if (group.instruments.isEmpty)
-              const _CategoryEmptyState()
-            else
-              ...group.instruments.map((instrument) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _InstrumentCard(instrument: instrument),
-                );
-              }),
-          ],
+                const SizedBox(height: 14),
+                if (instruments.isEmpty)
+                  const _CategoryEmptyState()
+                else
+                  ...instruments.map((instrument) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _InstrumentCard(instrument: instrument),
+                    );
+                  }),
+              ],
+            );
+          },
         ),
       ),
     );
@@ -438,68 +468,78 @@ class _InstrumentCard extends StatelessWidget {
     final incharge = instrument.instrumentIncharge.trim();
     final arrivedOn = _formatDate(instrument.arrivedOn);
 
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+    return Material(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _InstrumentPreviewBox(
-            photoReference: instrument.previewPhoto,
-            fallbackIcon: _iconForCategory(instrument.normalizedCategory),
-            size: 72,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  instrument.normalizedName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 15.2,
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                  ),
-                ),
-                if (brand.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    'Brand: $brand',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12.8,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 6),
-                Text(
-                  'Instrument in-charge: ${incharge.isEmpty ? 'Not assigned' : incharge}',
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12.8,
-                    height: 1.35,
-                  ),
-                ),
-                if (arrivedOn.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'Arrived on: $arrivedOn',
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 12.2,
-                    ),
-                  ),
-                ],
-              ],
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => InstrumentDetailScreen(instrument: instrument),
             ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _InstrumentPreviewBox(
+                photoReference: instrument.previewPhoto,
+                fallbackIcon: _iconForCategory(instrument.normalizedCategory),
+                size: 72,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      instrument.normalizedName,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.2,
+                        fontWeight: FontWeight.w700,
+                        height: 1.25,
+                      ),
+                    ),
+                    if (brand.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        'Brand: $brand',
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12.8,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 6),
+                    Text(
+                      'Instrument in-charge: ${incharge.isEmpty ? 'Not assigned' : incharge}',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12.8,
+                        height: 1.35,
+                      ),
+                    ),
+                    if (arrivedOn.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Arrived on: $arrivedOn',
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 12.2,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
