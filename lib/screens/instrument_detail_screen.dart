@@ -66,6 +66,28 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
     return 'Until $toText';
   }
 
+  String? _serviceTimingMessage(Timestamp? nextServiceDue) {
+    if (nextServiceDue == null) {
+      return null;
+    }
+
+    final now = DateTime.now();
+    final dueDate = nextServiceDue.toDate();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDay = DateTime(dueDate.year, dueDate.month, dueDate.day);
+    final difference = dueDay.difference(today).inDays;
+
+    if (difference < 0) {
+      return 'Service overdue';
+    }
+
+    if (difference <= 30) {
+      return 'Service due soon';
+    }
+
+    return null;
+  }
+
   Future<DateTime?> _pickDate(DateTime? initialDate) async {
     final now = DateTime.now();
     return showDatePicker(
@@ -321,6 +343,25 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
     );
   }
 
+  Widget _buildViewAllHistoryButton({
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton(
+        onPressed: onTap,
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Color(0xFF5EEAD4),
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildServiceHistoryCard(InstrumentServiceHistoryRecord record) {
     return Container(
       width: double.infinity,
@@ -363,6 +404,44 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           Text(
             'Added on: ${_formatDate(record.createdAt)}',
             style: const TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildServiceHistoryPreviewCard(InstrumentServiceHistoryRecord record) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _displayValue(record.serviceIncharge),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Service date: ${_formatDate(record.serviceDate)}',
+            style: const TextStyle(color: Colors.white70, fontSize: 12.8),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Details: ${_displayValue(record.serviceDetails)}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12.8,
+              height: 1.4,
+            ),
           ),
         ],
       ),
@@ -420,6 +499,136 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildInchargeHistoryPreviewCard(
+    InstrumentInchargeHistoryRecord record,
+  ) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _displayValue(record.instrumentIncharge),
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Tenure: ${_formatTenure(record.tenureFrom, record.tenureTo)}',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12.8,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Contact: ${_displayValue(record.instrumentInchargeContactNo)}',
+            style: const TextStyle(color: Colors.white70, fontSize: 12.8),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showServiceHistorySheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E293B),
+      builder: (context) {
+        final records = _instrument.serviceHistory.reversed.toList();
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Service History',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.65,
+                  child: records.isEmpty
+                      ? _buildHistoryEmptyState('No service history yet')
+                      : ListView.separated(
+                          itemCount: records.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            return _buildServiceHistoryCard(records[index]);
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showInchargeHistorySheet() async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E293B),
+      builder: (context) {
+        final records = _instrument.inchargeHistory.reversed.toList();
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'In-charge History',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.65,
+                  child: records.isEmpty
+                      ? _buildHistoryEmptyState('No in-charge history yet')
+                      : ListView.separated(
+                          itemCount: records.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 10),
+                          itemBuilder: (context, index) {
+                            return _buildInchargeHistoryCard(records[index]);
+                          },
+                        ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -891,7 +1100,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
             ),
             const SizedBox(height: 14),
             _buildSection(
-              title: 'Guides & Ownership',
+              title: 'User Guide',
               children: [
                 _buildField('User guide', _displayValue(_instrument.userGuide)),
                 const SizedBox(height: 10),
@@ -918,6 +1127,43 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
             _buildSection(
               title: 'Current Servicing',
               children: [
+                _buildField('Status', _instrument.normalizedStatus),
+                const SizedBox(height: 10),
+                _buildField(
+                  'Last serviced on',
+                  _formatDate(_instrument.lastServicedOn),
+                ),
+                const SizedBox(height: 10),
+                _buildField(
+                  'Next service due',
+                  _formatDate(_instrument.nextServiceDue),
+                ),
+                if (_serviceTimingMessage(_instrument.nextServiceDue) != null) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C2D12).withOpacity(0.28),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: const Color(0xFFF59E0B).withOpacity(0.4),
+                      ),
+                    ),
+                    child: Text(
+                      _serviceTimingMessage(_instrument.nextServiceDue)!,
+                      style: const TextStyle(
+                        color: Color(0xFFFCD34D),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
                 _buildField(
                   'Service incharge',
                   _displayValue(_instrument.serviceIncharge),
@@ -928,11 +1174,9 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                   _displayValue(_instrument.serviceInchargeContactNo),
                 ),
                 const SizedBox(height: 10),
-                _buildField('Service date', _formatDate(_instrument.serviceDate)),
-                const SizedBox(height: 10),
                 _buildField(
-                  'Service details',
-                  _displayValue(_instrument.serviceDetails),
+                  'Maintenance notes',
+                  _displayValue(_instrument.maintenanceNotes),
                 ),
               ],
             ),
@@ -945,12 +1189,16 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                   ? [
                       _buildHistoryEmptyState('No service history yet'),
                     ]
-                  : _instrument.serviceHistory.map((record) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _buildServiceHistoryCard(record),
-                      );
-                    }).toList(),
+                  : [
+                      _buildServiceHistoryPreviewCard(
+                        _instrument.serviceHistory.last,
+                      ),
+                      const SizedBox(height: 4),
+                      _buildViewAllHistoryButton(
+                        label: 'View all history',
+                        onTap: _showServiceHistorySheet,
+                      ),
+                    ],
             ),
             const SizedBox(height: 14),
             _buildSection(
@@ -961,12 +1209,16 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                   ? [
                       _buildHistoryEmptyState('No in-charge history yet'),
                     ]
-                  : _instrument.inchargeHistory.map((record) {
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: _buildInchargeHistoryCard(record),
-                      );
-                    }).toList(),
+                  : [
+                      _buildInchargeHistoryPreviewCard(
+                        _instrument.inchargeHistory.last,
+                      ),
+                      const SizedBox(height: 4),
+                      _buildViewAllHistoryButton(
+                        label: 'View all history',
+                        onTap: _showInchargeHistorySheet,
+                      ),
+                    ],
             ),
           ],
         ),
@@ -1029,10 +1281,64 @@ class _InstrumentDetailHero extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 10),
+                _InstrumentStatusBadge(status: instrument.normalizedStatus),
               ],
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _InstrumentStatusBadge extends StatelessWidget {
+  final String status;
+
+  const _InstrumentStatusBadge({required this.status});
+
+  Color _backgroundColor() {
+    switch (status) {
+      case 'Needs service':
+        return const Color(0xFF7C2D12);
+      case 'Out of order':
+        return const Color(0xFF7F1D1D);
+      case 'Under maintenance':
+        return const Color(0xFF1E3A8A);
+      default:
+        return const Color(0xFF14532D);
+    }
+  }
+
+  Color _textColor() {
+    switch (status) {
+      case 'Needs service':
+        return const Color(0xFFFBBF24);
+      case 'Out of order':
+        return const Color(0xFFFCA5A5);
+      case 'Under maintenance':
+        return const Color(0xFFBFDBFE);
+      default:
+        return const Color(0xFFBBF7D0);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: _backgroundColor().withOpacity(0.3),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: _textColor().withOpacity(0.35)),
+      ),
+      child: Text(
+        status,
+        style: TextStyle(
+          color: _textColor(),
+          fontSize: 11.8,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
