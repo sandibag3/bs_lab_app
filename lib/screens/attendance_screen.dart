@@ -6,6 +6,7 @@ import '../app_state.dart';
 import '../models/attendance_record_model.dart';
 import '../services/attendance_service.dart';
 import '../services/firestore_access_guard.dart';
+import 'attendance_admin_screen.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -139,6 +140,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     }
   }
 
+  Future<void> _openAttendanceAdmin(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AttendanceAdminScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final appState = AppState.instance;
@@ -151,6 +159,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         final selectedLabName = appState.selectedLabName.trim();
         final currentUserId = currentUser?.uid.trim() ?? '';
         final currentUserName = appState.authenticatedUserName;
+        final isPiAdmin = appState.isPiAdmin;
         final canQueryLabData = FirestoreAccessGuard.shouldQueryLabScopedData(
           appState: appState,
         );
@@ -461,29 +470,28 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                             : 'Check out',
                                       ),
                                     ),
-                                    OutlinedButton.icon(
-                                      onPressed: () {
-                                        _showMessage(
-                                          'Attendance admin coming soon',
-                                        );
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor:
-                                            const Color(0xFFF59E0B),
-                                        side: const BorderSide(
-                                          color: Color(0xFFF59E0B),
+                                    if (isPiAdmin)
+                                      OutlinedButton.icon(
+                                        onPressed: () =>
+                                            _openAttendanceAdmin(context),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor:
+                                              const Color(0xFFF59E0B),
+                                          side: const BorderSide(
+                                            color: Color(0xFFF59E0B),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 12,
+                                          ),
                                         ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 12,
+                                        icon: const Icon(
+                                          Icons.admin_panel_settings_outlined,
+                                          size: 18,
                                         ),
+                                        label:
+                                            const Text('Attendance Admin'),
                                       ),
-                                      icon: const Icon(
-                                        Icons.admin_panel_settings_outlined,
-                                        size: 18,
-                                      ),
-                                      label: const Text('Attendance Admin'),
-                                    ),
                                   ],
                                 ),
                               ],
