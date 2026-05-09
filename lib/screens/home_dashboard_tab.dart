@@ -8,7 +8,9 @@ import '../models/event_model.dart';
 import '../models/order_model.dart';
 import '../models/requirement_model.dart';
 import '../models/user_profile.dart';
+import '../services/consumables_inventory_service.dart';
 import '../services/event_service.dart';
+import '../services/firestore_access_guard.dart';
 import '../services/inventory_service.dart';
 import '../services/order_service.dart';
 import '../services/requirement_service.dart';
@@ -87,6 +89,14 @@ class HomeDashboardTab extends StatelessWidget {
     );
   }
 
+  void _showComingSoonMessage(BuildContext context, String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   int _pendingApprovalCount(List<RequirementModel> requirements) {
     if (!appState.isPiAdmin) {
       return 0;
@@ -128,15 +138,21 @@ class HomeDashboardTab extends StatelessWidget {
 
   Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
   _consumablesInventoryStream() {
-    return FirebaseFirestore.instance
-        .collection('consumables_inventory')
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.where((doc) {
-            final labId = (doc.data()['labId'] ?? '').toString().trim();
-            return appState.matchesSelectedLabId(labId);
-          }).toList();
-        });
+    return ConsumablesInventoryService().getConsumablesInventoryDocs();
+  }
+
+  String? _firstAccessMessage(List<Object?> errors) {
+    if (!FirestoreAccessGuard.shouldQueryLabScopedData(appState: appState)) {
+      return FirestoreAccessGuard.userMessage;
+    }
+
+    for (final error in errors) {
+      if (error != null) {
+        return FirestoreAccessGuard.messageFor(error);
+      }
+    }
+
+    return null;
   }
 
   double? _readQuantityNumber(String quantity) {
@@ -156,6 +172,42 @@ class HomeDashboardTab extends StatelessWidget {
       final numericQuantity = _readQuantityNumber(quantity);
       return numericQuantity != null && numericQuantity <= 2;
     }).length;
+  }
+
+  Widget _buildAccessNotice(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(top: 2),
+            child: Icon(
+              Icons.lock_outline_rounded,
+              color: Color(0xFFF59E0B),
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 12.8,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildWorkflowGrid({
@@ -330,6 +382,42 @@ class HomeDashboardTab extends StatelessWidget {
         'accentColor': const Color(0xFFF472B6),
         'onTap': onOpenChemDraw,
       },
+      {
+        'title': 'Log books',
+        'icon': Icons.menu_book_outlined,
+        'accentColor': const Color(0xFF22C55E),
+        'onTap': () => _showComingSoonMessage(
+          context,
+          'Log books coming soon',
+        ),
+      },
+      {
+        'title': 'Glass apparatus',
+        'icon': Icons.science_outlined,
+        'accentColor': const Color(0xFFFB923C),
+        'onTap': () => _showComingSoonMessage(
+          context,
+          'Glass apparatus coming soon',
+        ),
+      },
+      {
+        'title': 'Lab notebook',
+        'icon': Icons.edit_note_outlined,
+        'accentColor': const Color(0xFF38BDF8),
+        'onTap': () => _showComingSoonMessage(
+          context,
+          'Lab notebook coming soon',
+        ),
+      },
+      {
+        'title': 'More',
+        'icon': Icons.apps_outlined,
+        'accentColor': const Color(0xFF94A3B8),
+        'onTap': () => _showComingSoonMessage(
+          context,
+          'More tools coming soon',
+        ),
+      },
     ];
 
     return AnimatedBuilder(
@@ -491,34 +579,124 @@ class HomeDashboardTab extends StatelessWidget {
                 StreamBuilder<List<RequirementModel>>(
                   stream: RequirementService().getRequirements(),
                   builder: (context, requirementsSnapshot) {
+                    final requirementsAccessMessage = _firstAccessMessage([
+                      requirementsSnapshot.error,
+                    ]);
+                    if (requirementsAccessMessage != null) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildAccessNotice(requirementsAccessMessage),
+                          const SizedBox(height: 12),
+                          _buildWorkflowGrid(
+                            context: context,
+                            workflowItems: workflowItems,
+                            pendingApprovalCount: _pendingApprovalCount(
+                              requirementsSnapshot.data ?? [],
+                            ),
+                            ordersInProgressCount: 0,
+                            chemicalAttentionCount: 0,
+                            consumablesLowStockCount: 0,
+                          ),
+                        ],
+                      );
+                    }
+
                     return StreamBuilder<List<OrderModel>>(
                       stream: OrderService().getOrders(),
                       builder: (context, ordersSnapshot) {
+                        final ordersAccessMessage = _firstAccessMessage([
+                          ordersSnapshot.error,
+                        ]);
+                        if (ordersAccessMessage != null) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildAccessNotice(ordersAccessMessage),
+                              const SizedBox(height: 12),
+                              _buildWorkflowGrid(
+                                context: context,
+                                workflowItems: workflowItems,
+                                pendingApprovalCount: _pendingApprovalCount(
+                                  requirementsSnapshot.data ?? [],
+                                ),
+                                ordersInProgressCount: 0,
+                                chemicalAttentionCount: 0,
+                                consumablesLowStockCount: 0,
+                              ),
+                            ],
+                          );
+                        }
+
                         return StreamBuilder<List<ChemicalModel>>(
                           stream: InventoryService().getChemicals(),
                           builder: (context, chemicalsSnapshot) {
+                            final chemicalsAccessMessage = _firstAccessMessage([
+                              chemicalsSnapshot.error,
+                            ]);
+                            if (chemicalsAccessMessage != null) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildAccessNotice(chemicalsAccessMessage),
+                                  const SizedBox(height: 12),
+                                  _buildWorkflowGrid(
+                                    context: context,
+                                    workflowItems: workflowItems,
+                                    pendingApprovalCount: _pendingApprovalCount(
+                                      requirementsSnapshot.data ?? [],
+                                    ),
+                                    ordersInProgressCount:
+                                        _ordersInProgressCount(
+                                          ordersSnapshot.data ?? [],
+                                        ),
+                                    chemicalAttentionCount: 0,
+                                    consumablesLowStockCount: 0,
+                                  ),
+                                ],
+                              );
+                            }
+
                             return StreamBuilder<
                               List<QueryDocumentSnapshot<Map<String, dynamic>>>
                             >(
                               stream: _consumablesInventoryStream(),
                               builder: (context, consumablesSnapshot) {
-                                return _buildWorkflowGrid(
-                                  context: context,
-                                  workflowItems: workflowItems,
-                                  pendingApprovalCount: _pendingApprovalCount(
-                                    requirementsSnapshot.data ?? [],
-                                  ),
-                                  ordersInProgressCount: _ordersInProgressCount(
-                                    ordersSnapshot.data ?? [],
-                                  ),
-                                  chemicalAttentionCount:
-                                      _chemicalAttentionCount(
-                                        chemicalsSnapshot.data ?? [],
+                                final consumablesAccessMessage =
+                                    _firstAccessMessage([
+                                  consumablesSnapshot.error,
+                                ]);
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (consumablesAccessMessage != null) ...[
+                                      _buildAccessNotice(
+                                        consumablesAccessMessage,
                                       ),
-                                  consumablesLowStockCount:
-                                      _consumablesLowStockCount(
-                                        consumablesSnapshot.data ?? [],
-                                      ),
+                                      const SizedBox(height: 12),
+                                    ],
+                                    _buildWorkflowGrid(
+                                      context: context,
+                                      workflowItems: workflowItems,
+                                      pendingApprovalCount:
+                                          _pendingApprovalCount(
+                                            requirementsSnapshot.data ?? [],
+                                          ),
+                                      ordersInProgressCount:
+                                          _ordersInProgressCount(
+                                            ordersSnapshot.data ?? [],
+                                          ),
+                                      chemicalAttentionCount:
+                                          _chemicalAttentionCount(
+                                            chemicalsSnapshot.data ?? [],
+                                          ),
+                                      consumablesLowStockCount:
+                                          _consumablesLowStockCount(
+                                            consumablesSnapshot.data ?? [],
+                                          ),
+                                    ),
+                                  ],
                                 );
                               },
                             );
@@ -772,6 +950,40 @@ class _UpcomingEventsPreview extends StatelessWidget {
           StreamBuilder<List<EventModel>>(
             stream: EventService().getEvents(),
             builder: (context, snapshot) {
+              if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      FirestoreAccessGuard.userMessage,
+                      style: TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12.8,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                );
+              }
+
+              if (snapshot.hasError) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      FirestoreAccessGuard.messageFor(snapshot.error),
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12.8,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                );
+              }
+
               final upcomingEvents = _nextUpcomingEvents(snapshot.data ?? []);
 
               if (snapshot.connectionState == ConnectionState.waiting &&
