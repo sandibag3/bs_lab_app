@@ -7,6 +7,7 @@ import '../models/attendance_record_model.dart';
 import '../services/attendance_service.dart';
 import '../services/firestore_access_guard.dart';
 import 'attendance_admin_screen.dart';
+import 'attendance_scanner_screen.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -145,6 +146,18 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
       context,
       MaterialPageRoute(builder: (_) => const AttendanceAdminScreen()),
     );
+  }
+
+  Future<void> _openAttendanceScanner(BuildContext context) async {
+    final result = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(builder: (_) => const AttendanceScannerScreen()),
+    );
+    if (!context.mounted || result == null || result.trim().isEmpty) {
+      return;
+    }
+
+    _showMessage(result);
   }
 
   @override
@@ -410,9 +423,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                   runSpacing: 10,
                                   children: [
                                     ElevatedButton.icon(
-                                      onPressed: () {
-                                        _showMessage('QR scanner coming soon');
-                                      },
+                                      onPressed: () =>
+                                          _openAttendanceScanner(context),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor:
                                             const Color(0xFF14B8A6),
