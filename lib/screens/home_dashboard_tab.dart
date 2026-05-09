@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../app_state.dart';
 import '../models/chemical_model.dart';
 import '../models/event_model.dart';
@@ -211,48 +212,27 @@ class HomeDashboardTab extends StatelessWidget {
   }
 
   Widget _buildWorkflowGrid({
-    required BuildContext context,
-    required List<Map<String, dynamic>> workflowItems,
+    required List<_DashboardToolItem> workflowItems,
     required int pendingApprovalCount,
     required int ordersInProgressCount,
     required int chemicalAttentionCount,
     required int consumablesLowStockCount,
   }) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: workflowItems.length,
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 4,
-        mainAxisSpacing: 14,
-        crossAxisSpacing: 14,
-        childAspectRatio: 0.92,
-      ),
-      itemBuilder: (context, index) {
-        final item = workflowItems[index];
-        final title = item['title'] as String;
-        final icon = item['icon'] as IconData;
-        final onTap = item['onTap'] as VoidCallback;
-        final accentColor = item['accentColor'] as Color;
-        final badgeCount = title == 'Cart'
+    final itemsWithBadges = workflowItems.map((item) {
+      final badgeCount = item.id == 'cart'
             ? pendingApprovalCount
-            : title == 'Orders'
+            : item.id == 'orders'
             ? ordersInProgressCount
-            : title == 'Chemical Inventory'
+            : item.id == 'chemical_inventory'
             ? chemicalAttentionCount
-            : title == 'Consumables Inventory'
+            : item.id == 'consumables_inventory'
             ? consumablesLowStockCount
             : 0;
 
-        return _HomeToolCard(
-          title: title,
-          icon: icon,
-          accentColor: accentColor,
-          onTap: onTap,
-          badgeCount: badgeCount,
-        );
-      },
-    );
+      return item.copyWith(badgeCount: badgeCount);
+    }).toList();
+
+    return _ReorderableWorkflowGrid(items: itemsWithBadges);
   }
 
   Future<void> _openHeroActions(BuildContext context) async {
@@ -333,91 +313,104 @@ class HomeDashboardTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final List<Map<String, dynamic>> workflowItems = [
-      {
-        'title': 'Chemical Inventory',
-        'icon': Icons.science_rounded,
-        'accentColor': const Color(0xFF2DD4BF),
-        'onTap': onOpenChemicals,
-      },
-      {
-        'title': 'Consumables Inventory',
-        'icon': Icons.inventory_rounded,
-        'accentColor': const Color(0xFF60A5FA),
-        'onTap': () => _openConsumablesInventory(context),
-      },
-      {
-        'title': 'Cart',
-        'icon': Icons.assignment_rounded,
-        'accentColor': const Color(0xFFFBBF24),
-        'onTap': onOpenCart,
-      },
-      {
-        'title': 'Orders',
-        'icon': Icons.local_shipping_rounded,
-        'accentColor': const Color(0xFF38BDF8),
-        'onTap': onOpenOrders,
-      },
-      {
-        'title': 'Calculator',
-        'icon': Icons.calculate_rounded,
-        'accentColor': const Color(0xFFA78BFA),
-        'onTap': onOpenCalculator,
-      },
-      {
-        'title': 'Instruments',
-        'icon': Icons.precision_manufacturing_rounded,
-        'accentColor': const Color(0xFF94A3B8),
-        'onTap': onOpenInstruments,
-      },
-      {
-        'title': 'Lab Manual',
-        'icon': Icons.description_rounded,
-        'accentColor': const Color(0xFF34D399),
-        'onTap': onOpenLabManual,
-      },
-      {
-        'title': 'ChemDraw',
-        'icon': Icons.draw_rounded,
-        'accentColor': const Color(0xFFF472B6),
-        'onTap': onOpenChemDraw,
-      },
-      {
-        'title': 'Log books',
-        'icon': Icons.menu_book_outlined,
-        'accentColor': const Color(0xFF22C55E),
-        'onTap': () => _showComingSoonMessage(
+    final List<_DashboardToolItem> workflowItems = [
+      _DashboardToolItem(
+        id: 'chemical_inventory',
+        title: 'Chemical Inventory',
+        icon: Icons.science_rounded,
+        accentColor: const Color(0xFF2DD4BF),
+        onTap: onOpenChemicals,
+      ),
+      _DashboardToolItem(
+        id: 'consumables_inventory',
+        title: 'Consumables Inventory',
+        icon: Icons.inventory_rounded,
+        accentColor: const Color(0xFF60A5FA),
+        onTap: () => _openConsumablesInventory(context),
+      ),
+      _DashboardToolItem(
+        id: 'cart',
+        title: 'Cart',
+        icon: Icons.assignment_rounded,
+        accentColor: const Color(0xFFFBBF24),
+        onTap: onOpenCart,
+      ),
+      _DashboardToolItem(
+        id: 'orders',
+        title: 'Orders',
+        icon: Icons.local_shipping_rounded,
+        accentColor: const Color(0xFF38BDF8),
+        onTap: onOpenOrders,
+      ),
+      _DashboardToolItem(
+        id: 'calculator',
+        title: 'Calculator',
+        icon: Icons.calculate_rounded,
+        accentColor: const Color(0xFFA78BFA),
+        onTap: onOpenCalculator,
+      ),
+      _DashboardToolItem(
+        id: 'instruments',
+        title: 'Instruments',
+        icon: Icons.precision_manufacturing_rounded,
+        accentColor: const Color(0xFF94A3B8),
+        onTap: onOpenInstruments,
+      ),
+      _DashboardToolItem(
+        id: 'lab_manual',
+        title: 'Lab Manual',
+        icon: Icons.description_rounded,
+        accentColor: const Color(0xFF34D399),
+        onTap: onOpenLabManual,
+      ),
+      _DashboardToolItem(
+        id: 'chemdraw',
+        title: 'ChemDraw',
+        icon: Icons.draw_rounded,
+        accentColor: const Color(0xFFF472B6),
+        onTap: onOpenChemDraw,
+      ),
+      _DashboardToolItem(
+        id: 'log_books',
+        title: 'Log books',
+        icon: Icons.menu_book_outlined,
+        accentColor: const Color(0xFF22C55E),
+        onTap: () => _showComingSoonMessage(
           context,
           'Log books coming soon',
         ),
-      },
-      {
-        'title': 'Glass apparatus',
-        'icon': Icons.science_outlined,
-        'accentColor': const Color(0xFFFB923C),
-        'onTap': () => _showComingSoonMessage(
+      ),
+      _DashboardToolItem(
+        id: 'glass_apparatus',
+        title: 'Glass apparatus',
+        icon: Icons.science_outlined,
+        accentColor: const Color(0xFFFB923C),
+        onTap: () => _showComingSoonMessage(
           context,
           'Glass apparatus coming soon',
         ),
-      },
-      {
-        'title': 'Lab notebook',
-        'icon': Icons.edit_note_outlined,
-        'accentColor': const Color(0xFF38BDF8),
-        'onTap': () => _showComingSoonMessage(
+      ),
+      _DashboardToolItem(
+        id: 'lab_notebook',
+        title: 'Lab notebook',
+        icon: Icons.edit_note_outlined,
+        accentColor: const Color(0xFF38BDF8),
+        onTap: () => _showComingSoonMessage(
           context,
           'Lab notebook coming soon',
         ),
-      },
-      {
-        'title': 'More',
-        'icon': Icons.apps_outlined,
-        'accentColor': const Color(0xFF94A3B8),
-        'onTap': () => _showComingSoonMessage(
+      ),
+      _DashboardToolItem(
+        id: 'more',
+        title: 'More',
+        icon: Icons.apps_outlined,
+        accentColor: const Color(0xFF94A3B8),
+        onTap: () => _showComingSoonMessage(
           context,
           'More tools coming soon',
         ),
-      },
+        isFixed: true,
+      ),
     ];
 
     return AnimatedBuilder(
@@ -589,7 +582,6 @@ class HomeDashboardTab extends StatelessWidget {
                           _buildAccessNotice(requirementsAccessMessage),
                           const SizedBox(height: 12),
                           _buildWorkflowGrid(
-                            context: context,
                             workflowItems: workflowItems,
                             pendingApprovalCount: _pendingApprovalCount(
                               requirementsSnapshot.data ?? [],
@@ -615,7 +607,6 @@ class HomeDashboardTab extends StatelessWidget {
                               _buildAccessNotice(ordersAccessMessage),
                               const SizedBox(height: 12),
                               _buildWorkflowGrid(
-                                context: context,
                                 workflowItems: workflowItems,
                                 pendingApprovalCount: _pendingApprovalCount(
                                   requirementsSnapshot.data ?? [],
@@ -641,7 +632,6 @@ class HomeDashboardTab extends StatelessWidget {
                                   _buildAccessNotice(chemicalsAccessMessage),
                                   const SizedBox(height: 12),
                                   _buildWorkflowGrid(
-                                    context: context,
                                     workflowItems: workflowItems,
                                     pendingApprovalCount: _pendingApprovalCount(
                                       requirementsSnapshot.data ?? [],
@@ -677,7 +667,6 @@ class HomeDashboardTab extends StatelessWidget {
                                       const SizedBox(height: 12),
                                     ],
                                     _buildWorkflowGrid(
-                                      context: context,
                                       workflowItems: workflowItems,
                                       pendingApprovalCount:
                                           _pendingApprovalCount(
@@ -1084,6 +1073,231 @@ class _UpcomingEventTile extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _DashboardToolItem {
+  final String id;
+  final String title;
+  final IconData icon;
+  final Color accentColor;
+  final VoidCallback onTap;
+  final int badgeCount;
+  final bool isFixed;
+
+  const _DashboardToolItem({
+    required this.id,
+    required this.title,
+    required this.icon,
+    required this.accentColor,
+    required this.onTap,
+    this.badgeCount = 0,
+    this.isFixed = false,
+  });
+
+  _DashboardToolItem copyWith({
+    int? badgeCount,
+  }) {
+    return _DashboardToolItem(
+      id: id,
+      title: title,
+      icon: icon,
+      accentColor: accentColor,
+      onTap: onTap,
+      badgeCount: badgeCount ?? this.badgeCount,
+      isFixed: isFixed,
+    );
+  }
+}
+
+class _ReorderableWorkflowGrid extends StatefulWidget {
+  final List<_DashboardToolItem> items;
+
+  const _ReorderableWorkflowGrid({required this.items});
+
+  @override
+  State<_ReorderableWorkflowGrid> createState() =>
+      _ReorderableWorkflowGridState();
+}
+
+class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
+  static const String _prefsKey = 'dashboard_tool_order_v1';
+
+  List<String>? _savedMovableIds;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedOrder();
+  }
+
+  Future<void> _loadSavedOrder() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedIds = prefs.getStringList(_prefsKey);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _savedMovableIds = savedIds;
+    });
+  }
+
+  List<_DashboardToolItem> get _movableItems {
+    return widget.items.where((item) => !item.isFixed).toList();
+  }
+
+  List<_DashboardToolItem> get _fixedItems {
+    return widget.items.where((item) => item.isFixed).toList();
+  }
+
+  List<String> _normalizedMovableOrderIds() {
+    final availableIds = _movableItems.map((item) => item.id).toList();
+    final savedIds = _savedMovableIds ?? availableIds;
+
+    final orderedIds = savedIds
+        .where((id) => availableIds.contains(id))
+        .toList();
+
+    for (final id in availableIds) {
+      if (!orderedIds.contains(id)) {
+        orderedIds.add(id);
+      }
+    }
+
+    return orderedIds;
+  }
+
+  List<_DashboardToolItem> _orderedItems() {
+    final itemsById = {
+      for (final item in widget.items) item.id: item,
+    };
+
+    final orderedMovableItems = _normalizedMovableOrderIds()
+        .map((id) => itemsById[id])
+        .whereType<_DashboardToolItem>()
+        .toList();
+
+    return [
+      ...orderedMovableItems,
+      ..._fixedItems,
+    ];
+  }
+
+  Future<void> _persistMovableOrder(List<String> ids) async {
+    _savedMovableIds = ids;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_prefsKey, ids);
+  }
+
+  Future<void> _reorderTile({
+    required String draggedId,
+    required String targetId,
+  }) async {
+    if (draggedId == targetId) {
+      return;
+    }
+
+    final movableIds = _normalizedMovableOrderIds();
+    if (!movableIds.contains(draggedId) || !movableIds.contains(targetId)) {
+      return;
+    }
+
+    final nextOrder = List<String>.from(movableIds);
+    nextOrder.remove(draggedId);
+    final targetIndex = nextOrder.indexOf(targetId);
+    if (targetIndex == -1) {
+      nextOrder.add(draggedId);
+    } else {
+      nextOrder.insert(targetIndex, draggedId);
+    }
+
+    if (mounted) {
+      setState(() {
+        _savedMovableIds = nextOrder;
+      });
+    }
+
+    await _persistMovableOrder(nextOrder);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final orderedItems = _orderedItems();
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const crossAxisCount = 4;
+        const spacing = 14.0;
+        const childAspectRatio = 0.92;
+        final tileWidth =
+            (constraints.maxWidth - ((crossAxisCount - 1) * spacing)) /
+                crossAxisCount;
+        final tileHeight = tileWidth / childAspectRatio;
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: orderedItems.length,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: crossAxisCount,
+            mainAxisSpacing: spacing,
+            crossAxisSpacing: spacing,
+            childAspectRatio: childAspectRatio,
+          ),
+          itemBuilder: (context, index) {
+            final item = orderedItems[index];
+            final card = _HomeToolCard(
+              title: item.title,
+              icon: item.icon,
+              accentColor: item.accentColor,
+              onTap: item.onTap,
+              badgeCount: item.badgeCount,
+            );
+
+            if (item.isFixed) {
+              return card;
+            }
+
+            return DragTarget<String>(
+              onWillAccept: (candidate) {
+                return candidate != null &&
+                    candidate != item.id &&
+                    !_fixedItems.any((fixedItem) => fixedItem.id == candidate);
+              },
+              onAccept: (draggedId) {
+                _reorderTile(draggedId: draggedId, targetId: item.id);
+              },
+              builder: (context, candidateData, rejectedData) {
+                final isActiveTarget = candidateData.isNotEmpty;
+
+                return AnimatedScale(
+                  scale: isActiveTarget ? 1.03 : 1.0,
+                  duration: const Duration(milliseconds: 140),
+                  child: LongPressDraggable<String>(
+                    data: item.id,
+                    dragAnchorStrategy: pointerDragAnchorStrategy,
+                    feedback: SizedBox(
+                      width: tileWidth,
+                      height: tileHeight,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: card,
+                      ),
+                    ),
+                    childWhenDragging: Opacity(
+                      opacity: 0.35,
+                      child: card,
+                    ),
+                    child: card,
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
     );
   }
 }
