@@ -17,6 +17,7 @@ import '../services/order_service.dart';
 import '../services/requirement_service.dart';
 import '../widgets/newly_arrived_section.dart';
 import '../widgets/search_bar_widget.dart';
+import 'attendance_screen.dart';
 import 'consumables_inventory_screen.dart';
 import 'lab_members_screen.dart';
 import 'lab_settings_screen.dart';
@@ -87,6 +88,13 @@ class HomeDashboardTab extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) => RecentActivityScreen(appState: appState),
       ),
+    );
+  }
+
+  Future<void> _openAttendance(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AttendanceScreen()),
     );
   }
 
@@ -432,126 +440,165 @@ class HomeDashboardTab extends StatelessWidget {
               children: [
                 SearchBarWidget(onTap: onOpenChemicals),
                 const SizedBox(height: 12),
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(22),
-                    onTap: () => _openHeroActions(context),
-                    child: Ink(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF0F766E), Color(0xFF0EA5E9)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final shouldStack = constraints.maxWidth < 620;
+                    final overviewPanel = Material(
+                      color: Colors.transparent,
+                      child: InkWell(
                         borderRadius: BorderRadius.circular(22),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text(
-                                'Labmate',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withOpacity(0.16),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  appState.currentRoleLabel,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
+                        onTap: () => _openHeroActions(context),
+                        child: Ink(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFF0F766E), Color(0xFF0EA5E9)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(22),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black26,
+                                blurRadius: 12,
+                                offset: Offset(0, 4),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 6),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              _HeroProfileAvatar(
-                                photoReference: photoReference,
-                                displayName: resolvedName,
-                                fallbackEmail: appState.authenticatedUserEmail,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      resolvedName,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
+                              Row(
+                                children: [
+                                  const Text(
+                                    'Labmate',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.16),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      appState.currentRoleLabel,
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.bold,
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                                    const SizedBox(height: 5),
-                                    Row(
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  _HeroProfileAvatar(
+                                    photoReference: photoReference,
+                                    displayName: resolvedName,
+                                    fallbackEmail:
+                                        appState.authenticatedUserEmail,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        const Icon(
-                                          Icons.apartment_rounded,
-                                          color: Colors.white,
-                                          size: 15,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            selectedLabName.isEmpty
-                                                ? 'Tap to open lab actions'
-                                                : selectedLabName,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12.8,
-                                              fontWeight: FontWeight.w600,
-                                            ),
+                                        Text(
+                                          resolvedName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.bold,
                                           ),
+                                        ),
+                                        const SizedBox(height: 5),
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.apartment_rounded,
+                                              color: Colors.white,
+                                              size: 15,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                selectedLabName.isEmpty
+                                                    ? 'Tap to open lab actions'
+                                                    : selectedLabName,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 12.8,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              const Icon(
-                                Icons.chevron_right_rounded,
-                                color: Colors.white70,
+                                  ),
+                                  const SizedBox(width: 10),
+                                  const Icon(
+                                    Icons.chevron_right_rounded,
+                                    color: Colors.white70,
+                                  ),
+                                ],
                               ),
                             ],
                           ),
+                        ),
+                      ),
+                    );
+
+                    final attendancePanel = _AttendancePreviewCard(
+                      onOpen: () => _openAttendance(context),
+                    );
+
+                    if (shouldStack) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          overviewPanel,
+                          const SizedBox(height: 12),
+                          attendancePanel,
+                        ],
+                      );
+                    }
+
+                    return IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: overviewPanel,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 1,
+                            child: attendancePanel,
+                          ),
                         ],
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
                 if (appState.shouldShowProfileReminder) ...[
@@ -807,6 +854,102 @@ class _HeroProfileAvatar extends StatelessWidget {
                   return _HeroProfileInitials(initials: initials);
                 },
               ),
+      ),
+    );
+  }
+}
+
+class _AttendancePreviewCard extends StatelessWidget {
+  final VoidCallback onOpen;
+
+  const _AttendancePreviewCard({required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: const [
+              Icon(
+                Icons.fact_check_outlined,
+                color: Color(0xFF60A5FA),
+                size: 18,
+              ),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Attendance',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Not checked in',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'WiFi/QR attendance coming soon',
+            style: TextStyle(
+              color: Colors.white60,
+              fontSize: 12.2,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ElevatedButton(
+              onPressed: onOpen,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF60A5FA),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
+                minimumSize: const Size(0, 38),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Open',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
