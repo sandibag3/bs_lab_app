@@ -8,6 +8,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../app_state.dart';
 import '../services/attendance_service.dart';
 import '../services/firestore_access_guard.dart';
+import '../services/wifi_verification_service.dart';
 
 class AttendanceScannerScreen extends StatefulWidget {
   const AttendanceScannerScreen({super.key});
@@ -20,6 +21,8 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
   final AttendanceService _attendanceService = AttendanceService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final MobileScannerController _scannerController = MobileScannerController();
+  final WifiVerificationService _wifiVerificationService =
+      WifiVerificationService();
 
   bool _isHandlingScan = false;
   bool _isTorchEnabled = false;
@@ -150,6 +153,12 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
       final attendanceEnabled = labData['attendanceEnabled'] == true;
       final expectedSecret =
           (labData['attendanceQrSecret'] ?? '').toString().trim();
+      final allowedWifiSsids = (labData['allowedWifiSsids'] is Iterable)
+          ? (labData['allowedWifiSsids'] as Iterable)
+                .map((item) => item.toString().trim())
+                .where((item) => item.isNotEmpty)
+                .toList()
+          : <String>[];
 
       if (!attendanceEnabled) {
         await _showFailureAndResume('Attendance is disabled');
@@ -161,12 +170,19 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
         return;
       }
 
+      final wifiVerification = await _wifiVerificationService
+          .isConnectedToAllowedWifi(allowedWifiSsids);
+      if (!wifiVerification.isSuccess) {
+        await _showFailureAndResume(wifiVerification.message);
+        return;
+      }
+
       final result = await _attendanceService.checkIn(
         labId: selectedLabId,
         userId: currentUserId,
         userName: appState.authenticatedUserName,
         userEmail: appState.authenticatedUserEmail,
-        wifiSsid: 'not_verified_v1',
+        wifiSsid: wifiVerification.ssid,
       );
 
       if (!mounted) {
@@ -346,7 +362,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
                                     ),
                                     child: Text(
                                       _isHandlingScan
-                                          ? 'Validating attendance QR...'
+                                          ? 'Validating QR and Wi-Fi...'
                                           : 'Align the QR code inside the frame',
                                       textAlign: TextAlign.center,
                                       style: const TextStyle(
