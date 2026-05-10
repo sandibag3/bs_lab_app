@@ -238,7 +238,8 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     String? Function(String?)? validator,
   }) {
     return DropdownButtonFormField<String>(
-      value: value,
+      key: ValueKey('dropdown_$label|${value ?? ''}|${items.join('|')}'),
+      initialValue: value,
       dropdownColor: const Color(0xFF1E293B),
       style: const TextStyle(color: Colors.white),
       decoration: inputDecoration(label),

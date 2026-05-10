@@ -99,6 +99,9 @@ class EventsScreen extends StatelessWidget {
     if (pickedDate == null) {
       return null;
     }
+    if (!context.mounted) {
+      return null;
+    }
 
     final pickedTime = await showTimePicker(
       context: context,
@@ -109,6 +112,9 @@ class EventsScreen extends StatelessWidget {
     );
 
     if (pickedTime == null) {
+      return null;
+    }
+    if (!context.mounted) {
       return null;
     }
 

@@ -72,6 +72,9 @@ class _AddEventScreenState extends State<AddEventScreen> {
     if (pickedDate == null) {
       return;
     }
+    if (!mounted) {
+      return;
+    }
 
     final pickedTime = await showTimePicker(
       context: context,
@@ -82,6 +85,9 @@ class _AddEventScreenState extends State<AddEventScreen> {
     );
 
     if (pickedTime == null) {
+      return;
+    }
+    if (!mounted) {
       return;
     }
 

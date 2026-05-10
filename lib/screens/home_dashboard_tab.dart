@@ -1474,13 +1474,13 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
             }
 
             return DragTarget<String>(
-              onWillAccept: (candidate) {
-                return candidate != null &&
-                    candidate != item.id &&
+              onWillAcceptWithDetails: (details) {
+                final candidate = details.data;
+                return candidate != item.id &&
                     !_fixedItems.any((fixedItem) => fixedItem.id == candidate);
               },
-              onAccept: (draggedId) {
-                _reorderTile(draggedId: draggedId, targetId: item.id);
+              onAcceptWithDetails: (details) {
+                _reorderTile(draggedId: details.data, targetId: item.id);
               },
               builder: (context, candidateData, rejectedData) {
                 final isActiveTarget = candidateData.isNotEmpty;

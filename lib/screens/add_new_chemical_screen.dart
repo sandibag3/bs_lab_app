@@ -604,7 +604,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       ),
                     if (isExisting) const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      value: selectedCategory,
+                      key: ValueKey('category_$selectedCategory'),
+                      initialValue: selectedCategory,
                       dropdownColor: const Color(0xFF1E293B),
                       style: const TextStyle(color: Colors.white),
                       decoration: inputDecoration('Category'),
@@ -638,7 +639,10 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     const SizedBox(height: 14),
                     if (subcategories.isNotEmpty) ...[
                       DropdownButtonFormField<String>(
-                        value: selectedSubcategory,
+                        key: ValueKey(
+                          'subcategory_${selectedCategory}_${selectedSubcategory ?? ''}_${subcategories.join('|')}',
+                        ),
+                        initialValue: selectedSubcategory,
                         dropdownColor: const Color(0xFF1E293B),
                         style: const TextStyle(color: Colors.white),
                         decoration: inputDecoration('Subcategory'),
@@ -757,7 +761,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      value: selectedLocation,
+                      key: ValueKey('location_${selectedLocation ?? ''}'),
+                      initialValue: selectedLocation,
                       dropdownColor: const Color(0xFF1E293B),
                       style: const TextStyle(color: Colors.white),
                       decoration: inputDecoration('Location'),
@@ -788,7 +793,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     _buildFunctionalGroupSelector(),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      value: selectedTexture,
+                      key: ValueKey('texture_${selectedTexture ?? ''}'),
+                      initialValue: selectedTexture,
                       dropdownColor: const Color(0xFF1E293B),
                       style: const TextStyle(color: Colors.white),
                       decoration: inputDecoration('Texture / Physical State'),
