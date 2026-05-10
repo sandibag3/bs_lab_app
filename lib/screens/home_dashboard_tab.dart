@@ -434,6 +434,9 @@ class HomeDashboardTab extends StatelessWidget {
             : profileName;
         final photoReference = profile.photoUrl.trim();
         final selectedLabName = appState.selectedLabName.trim();
+        final visibleLabName = selectedLabName.isEmpty
+            ? 'No lab selected'
+            : selectedLabName;
 
         return SafeArea(
           child: SingleChildScrollView(
@@ -450,7 +453,7 @@ class HomeDashboardTab extends StatelessWidget {
                     onTap: () => _openHeroActions(context),
                     child: Ink(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(14),
+                      padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Color(0xFF0F766E), Color(0xFF0EA5E9)],
@@ -470,61 +473,6 @@ class HomeDashboardTab extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Padding(
-                                padding: EdgeInsets.only(top: 4),
-                                child: Text(
-                                  'Labmate',
-                                  style: TextStyle(
-                                    color: Colors.white70,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Align(
-                                  alignment: Alignment.topRight,
-                                  child: Wrap(
-                                    spacing: 8,
-                                    runSpacing: 8,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    children: [
-                                      _AttendanceStatusButton(
-                                        appState: appState,
-                                        onOpen: () =>
-                                            _openAttendance(context),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 5,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.16),
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                        ),
-                                        child: Text(
-                                          appState.currentRoleLabel,
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               _HeroProfileAvatar(
@@ -538,6 +486,8 @@ class HomeDashboardTab extends StatelessWidget {
                                 child: Column(
                                   crossAxisAlignment:
                                       CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Text(
                                       resolvedName,
@@ -545,42 +495,53 @@ class HomeDashboardTab extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 18,
+                                        fontSize: 19,
                                         fontWeight: FontWeight.bold,
                                       ),
                                     ),
-                                    const SizedBox(height: 5),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.apartment_rounded,
-                                          color: Colors.white,
-                                          size: 15,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            selectedLabName.isEmpty
-                                                ? 'Tap to open lab actions'
-                                                : selectedLabName,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12.8,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      visibleLabName,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13.4,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ],
                                 ),
                               ),
                               const SizedBox(width: 10),
-                              const Icon(
-                                Icons.chevron_right_rounded,
-                                color: Colors.white70,
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  _AttendanceStatusButton(
+                                    appState: appState,
+                                    onOpen: () => _openAttendance(context),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 5,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white.withOpacity(0.16),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      appState.currentRoleLabel,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11.5,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -824,12 +785,12 @@ class _HeroProfileAvatar extends StatelessWidget {
     final initials = _fallbackInitials();
 
     return Container(
-      height: 42,
-      width: 42,
+      height: 72,
+      width: 72,
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.18),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withOpacity(0.18)),
+        border: Border.all(color: Colors.white.withOpacity(0.24), width: 1.5),
       ),
       child: ClipOval(
         child: scientificAvatar != null
@@ -1035,7 +996,7 @@ class _HeroProfileScientificAvatar extends StatelessWidget {
     return Container(
       color: Colors.white.withOpacity(0.08),
       alignment: Alignment.center,
-      child: Icon(icon, color: Colors.white, size: 22),
+      child: Icon(icon, color: Colors.white, size: 36),
     );
   }
 }
@@ -1054,7 +1015,7 @@ class _HeroProfileInitials extends StatelessWidget {
         initials,
         style: const TextStyle(
           color: Colors.white,
-          fontSize: 14,
+          fontSize: 24,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -1441,9 +1402,9 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        const crossAxisCount = 4;
+        final crossAxisCount = constraints.maxWidth < 360 ? 3 : 4;
         const spacing = 14.0;
-        const childAspectRatio = 0.92;
+        final childAspectRatio = crossAxisCount == 3 ? 0.96 : 0.92;
         final tileWidth =
             (constraints.maxWidth - ((crossAxisCount - 1) * spacing)) /
                 crossAxisCount;
@@ -1453,7 +1414,7 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           itemCount: orderedItems.length,
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
             mainAxisSpacing: spacing,
             crossAxisSpacing: spacing,
