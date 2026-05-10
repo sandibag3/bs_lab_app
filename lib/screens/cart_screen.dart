@@ -4,6 +4,7 @@ import '../app_state.dart';
 import '../models/order_model.dart';
 import '../models/requirement_model.dart';
 import '../services/activity_service.dart';
+import '../services/firestore_access_guard.dart';
 import '../services/order_service.dart';
 import '../services/requirement_service.dart';
 
@@ -672,6 +673,32 @@ class _CartScreenState extends State<CartScreen> {
       body: StreamBuilder<List<RequirementModel>>(
         stream: requirementService.getRequirements(),
         builder: (context, snapshot) {
+          if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  FirestoreAccessGuard.userMessage,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, height: 1.4),
+                ),
+              ),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  FirestoreAccessGuard.messageFor(snapshot.error),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, height: 1.4),
+                ),
+              ),
+            );
+          }
+
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }

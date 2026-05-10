@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/event_model.dart';
 import '../services/event_service.dart';
+import '../services/firestore_access_guard.dart';
 import 'add_event_screen.dart';
 
 class EventsScreen extends StatelessWidget {
@@ -214,6 +215,32 @@ class EventsScreen extends StatelessWidget {
       child: StreamBuilder<List<EventModel>>(
         stream: EventService().getEvents(),
         builder: (context, snapshot) {
+          if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  FirestoreAccessGuard.userMessage,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, height: 1.4),
+                ),
+              ),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  FirestoreAccessGuard.messageFor(snapshot.error),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, height: 1.4),
+                ),
+              ),
+            );
+          }
+
           final events = snapshot.data ?? [];
 
           return ListView(

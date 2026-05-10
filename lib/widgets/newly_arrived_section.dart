@@ -4,6 +4,7 @@ import '../models/order_model.dart';
 import '../screens/add_new_chemical_screen.dart';
 import '../screens/add_new_consumable_screen.dart';
 import '../screens/newly_arrived_items_screen.dart';
+import '../services/firestore_access_guard.dart';
 import '../services/order_service.dart';
 
 class NewlyArrivedSection extends StatefulWidget {
@@ -150,6 +151,40 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
         StreamBuilder<List<OrderModel>>(
           stream: orderService.getOrders(),
           builder: (context, snapshot) {
+            if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Text(
+                  FirestoreAccessGuard.userMessage,
+                  style: TextStyle(
+                    color: Colors.white70,
+                    height: 1.4,
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Text(
+                  FirestoreAccessGuard.messageFor(snapshot.error),
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    height: 1.4,
+                  ),
+                ),
+              );
+            }
+
             if (!snapshot.hasData) {
               return const SizedBox(
                 height: 80,

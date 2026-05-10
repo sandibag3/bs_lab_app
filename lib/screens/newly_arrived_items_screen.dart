@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/order_model.dart';
+import '../services/firestore_access_guard.dart';
 import '../services/order_service.dart';
 import 'add_new_chemical_screen.dart';
 import 'add_new_consumable_screen.dart';
@@ -62,6 +63,32 @@ class NewlyArrivedItemsScreen extends StatelessWidget {
       body: StreamBuilder<List<OrderModel>>(
         stream: orderService.getOrders(),
         builder: (context, snapshot) {
+          if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text(
+                  FirestoreAccessGuard.userMessage,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70, height: 1.4),
+                ),
+              ),
+            );
+          }
+
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  FirestoreAccessGuard.messageFor(snapshot.error),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.white70, height: 1.4),
+                ),
+              ),
+            );
+          }
+
           if (!snapshot.hasData) {
             return const Center(child: CircularProgressIndicator());
           }

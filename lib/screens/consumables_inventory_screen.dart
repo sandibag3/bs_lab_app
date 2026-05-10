@@ -2,14 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../services/activity_service.dart';
+import '../services/consumables_inventory_service.dart';
+import '../services/firestore_access_guard.dart';
 
 class ConsumablesInventoryScreen extends StatelessWidget {
   const ConsumablesInventoryScreen({super.key});
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> _inventoryStream() {
-    return FirebaseFirestore.instance
-        .collection('consumables_inventory')
-        .snapshots();
+  Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _inventoryStream() {
+    return ConsumablesInventoryService().getConsumablesInventoryDocs();
   }
 
   Timestamp? _readTimestamp(Map<String, dynamic> data, String key) {
@@ -65,11 +65,6 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     'Column Pumps',
     'Others',
   ];
-
-  bool _matchesCurrentLab(Map<String, dynamic> data) {
-    final labId = (data['labId'] ?? '').toString().trim();
-    return AppState.instance.matchesSelectedLabId(labId);
-  }
 
   String _formatDate(Timestamp? timestamp) {
     if (timestamp == null) return 'Not available';
@@ -1034,17 +1029,30 @@ class ConsumablesInventoryScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        child: StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
           stream: _inventoryStream(),
           builder: (context, snapshot) {
-            if (snapshot.hasError) {
+            if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
               return const Center(
                 child: Padding(
                   padding: EdgeInsets.all(24),
                   child: Text(
-                    'Unable to load consumables inventory right now.',
+                    FirestoreAccessGuard.userMessage,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: Colors.white70, height: 1.4),
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    FirestoreAccessGuard.messageFor(snapshot.error),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.white70, height: 1.4),
                   ),
                 ),
               );
@@ -1054,11 +1062,7 @@ class ConsumablesInventoryScreen extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
 
-            final docs = _sortDocs(
-              snapshot.data!.docs
-                  .where((doc) => _matchesCurrentLab(doc.data()))
-                  .toList(),
-            );
+            final docs = _sortDocs(snapshot.data!);
             final items = _groupDocs(docs);
             final categoryGroups = _groupItemsByCategory(items);
 

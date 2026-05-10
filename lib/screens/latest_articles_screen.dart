@@ -132,10 +132,20 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
     await _refreshArticles();
   }
 
-  void _openArticle(RssArticle article) {
+  void _openArticle(
+    RssArticle article,
+    List<RssArticle> visibleArticles,
+    int articleIndex,
+  ) {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => ArticleDetailScreen(article: article)),
+      MaterialPageRoute(
+        builder: (_) => ArticleDetailScreen(
+          article: article,
+          articles: visibleArticles,
+          initialIndex: articleIndex,
+        ),
+      ),
     );
   }
 
@@ -333,8 +343,12 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
                 message: 'Try another keyword or refresh the enabled feeds.',
               )
             else
-              for (final article in filteredArticles)
-                _buildArticleCard(article),
+              for (var i = 0; i < filteredArticles.length; i++)
+                _buildArticleCard(
+                  filteredArticles[i],
+                  filteredArticles,
+                  i,
+                ),
           ],
         ),
       ),
@@ -430,9 +444,13 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
     );
   }
 
-  Widget _buildArticleCard(RssArticle article) {
+  Widget _buildArticleCard(
+    RssArticle article,
+    List<RssArticle> visibleArticles,
+    int articleIndex,
+  ) {
     return InkWell(
-      onTap: () => _openArticle(article),
+      onTap: () => _openArticle(article, visibleArticles, articleIndex),
       borderRadius: BorderRadius.circular(18),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
@@ -591,8 +609,8 @@ class _ArticleThumbnail extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        width: 76,
-        height: 76,
+        width: 92,
+        height: 92,
         color: const Color(0xFF0F172A),
         child: imageUrl.isEmpty
             ? const _ThumbnailPlaceholder()
@@ -614,7 +632,7 @@ class _ThumbnailPlaceholder extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(
-      child: Icon(Icons.article_rounded, color: Colors.white30, size: 30),
+      child: Icon(Icons.article_rounded, color: Colors.white30, size: 36),
     );
   }
 }

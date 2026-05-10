@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../app_state.dart';
 import '../models/chemical_model.dart';
+import 'firestore_access_guard.dart';
 
 class InventoryService {
   final CollectionReference inventoryRef =
@@ -11,15 +12,34 @@ class InventoryService {
     return AppState.instance.matchesSelectedLabId(labId);
   }
 
+  Stream<QuerySnapshot<Map<String, dynamic>>> _inventorySnapshots() {
+    final appState = AppState.instance;
+    final selectedLabId = appState.selectedLabId.trim();
+
+    if (appState.isDemoLabSelected) {
+      return FirebaseFirestore.instance.collection('inventory').snapshots();
+    }
+
+    return FirebaseFirestore.instance
+        .collection('inventory')
+        .where('labId', isEqualTo: selectedLabId)
+        .snapshots();
+  }
+
   Stream<List<ChemicalModel>> getChemicals() {
-    return inventoryRef.snapshots().map((snapshot) {
-      return snapshot.docs
-          .where(
-            (doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>),
-          )
-          .map((doc) => ChemicalModel.fromFirestore(doc))
-          .toList();
-    });
+    return FirestoreAccessGuard.guardLabStream<List<ChemicalModel>>(
+      source: _inventorySnapshots(),
+      emptyValue: <ChemicalModel>[],
+      onData: (snapshot) {
+        final docs = AppState.instance.isDemoLabSelected
+            ? snapshot.docs.where(
+                (doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>),
+              )
+            : snapshot.docs;
+
+        return docs.map((doc) => ChemicalModel.fromFirestore(doc)).toList();
+      },
+    );
   }
 
   Future<void> addChemical(ChemicalModel chemical) async {

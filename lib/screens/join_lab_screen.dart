@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/lab_context_model.dart';
+import '../services/firestore_access_guard.dart';
 import '../services/lab_service.dart';
 import '../services/lab_membership_service.dart';
 import 'home_screen.dart';
@@ -61,6 +62,12 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
 
       try {
         foundLab = await _labService.findLabByIdentifier(identifier);
+      } on LabDataAccessException catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(error.message)));
+        return;
       } catch (_) {
         foundLab = null;
       }
@@ -147,7 +154,9 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
 
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text('Could not join lab: $e')));
+      ).showSnackBar(
+        SnackBar(content: Text(FirestoreAccessGuard.messageFor(e))),
+      );
     } finally {
       if (mounted) {
         setState(() {

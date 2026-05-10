@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/chemical_model.dart';
+import '../services/firestore_access_guard.dart';
 import '../services/inventory_service.dart';
 import 'add_new_chemical_screen.dart';
 import 'chemical_detail_screen.dart';
@@ -998,6 +999,19 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
               child: StreamBuilder<List<ChemicalModel>>(
                 stream: inventoryService.getChemicals(),
                 builder: (context, snapshot) {
+                  if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+                    return const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text(
+                          FirestoreAccessGuard.userMessage,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white70, height: 1.4),
+                        ),
+                      ),
+                    );
+                  }
+
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(
                       child: CircularProgressIndicator(),
@@ -1006,9 +1020,16 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
 
                   if (snapshot.hasError) {
                     return Center(
-                      child: Text(
-                        'Error: ${snapshot.error}',
-                        style: const TextStyle(color: Colors.white70),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          FirestoreAccessGuard.messageFor(snapshot.error),
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            height: 1.4,
+                          ),
+                        ),
                       ),
                     );
                   }

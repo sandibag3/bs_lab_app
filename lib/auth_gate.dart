@@ -61,6 +61,10 @@ class _AuthGateState extends State<AuthGate> {
                 );
               }
 
+              if (labSnapshot.hasError) {
+                return LabAccessScreen(appState: widget.appState);
+              }
+
               final hasLabContext = labSnapshot.data ?? false;
               if (hasLabContext) {
                 return HomeScreen(appState: widget.appState);

@@ -36,13 +36,17 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
   late final TextEditingController _userGuideController;
   late final TextEditingController _instrumentInchargeController;
   late final TextEditingController _instrumentInchargeContactNoController;
+  late final TextEditingController _maintenanceNotesController;
   late final TextEditingController _serviceDetailsController;
 
   final List<String> _existingPhotoUrls = [];
   final List<XFile> _pendingPhotoFiles = [];
 
   String _selectedCategory = InstrumentModel.categories.first;
+  String _selectedStatus = InstrumentModel.statusOptions.first;
   DateTime? _arrivedOn;
+  DateTime? _lastServicedOn;
+  DateTime? _nextServiceDue;
   DateTime? _serviceDate;
   DateTime? _instrumentInchargeTenureFrom;
   DateTime? _instrumentInchargeTenureTo;
@@ -64,11 +68,15 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     _userGuideController = TextEditingController();
     _instrumentInchargeController = TextEditingController();
     _instrumentInchargeContactNoController = TextEditingController();
+    _maintenanceNotesController = TextEditingController();
     _serviceDetailsController = TextEditingController();
 
     if (existing != null) {
       _selectedCategory = existing.normalizedCategory;
+      _selectedStatus = existing.normalizedStatus;
       _arrivedOn = existing.arrivedOn?.toDate();
+      _lastServicedOn = existing.lastServicedOn?.toDate();
+      _nextServiceDue = existing.nextServiceDue?.toDate();
       _serviceDate = existing.serviceDate?.toDate();
       _instrumentInchargeTenureFrom =
           existing.instrumentInchargeTenureFrom?.toDate();
@@ -86,6 +94,7 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
       _instrumentInchargeController.text = existing.instrumentIncharge;
       _instrumentInchargeContactNoController.text =
           existing.instrumentInchargeContactNo;
+      _maintenanceNotesController.text = existing.maintenanceNotes;
       _serviceDetailsController.text = existing.serviceDetails;
       _existingPhotoUrls.addAll(
         existing.photoUrls
@@ -107,6 +116,7 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     _userGuideController.dispose();
     _instrumentInchargeController.dispose();
     _instrumentInchargeContactNoController.dispose();
+    _maintenanceNotesController.dispose();
     _serviceDetailsController.dispose();
     super.dispose();
   }
@@ -171,6 +181,27 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     if (picked == null) return;
     setState(() {
       _serviceDate = picked;
+    });
+  }
+
+  Future<void> _selectLastServicedOn() async {
+    final picked = await _pickDate(_lastServicedOn ?? _serviceDate ?? _arrivedOn);
+    if (picked == null) return;
+    setState(() {
+      _lastServicedOn = picked;
+      if (_nextServiceDue != null && _nextServiceDue!.isBefore(picked)) {
+        _nextServiceDue = picked;
+      }
+    });
+  }
+
+  Future<void> _selectNextServiceDue() async {
+    final picked = await _pickDate(
+      _nextServiceDue ?? _lastServicedOn ?? _serviceDate ?? _arrivedOn,
+    );
+    if (picked == null) return;
+    setState(() {
+      _nextServiceDue = picked;
     });
   }
 
@@ -375,6 +406,14 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
         instrumentInchargeTenureTo: _instrumentInchargeTenureTo == null
             ? null
             : Timestamp.fromDate(_instrumentInchargeTenureTo!),
+        status: _selectedStatus,
+        lastServicedOn: _lastServicedOn == null
+            ? null
+            : Timestamp.fromDate(_lastServicedOn!),
+        nextServiceDue: _nextServiceDue == null
+            ? null
+            : Timestamp.fromDate(_nextServiceDue!),
+        maintenanceNotes: _maintenanceNotesController.text.trim(),
         serviceDate: _serviceDate == null
             ? null
             : Timestamp.fromDate(_serviceDate!),
@@ -560,6 +599,53 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
                     label: 'Tenure to',
                     value: _instrumentInchargeTenureTo,
                     onTap: _selectInstrumentInchargeTenureTo,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              _buildSectionCard(
+                title: 'Maintenance Status',
+                subtitle:
+                    'Track the instrument condition and upcoming maintenance window.',
+                children: [
+                  DropdownButtonFormField<String>(
+                    initialValue: _selectedStatus,
+                    dropdownColor: const Color(0xFF111827),
+                    style: const TextStyle(color: Colors.white),
+                    decoration: _inputDecoration('Status'),
+                    items: InstrumentModel.statusOptions.map((status) {
+                      return DropdownMenuItem<String>(
+                        value: status,
+                        child: Text(status),
+                      );
+                    }).toList(),
+                    onChanged: _isSaving
+                        ? null
+                        : (value) {
+                            if (value == null) return;
+                            setState(() {
+                              _selectedStatus = value;
+                            });
+                          },
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDateField(
+                    label: 'Last serviced on',
+                    value: _lastServicedOn,
+                    onTap: _selectLastServicedOn,
+                  ),
+                  const SizedBox(height: 12),
+                  _buildDateField(
+                    label: 'Next service due',
+                    value: _nextServiceDue,
+                    onTap: _selectNextServiceDue,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _maintenanceNotesController,
+                    style: const TextStyle(color: Colors.white),
+                    maxLines: 3,
+                    decoration: _inputDecoration('Maintenance notes'),
                   ),
                 ],
               ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/lab_context_model.dart';
+import '../services/firestore_access_guard.dart';
 import '../services/lab_service.dart';
 import '../services/lab_membership_service.dart';
 import 'home_screen.dart';
@@ -103,14 +104,17 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
           dialogMessage =
               '${createdLab['labName'] ?? labName} is ready to use on this device. PI/Admin access is stored locally for now.';
         }
-      } catch (_) {
+      } catch (error) {
         final localContext = _labService.buildLocalLabContext(labName);
         await widget.appState.saveSelectedLabContextWithRole(
           localContext,
           localRoleName: piAdminRole,
         );
+        final prefix = FirestoreAccessGuard.isPermissionDenied(error)
+            ? "${FirestoreAccessGuard.userMessage} "
+            : '';
         dialogMessage =
-            '$labName was saved as a local lab context on this device, and you can continue as PI/Admin right away.';
+            '${prefix}$labName was saved as a local lab context on this device, and you can continue as PI/Admin right away.';
       }
 
       if (!mounted) return;

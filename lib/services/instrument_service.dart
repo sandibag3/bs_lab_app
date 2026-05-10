@@ -64,9 +64,18 @@ class InstrumentService {
     );
   }
 
+  String createInstrumentId() {
+    return _instrumentsRef.doc().id;
+  }
+
   Future<String> addInstrument(InstrumentModel instrument) async {
     return _runGuarded(() async {
-      final doc = await _instrumentsRef.add({
+      final explicitId = instrument.id.trim();
+      final doc = explicitId.isEmpty
+          ? _instrumentsRef.doc()
+          : _instrumentsRef.doc(explicitId);
+
+      await doc.set({
         ...instrument.toMap(),
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -98,6 +107,10 @@ class InstrumentService {
         'instrumentInchargeContactNo': instrument.instrumentInchargeContactNo,
         'instrumentInchargeTenureFrom': instrument.instrumentInchargeTenureFrom,
         'instrumentInchargeTenureTo': instrument.instrumentInchargeTenureTo,
+        'status': instrument.normalizedStatus,
+        'lastServicedOn': instrument.lastServicedOn,
+        'nextServiceDue': instrument.nextServiceDue,
+        'maintenanceNotes': instrument.maintenanceNotes,
         'serviceDate': instrument.serviceDate,
         'serviceDetails': instrument.serviceDetails,
         'serviceHistory': instrument.serviceHistory

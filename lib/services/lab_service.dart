@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/lab_context_model.dart';
+import 'firestore_access_guard.dart';
 
 class LabService {
   static const String _demoLabId = 'labmate-demo-lab';
@@ -7,6 +8,17 @@ class LabService {
   static const String _demoLabCode = 'LAB-DEMO';
   final CollectionReference<Map<String, dynamic>> _labsRef =
       FirebaseFirestore.instance.collection('labs');
+
+  Future<T> _runGuarded<T>(Future<T> Function() action) async {
+    try {
+      return await action();
+    } on FirebaseException catch (error) {
+      if (FirestoreAccessGuard.isPermissionDenied(error)) {
+        throw const LabDataAccessException();
+      }
+      rethrow;
+    }
+  }
 
   String _normalizeIdentifier(String value) {
     return value.trim().replaceAll(RegExp(r'\s+'), '').toUpperCase();
@@ -69,104 +81,112 @@ class LabService {
     String institute = '',
     required String createdBy,
   }) async {
-    final trimmedName = labName.trim();
-    final trimmedInstitute = institute.trim();
-    final docRef = _labsRef.doc();
-    final labCode = _buildLabCode(docRef.id);
+    return _runGuarded(() async {
+      final trimmedName = labName.trim();
+      final trimmedInstitute = institute.trim();
+      final docRef = _labsRef.doc();
+      final labCode = _buildLabCode(docRef.id);
 
-    await docRef.set({
-      'name': trimmedName,
-      'institute': trimmedInstitute,
-      'code': labCode,
-      'createdBy': createdBy.trim(),
-      'createdAt': FieldValue.serverTimestamp(),
+      await docRef.set({
+        'name': trimmedName,
+        'institute': trimmedInstitute,
+        'code': labCode,
+        'createdBy': createdBy.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      return {
+        'labId': docRef.id,
+        'labName': trimmedName,
+        'labCode': labCode,
+      };
     });
-
-    return {
-      'labId': docRef.id,
-      'labName': trimmedName,
-      'labCode': labCode,
-    };
   }
 
   Future<LabContextModel?> findLabByIdentifier(String identifier) async {
-    final rawIdentifier = identifier.trim();
-    if (rawIdentifier.isEmpty) return null;
+    return _runGuarded(() async {
+      final rawIdentifier = identifier.trim();
+      if (rawIdentifier.isEmpty) return null;
 
-    final normalizedIdentifier = _normalizeIdentifier(rawIdentifier);
+      final normalizedIdentifier = _normalizeIdentifier(rawIdentifier);
 
-    final codeMatch = await _labsRef
-        .where('code', isEqualTo: normalizedIdentifier)
-        .limit(1)
-        .get();
+      final codeMatch = await _labsRef
+          .where('code', isEqualTo: normalizedIdentifier)
+          .limit(1)
+          .get();
 
-    if (codeMatch.docs.isNotEmpty) {
-      final doc = codeMatch.docs.first;
-      final data = doc.data();
+      if (codeMatch.docs.isNotEmpty) {
+        final doc = codeMatch.docs.first;
+        final data = doc.data();
+        final name = (data['name'] ?? rawIdentifier).toString().trim();
+
+        return LabContextModel(
+          selectedLabId: doc.id,
+          selectedLabName: name.isEmpty ? rawIdentifier : name,
+        );
+      }
+
+      final directDoc = await _labsRef.doc(rawIdentifier).get();
+      if (!directDoc.exists) {
+        return null;
+      }
+
+      final data = directDoc.data() ?? {};
       final name = (data['name'] ?? rawIdentifier).toString().trim();
 
       return LabContextModel(
-        selectedLabId: doc.id,
+        selectedLabId: directDoc.id,
         selectedLabName: name.isEmpty ? rawIdentifier : name,
       );
-    }
-
-    final directDoc = await _labsRef.doc(rawIdentifier).get();
-    if (!directDoc.exists) {
-      return null;
-    }
-
-    final data = directDoc.data() ?? {};
-    final name = (data['name'] ?? rawIdentifier).toString().trim();
-
-    return LabContextModel(
-      selectedLabId: directDoc.id,
-      selectedLabName: name.isEmpty ? rawIdentifier : name,
-    );
+    });
   }
 
   Future<LabContextModel?> getLabContextById(String labId) async {
-    final cleanLabId = labId.trim();
-    if (cleanLabId.isEmpty) {
-      return null;
-    }
+    return _runGuarded(() async {
+      final cleanLabId = labId.trim();
+      if (cleanLabId.isEmpty) {
+        return null;
+      }
 
-    final doc = await _labsRef.doc(cleanLabId).get();
-    if (!doc.exists) {
-      return null;
-    }
+      final doc = await _labsRef.doc(cleanLabId).get();
+      if (!doc.exists) {
+        return null;
+      }
 
-    final data = doc.data() ?? {};
-    final name = (data['name'] ?? cleanLabId).toString().trim();
+      final data = doc.data() ?? {};
+      final name = (data['name'] ?? cleanLabId).toString().trim();
 
-    return LabContextModel(
-      selectedLabId: doc.id,
-      selectedLabName: name.isEmpty ? cleanLabId : name,
-    );
+      return LabContextModel(
+        selectedLabId: doc.id,
+        selectedLabName: name.isEmpty ? cleanLabId : name,
+      );
+    });
   }
 
   Future<Map<String, String>> getLabDetails(String labId) async {
-    final cleanLabId = labId.trim();
-    if (cleanLabId.isEmpty) {
-      return {};
-    }
+    return _runGuarded(() async {
+      final cleanLabId = labId.trim();
+      if (cleanLabId.isEmpty) {
+        return {};
+      }
 
-    final doc = await _labsRef.doc(cleanLabId).get();
-    if (!doc.exists) {
-      return {};
-    }
+      final doc = await _labsRef.doc(cleanLabId).get();
+      if (!doc.exists) {
+        return {};
+      }
 
-    final data = doc.data() ?? {};
-    final name = (data['name'] ?? cleanLabId).toString().trim();
-    final institute = (data['institute'] ?? '').toString().trim();
-    final code = (data['code'] ?? '').toString().trim();
+      final data = doc.data() ?? {};
+      final name = (data['name'] ?? cleanLabId).toString().trim();
+      final institute = (data['institute'] ?? '').toString().trim();
+      final code = (data['code'] ?? '').toString().trim();
 
-    return {
-      'labId': doc.id,
-      'labName': name.isEmpty ? cleanLabId : name,
-      'institute': institute,
-      'labCode': code.isEmpty ? _buildLabCode(doc.id) : code,
-    };
+      return {
+        'labId': doc.id,
+        'labName': name.isEmpty ? cleanLabId : name,
+        'institute': institute,
+        'labCode': code.isEmpty ? _buildLabCode(doc.id) : code,
+      };
+    });
   }
 
   Future<void> updateLabDetails({
@@ -174,24 +194,26 @@ class LabService {
     required String labName,
     String institute = '',
   }) async {
-    final cleanLabId = labId.trim();
-    final cleanLabName = labName.trim();
-    final cleanInstitute = institute.trim();
+    await _runGuarded(() async {
+      final cleanLabId = labId.trim();
+      final cleanLabName = labName.trim();
+      final cleanInstitute = institute.trim();
 
-    if (cleanLabId.isEmpty || cleanLabName.isEmpty) {
-      return;
-    }
+      if (cleanLabId.isEmpty || cleanLabName.isEmpty) {
+        return;
+      }
 
-    final docRef = _labsRef.doc(cleanLabId);
-    final existing = await docRef.get();
-    if (!existing.exists) {
-      throw StateError('Lab not found.');
-    }
+      final docRef = _labsRef.doc(cleanLabId);
+      final existing = await docRef.get();
+      if (!existing.exists) {
+        throw StateError('Lab not found.');
+      }
 
-    await docRef.update({
-      'name': cleanLabName,
-      'institute': cleanInstitute,
-      'updatedAt': FieldValue.serverTimestamp(),
+      await docRef.update({
+        'name': cleanLabName,
+        'institute': cleanInstitute,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     });
   }
 

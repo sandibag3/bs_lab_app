@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../services/firestore_access_guard.dart';
 import 'create_lab_screen.dart';
 import 'join_lab_screen.dart';
 
@@ -128,7 +129,7 @@ class LabAccessScreen extends StatelessWidget {
                     ),
                     SizedBox(height: 8),
                     Text(
-                      'Create a new lab or join an existing lab to continue.',
+                      FirestoreAccessGuard.userMessage,
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 13.5,

@@ -103,6 +103,13 @@ class InstrumentModel {
     'Other',
   ];
 
+  static const List<String> statusOptions = [
+    'Working',
+    'Needs service',
+    'Out of order',
+    'Under maintenance',
+  ];
+
   final String id;
   final String labId;
   final String name;
@@ -119,6 +126,10 @@ class InstrumentModel {
   final String instrumentInchargeContactNo;
   final Timestamp? instrumentInchargeTenureFrom;
   final Timestamp? instrumentInchargeTenureTo;
+  final String status;
+  final Timestamp? lastServicedOn;
+  final Timestamp? nextServiceDue;
+  final String maintenanceNotes;
   final Timestamp? serviceDate;
   final String serviceDetails;
   final List<InstrumentServiceHistoryRecord> serviceHistory;
@@ -144,6 +155,10 @@ class InstrumentModel {
     required this.instrumentInchargeContactNo,
     required this.instrumentInchargeTenureFrom,
     required this.instrumentInchargeTenureTo,
+    required this.status,
+    required this.lastServicedOn,
+    required this.nextServiceDue,
+    required this.maintenanceNotes,
     required this.serviceDate,
     required this.serviceDetails,
     required this.serviceHistory,
@@ -185,6 +200,14 @@ class InstrumentModel {
       instrumentInchargeTenureTo: data['instrumentInchargeTenureTo'] is Timestamp
           ? data['instrumentInchargeTenureTo'] as Timestamp
           : null,
+      status: _readStatus(data['status']),
+      lastServicedOn: data['lastServicedOn'] is Timestamp
+          ? data['lastServicedOn'] as Timestamp
+          : null,
+      nextServiceDue: data['nextServiceDue'] is Timestamp
+          ? data['nextServiceDue'] as Timestamp
+          : null,
+      maintenanceNotes: (data['maintenanceNotes'] ?? '').toString().trim(),
       serviceDate: data['serviceDate'] is Timestamp
           ? data['serviceDate'] as Timestamp
           : null,
@@ -247,10 +270,23 @@ class InstrumentModel {
         .toList();
   }
 
+  static String _readStatus(dynamic value) {
+    final raw = (value ?? '').toString().trim();
+    if (statusOptions.contains(raw)) {
+      return raw;
+    }
+
+    return statusOptions.first;
+  }
+
   String get normalizedName => name.isEmpty ? 'Unnamed Instrument' : name;
 
   String get normalizedCategory {
     return categories.contains(category) ? category : 'Other';
+  }
+
+  String get normalizedStatus {
+    return statusOptions.contains(status) ? status : statusOptions.first;
   }
 
   String get previewPhoto {
@@ -282,6 +318,10 @@ class InstrumentModel {
     String? instrumentInchargeContactNo,
     Timestamp? instrumentInchargeTenureFrom,
     Timestamp? instrumentInchargeTenureTo,
+    String? status,
+    Timestamp? lastServicedOn,
+    Timestamp? nextServiceDue,
+    String? maintenanceNotes,
     Timestamp? serviceDate,
     bool clearServiceDate = false,
     String? serviceDetails,
@@ -312,6 +352,10 @@ class InstrumentModel {
           instrumentInchargeTenureFrom ?? this.instrumentInchargeTenureFrom,
       instrumentInchargeTenureTo:
           instrumentInchargeTenureTo ?? this.instrumentInchargeTenureTo,
+      status: status ?? this.status,
+      lastServicedOn: lastServicedOn ?? this.lastServicedOn,
+      nextServiceDue: nextServiceDue ?? this.nextServiceDue,
+      maintenanceNotes: maintenanceNotes ?? this.maintenanceNotes,
       serviceDate: clearServiceDate ? null : (serviceDate ?? this.serviceDate),
       serviceDetails: serviceDetails ?? this.serviceDetails,
       serviceHistory: serviceHistory ?? this.serviceHistory,
@@ -339,6 +383,10 @@ class InstrumentModel {
       'instrumentInchargeContactNo': instrumentInchargeContactNo,
       'instrumentInchargeTenureFrom': instrumentInchargeTenureFrom,
       'instrumentInchargeTenureTo': instrumentInchargeTenureTo,
+      'status': normalizedStatus,
+      'lastServicedOn': lastServicedOn,
+      'nextServiceDue': nextServiceDue,
+      'maintenanceNotes': maintenanceNotes,
       'serviceDate': serviceDate,
       'serviceDetails': serviceDetails,
       'serviceHistory': serviceHistory.map((item) => item.toMap()).toList(),

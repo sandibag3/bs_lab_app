@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../app_state.dart';
 import '../models/event_model.dart';
+import 'firestore_access_guard.dart';
 
 class EventService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -8,6 +9,20 @@ class EventService {
   bool _matchesCurrentLab(Map<String, dynamic> data) {
     final labId = (data['labId'] ?? '').toString().trim();
     return AppState.instance.matchesSelectedLabId(labId);
+  }
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> _eventSnapshots() {
+    final appState = AppState.instance;
+    final selectedLabId = appState.selectedLabId.trim();
+
+    if (appState.isDemoLabSelected) {
+      return _firestore.collection('events').snapshots();
+    }
+
+    return _firestore
+        .collection('events')
+        .where('labId', isEqualTo: selectedLabId)
+        .snapshots();
   }
 
   int _statusRank(EventModel event) {
@@ -37,15 +52,19 @@ class EventService {
   }
 
   Stream<List<EventModel>> getEvents() {
-    return _firestore.collection('events').snapshots().map((snapshot) {
-      final events = snapshot.docs
-          .where((doc) => _matchesCurrentLab(doc.data()))
-          .map((doc) => EventModel.fromFirestore(doc))
-          .toList();
+    return FirestoreAccessGuard.guardLabStream<List<EventModel>>(
+      source: _eventSnapshots(),
+      emptyValue: <EventModel>[],
+      onData: (snapshot) {
+        final docs = AppState.instance.isDemoLabSelected
+            ? snapshot.docs.where((doc) => _matchesCurrentLab(doc.data()))
+            : snapshot.docs;
 
-      events.sort(_compareEvents);
-      return events;
-    });
+        final events = docs.map((doc) => EventModel.fromFirestore(doc)).toList();
+        events.sort(_compareEvents);
+        return events;
+      },
+    );
   }
 
   Future<void> markDone({required String docId}) async {
