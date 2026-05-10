@@ -7,6 +7,7 @@ import '../models/attendance_record_model.dart';
 import '../services/attendance_service.dart';
 import '../services/firestore_access_guard.dart';
 import 'attendance_admin_screen.dart';
+import 'attendance_logbook_screen.dart';
 import 'attendance_scanner_screen.dart';
 
 class AttendanceScreen extends StatefulWidget {
@@ -68,6 +69,28 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     final minute = dateTime.minute.toString().padLeft(2, '0');
     final meridiem = dateTime.hour >= 12 ? 'PM' : 'AM';
     return '${dateTime.day} ${monthNames[dateTime.month - 1]}, $hour:$minute $meridiem';
+  }
+
+  String _formatTimeOnly(Timestamp? value) {
+    if (value == null) {
+      return 'Not checked out yet';
+    }
+
+    final dateTime = value.toDate();
+    final hour = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final meridiem = dateTime.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $meridiem';
+  }
+
+  String _formatHistoryDate(AttendanceRecordModel record) {
+    final parsedDate = DateTime.tryParse(record.dateKey.trim());
+    if (parsedDate != null) {
+      return _formatDate(parsedDate);
+    }
+
+    final fallback = record.checkInAt ?? record.createdAt;
+    return _formatDate(fallback.toDate());
   }
 
   AttendanceRecordModel? _findTodayRecord(
@@ -145,6 +168,13 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const AttendanceAdminScreen()),
+    );
+  }
+
+  Future<void> _openAttendanceLogbook(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AttendanceLogbookScreen()),
     );
   }
 
@@ -356,6 +386,15 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                               ],
                             ),
                           ),
+                          if (todayRecord == null) ...[
+                            const SizedBox(height: 16),
+                            const _AttendanceInfoState(
+                              title: 'No check-in yet today',
+                              message:
+                                  'Use Scan Lab QR when you arrive to create today\'s attendance record.',
+                              icon: Icons.qr_code_scanner_rounded,
+                            ),
+                          ],
                           const SizedBox(height: 16),
                           Container(
                             padding: const EdgeInsets.all(18),
@@ -392,6 +431,128 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                       : _formatTimestamp(
                                           todayRecord?.checkOutAt,
                                         ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF1E293B),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.06),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'My Attendance',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                StreamBuilder<List<AttendanceRecordModel>>(
+                                  stream: _attendanceService
+                                      .getUserAttendanceHistory(
+                                        labId: selectedLabId,
+                                        userId: currentUserId,
+                                        limit: 10,
+                                      ),
+                                  builder: (context, historySnapshot) {
+                                    if (historySnapshot.hasError) {
+                                      return Text(
+                                        FirestoreAccessGuard.messageFor(
+                                          historySnapshot.error,
+                                        ),
+                                        style: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 13,
+                                          height: 1.4,
+                                        ),
+                                      );
+                                    }
+
+                                    final historyRecords =
+                                        historySnapshot.data ?? [];
+                                    if (historySnapshot.connectionState ==
+                                            ConnectionState.waiting &&
+                                        historyRecords.isEmpty) {
+                                      return const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 6,
+                                        ),
+                                        child: Center(
+                                          child: SizedBox(
+                                            height: 22,
+                                            width: 22,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.2,
+                                              color: Color(0xFF14B8A6),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    }
+
+                                    if (historyRecords.isEmpty) {
+                                      return const Text(
+                                        'No attendance history yet.',
+                                        style: TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 13,
+                                        ),
+                                      );
+                                    }
+
+                                    return Column(
+                                      children: [
+                                        for (int index = 0;
+                                            index < historyRecords.length;
+                                            index++) ...[
+                                          _AttendanceHistoryCard(
+                                            dateLabel: _formatHistoryDate(
+                                              historyRecords[index],
+                                            ),
+                                            statusLabel: _statusLabel(
+                                              historyRecords[index],
+                                            ),
+                                            statusColor: _statusColor(
+                                              historyRecords[index],
+                                            ),
+                                            checkInLabel: _formatTimeOnly(
+                                              historyRecords[index].checkInAt,
+                                            ),
+                                            checkOutLabel:
+                                                historyRecords[index]
+                                                            .checkOutAt ==
+                                                        null
+                                                    ? 'Not checked out yet'
+                                                    : _formatTimeOnly(
+                                                        historyRecords[index]
+                                                            .checkOutAt,
+                                                      ),
+                                            wifiLabel: historyRecords[index]
+                                                    .wifiSsid
+                                                    .trim()
+                                                    .isEmpty
+                                                ? ''
+                                                : historyRecords[index]
+                                                    .wifiSsid
+                                                    .trim(),
+                                          ),
+                                          if (index !=
+                                              historyRecords.length - 1)
+                                            const SizedBox(height: 10),
+                                        ],
+                                      ],
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -485,6 +646,28 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                     if (isPiAdmin)
                                       OutlinedButton.icon(
                                         onPressed: () =>
+                                            _openAttendanceLogbook(context),
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor:
+                                              const Color(0xFF2DD4BF),
+                                          side: const BorderSide(
+                                            color: Color(0xFF2DD4BF),
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 12,
+                                          ),
+                                        ),
+                                        icon: const Icon(
+                                          Icons.menu_book_rounded,
+                                          size: 18,
+                                        ),
+                                        label:
+                                            const Text('Attendance Logbook'),
+                                      ),
+                                    if (isPiAdmin)
+                                      OutlinedButton.icon(
+                                        onPressed: () =>
                                             _openAttendanceAdmin(context),
                                         style: OutlinedButton.styleFrom(
                                           foregroundColor:
@@ -516,6 +699,124 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
           ),
         );
       },
+    );
+  }
+}
+
+class _AttendanceHistoryCard extends StatelessWidget {
+  final String dateLabel;
+  final String statusLabel;
+  final Color statusColor;
+  final String checkInLabel;
+  final String checkOutLabel;
+  final String wifiLabel;
+
+  const _AttendanceHistoryCard({
+    required this.dateLabel,
+    required this.statusLabel,
+    required this.statusColor,
+    required this.checkInLabel,
+    required this.checkOutLabel,
+    required this.wifiLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A).withOpacity(0.45),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  dateLabel,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  statusLabel,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 11.8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              _AttendanceHistoryMeta(
+                icon: Icons.login_rounded,
+                label: 'In: $checkInLabel',
+              ),
+              _AttendanceHistoryMeta(
+                icon: Icons.logout_rounded,
+                label: 'Out: $checkOutLabel',
+              ),
+              if (wifiLabel.isNotEmpty)
+                _AttendanceHistoryMeta(
+                  icon: Icons.wifi_rounded,
+                  label: wifiLabel,
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AttendanceHistoryMeta extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _AttendanceHistoryMeta({
+    required this.icon,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 14, color: Colors.white54),
+        const SizedBox(width: 5),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white70,
+            fontSize: 12.4,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
     );
   }
 }

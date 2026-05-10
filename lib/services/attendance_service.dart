@@ -350,4 +350,36 @@ class AttendanceService {
       },
     );
   }
+
+  Stream<List<AttendanceRecordModel>> getUserAttendanceHistory({
+    required String labId,
+    required String userId,
+    int limit = 10,
+  }) {
+    final cleanLabId = labId.trim();
+    final cleanUserId = userId.trim();
+    final safeLimit = limit < 1 ? 1 : limit;
+
+    if (cleanLabId.isEmpty || cleanUserId.isEmpty) {
+      debugPrint(
+        'Attendance user history skipped: labId or userId missing.',
+      );
+      return Stream<List<AttendanceRecordModel>>.value(
+        <AttendanceRecordModel>[],
+      );
+    }
+
+    return _guardedRecordsStream(
+      labId: cleanLabId,
+      source: _attendanceRecordsRef(cleanLabId)
+          .where('userId', isEqualTo: cleanUserId)
+          .snapshots(),
+      onData: (snapshot) {
+        final records = snapshot.docs
+            .map(AttendanceRecordModel.fromFirestore)
+            .toList();
+        return _sortHistoryRecords(records).take(safeLimit).toList();
+      },
+    );
+  }
 }
