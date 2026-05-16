@@ -4,6 +4,7 @@ import '../models/order_model.dart';
 import '../services/activity_service.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/order_service.dart';
+import '../widgets/responsive_page_container.dart';
 
 enum OrdersViewMode { compact, detailed }
 
@@ -569,7 +570,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
       appBar: AppBar(
         title: const Text('Orders', style: TextStyle(color: Colors.white)),
       ),
-      body: StreamBuilder<List<OrderModel>>(
+      body: ResponsivePageContainer(
+        child: StreamBuilder<List<OrderModel>>(
         stream: orderService.getOrders(),
         builder: (context, snapshot) {
           if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
@@ -635,6 +637,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
             ],
           );
         },
+      ),
       ),
     );
   }

@@ -3,6 +3,7 @@ import '../app_state.dart';
 import '../models/chemical_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/inventory_service.dart';
+import '../widgets/responsive_page_container.dart';
 import 'add_new_chemical_screen.dart';
 import 'chemical_detail_screen.dart';
 
@@ -991,7 +992,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Padding(
+      child: ResponsivePageContainer(
+        child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
@@ -1116,6 +1118,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -398,6 +398,16 @@ class HomeDashboardTab extends StatelessWidget {
     return AnimatedBuilder(
       animation: appState,
       builder: (context, _) {
+        final isDesktopLayout = MediaQuery.sizeOf(context).width >= 900;
+        final pagePadding = isDesktopLayout
+            ? const EdgeInsets.fromLTRB(12, 8, 12, 16)
+            : const EdgeInsets.fromLTRB(16, 8, 16, 20);
+        final compactGap = isDesktopLayout ? 10.0 : 12.0;
+        final sectionGap = isDesktopLayout ? 14.0 : 20.0;
+        final heroPadding = isDesktopLayout
+            ? const EdgeInsets.all(10)
+            : const EdgeInsets.all(12);
+        final heroRadius = BorderRadius.circular(isDesktopLayout ? 18 : 22);
         final profile = appState.profile;
         final profileName = profile.name.trim();
         final resolvedName = profileName.isEmpty || profileName == 'Your Name'
@@ -411,27 +421,35 @@ class HomeDashboardTab extends StatelessWidget {
 
         return SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+            padding: pagePadding,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SearchBarWidget(onTap: onOpenChemicals),
-                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: isDesktopLayout ? 720 : double.infinity,
+                    ),
+                    child: SearchBarWidget(onTap: onOpenChemicals),
+                  ),
+                ),
+                SizedBox(height: compactGap),
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    borderRadius: BorderRadius.circular(22),
+                    borderRadius: heroRadius,
                     onTap: () => _openHeroActions(context),
                     child: Ink(
                       width: double.infinity,
-                      padding: const EdgeInsets.all(12),
+                      padding: heroPadding,
                       decoration: BoxDecoration(
                         gradient: const LinearGradient(
                           colors: [Color(0xFF0F766E), Color(0xFF0EA5E9)],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(22),
+                        borderRadius: heroRadius,
                         boxShadow: const [
                           BoxShadow(
                             color: Colors.black26,
@@ -519,7 +537,7 @@ class HomeDashboardTab extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: sectionGap),
                 if (appState.shouldShowProfileReminder) ...[
                   _WorkflowEntryCard(
                     title: 'Complete Personal Information',
@@ -529,12 +547,29 @@ class HomeDashboardTab extends StatelessWidget {
                     accentColor: const Color(0xFFF59E0B),
                     onTap: onOpenProfile,
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: sectionGap),
                 ],
-                const NewlyArrivedSection(),
-                const SizedBox(height: 20),
-                _UpcomingEventsPreview(onViewAll: onOpenEvents),
-                const SizedBox(height: 20),
+                if (isDesktopLayout)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Expanded(
+                        flex: 3,
+                        child: NewlyArrivedSection(),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        flex: 2,
+                        child: _UpcomingEventsPreview(onViewAll: onOpenEvents),
+                      ),
+                    ],
+                  )
+                else ...[
+                  const NewlyArrivedSection(),
+                  SizedBox(height: sectionGap),
+                  _UpcomingEventsPreview(onViewAll: onOpenEvents),
+                ],
+                SizedBox(height: sectionGap),
                 StreamBuilder<List<RequirementModel>>(
                   stream: RequirementService().getRequirements(),
                   builder: (context, requirementsSnapshot) {
@@ -661,7 +696,7 @@ class HomeDashboardTab extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 20),
+                SizedBox(height: sectionGap),
                 _WorkflowEntryCard(
                   title: 'Recent Activity',
                   subtitle:
@@ -1035,8 +1070,13 @@ class _UpcomingEventsPreview extends StatelessWidget {
   static const double _eventItemHeight = 52;
   @override
   Widget build(BuildContext context) {
+    final isDesktopLayout = MediaQuery.sizeOf(context).width >= 900;
+    final eventItemHeight = isDesktopLayout ? 44.0 : _eventItemHeight;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      padding: isDesktopLayout
+          ? const EdgeInsets.fromLTRB(12, 10, 12, 10)
+          : const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(20),
@@ -1112,8 +1152,8 @@ class _UpcomingEventsPreview extends StatelessWidget {
 
               if (snapshot.connectionState == ConnectionState.waiting &&
                   upcomingEvents.isEmpty) {
-                return const SizedBox(
-                  height: _eventItemHeight,
+                return SizedBox(
+                  height: eventItemHeight,
                   child: Center(
                     child: CircularProgressIndicator(color: Color(0xFF14B8A6)),
                   ),
@@ -1142,6 +1182,7 @@ class _UpcomingEventsPreview extends StatelessWidget {
                   return _UpcomingEventTile(
                     title: event.normalizedTitle,
                     detail: _previewDetail(event),
+                    height: eventItemHeight,
                   );
                 }).toList(),
               );
@@ -1156,13 +1197,18 @@ class _UpcomingEventsPreview extends StatelessWidget {
 class _UpcomingEventTile extends StatelessWidget {
   final String title;
   final String detail;
+  final double height;
 
-  const _UpcomingEventTile({required this.title, required this.detail});
+  const _UpcomingEventTile({
+    required this.title,
+    required this.detail,
+    required this.height,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: _UpcomingEventsPreview._eventItemHeight,
+      height: height,
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
         children: [
@@ -1375,6 +1421,13 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
     return columnCount == 3 ? 0.96 : 0.92;
   }
 
+  double? _tileExtentForWidth(double width) {
+    if (width > 700) {
+      return 118;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final orderedItems = _orderedItems();
@@ -1387,10 +1440,11 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
           width: width,
           columnCount: crossAxisCount,
         );
+        final tileExtent = _tileExtentForWidth(width);
         final tileWidth =
             (width - ((crossAxisCount - 1) * _spacing)) /
             crossAxisCount;
-        final tileHeight = tileWidth / childAspectRatio;
+        final tileHeight = tileExtent ?? tileWidth / childAspectRatio;
 
         return GridView.builder(
           shrinkWrap: true,
@@ -1401,6 +1455,7 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
             mainAxisSpacing: _spacing,
             crossAxisSpacing: _spacing,
             childAspectRatio: childAspectRatio,
+            mainAxisExtent: tileExtent,
           ),
           itemBuilder: (context, index) {
             final item = orderedItems[index];
@@ -1469,78 +1524,94 @@ class _HomeToolCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: const Color(0xFF1E293B),
-      borderRadius: BorderRadius.circular(18),
-      elevation: 1,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxHeight <= 130;
+        final cardRadius = BorderRadius.circular(isCompact ? 14 : 18);
+        final iconBoxSize = isCompact ? 36.0 : 42.0;
+        final iconSize = isCompact ? 20.0 : 22.0;
+        final verticalPadding = isCompact ? 8.0 : 10.0;
+        final labelFontSize = isCompact ? 10.5 : 11.0;
+
+        return Material(
+          color: const Color(0xFF1E293B),
+          borderRadius: cardRadius,
+          elevation: 1,
+          child: InkWell(
+            borderRadius: cardRadius,
+            onTap: onTap,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: 6,
+                vertical: verticalPadding,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    height: 42,
-                    width: 42,
-                    decoration: BoxDecoration(
-                      color: accentColor.withOpacity(0.15),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(icon, color: accentColor, size: 22),
-                  ),
-                  if (badgeCount > 0)
-                    Positioned(
-                      right: -8,
-                      top: -8,
-                      child: Container(
-                        constraints: const BoxConstraints(
-                          minWidth: 22,
-                          minHeight: 22,
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Container(
+                        height: iconBoxSize,
+                        width: iconBoxSize,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFFB7185),
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: const Color(0xFF1E293B),
-                            width: 2,
+                          color: accentColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(
+                            isCompact ? 10 : 12,
                           ),
                         ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          badgeCount > 99 ? '99+' : '$badgeCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10.5,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
+                        child: Icon(icon, color: accentColor, size: iconSize),
                       ),
+                      if (badgeCount > 0)
+                        Positioned(
+                          right: -8,
+                          top: -8,
+                          child: Container(
+                            constraints: const BoxConstraints(
+                              minWidth: 22,
+                              minHeight: 22,
+                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 6),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFB7185),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: const Color(0xFF1E293B),
+                                width: 2,
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: Text(
+                              badgeCount > 99 ? '99+' : '$badgeCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  SizedBox(height: isCompact ? 7 : 8),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: labelFontSize,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      height: 1.2,
                     ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                  height: 1.2,
-                ),
-              ),
-            ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }

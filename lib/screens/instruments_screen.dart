@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../services/firestore_access_guard.dart';
 import '../models/instrument_model.dart';
 import '../services/instrument_service.dart';
+import '../widgets/responsive_page_container.dart';
 import 'add_instrument_screen.dart';
 import 'instrument_detail_screen.dart';
 
@@ -174,7 +175,8 @@ class _InstrumentsScreenState extends State<InstrumentsScreen> {
     final instrumentService = InstrumentService();
 
     return SafeArea(
-      child: StreamBuilder<List<InstrumentModel>>(
+      child: ResponsivePageContainer(
+        child: StreamBuilder<List<InstrumentModel>>(
         stream: instrumentService.getInstruments(),
         builder: (context, snapshot) {
           if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
@@ -266,6 +268,7 @@ class _InstrumentsScreenState extends State<InstrumentsScreen> {
             ),
           );
         },
+      ),
       ),
     );
   }

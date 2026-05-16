@@ -7,6 +7,7 @@ import '../services/activity_service.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/order_service.dart';
 import '../services/requirement_service.dart';
+import '../widgets/responsive_page_container.dart';
 
 enum CartViewMode { compact, detailed }
 
@@ -717,7 +718,8 @@ class _CartScreenState extends State<CartScreen> {
       appBar: AppBar(
         title: const Text('Cart', style: TextStyle(color: Colors.white)),
       ),
-      body: StreamBuilder<List<RequirementModel>>(
+      body: ResponsivePageContainer(
+        child: StreamBuilder<List<RequirementModel>>(
         stream: requirementService.getRequirements(),
         builder: (context, snapshot) {
           if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
@@ -785,6 +787,7 @@ class _CartScreenState extends State<CartScreen> {
             ],
           );
         },
+      ),
       ),
     );
   }

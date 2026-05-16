@@ -4,6 +4,7 @@ import '../app_state.dart';
 import '../services/activity_service.dart';
 import '../services/consumables_inventory_service.dart';
 import '../services/firestore_access_guard.dart';
+import '../widgets/responsive_page_container.dart';
 
 class ConsumablesInventoryScreen extends StatelessWidget {
   const ConsumablesInventoryScreen({super.key});
@@ -1029,7 +1030,9 @@ class ConsumablesInventoryScreen extends StatelessWidget {
         ),
       ),
       body: SafeArea(
-        child: StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
+        child: ResponsivePageContainer(
+          child:
+              StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
           stream: _inventoryStream(),
           builder: (context, snapshot) {
             if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
@@ -1106,6 +1109,7 @@ class ConsumablesInventoryScreen extends StatelessWidget {
               },
             );
           },
+        ),
         ),
       ),
     );

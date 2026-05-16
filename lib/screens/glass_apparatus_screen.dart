@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/glass_apparatus_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/glass_apparatus_service.dart';
+import '../widgets/responsive_page_container.dart';
 import 'add_glass_apparatus_screen.dart';
 
 class GlassApparatusScreen extends StatefulWidget {
@@ -163,7 +164,8 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
     final apparatusService = GlassApparatusService();
 
     return SafeArea(
-      child: StreamBuilder<List<GlassApparatusModel>>(
+      child: ResponsivePageContainer(
+        child: StreamBuilder<List<GlassApparatusModel>>(
         stream: apparatusService.getApparatus(),
         builder: (context, snapshot) {
           if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
@@ -229,6 +231,7 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
             ),
           );
         },
+      ),
       ),
     );
   }

@@ -86,6 +86,11 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
   @override
   Widget build(BuildContext context) {
     final orderService = OrderService();
+    final isDesktopLayout = MediaQuery.sizeOf(context).width >= 900;
+    final cardHeight = isDesktopLayout ? 92.0 : 104.0;
+    final cardWidth = isDesktopLayout ? 220.0 : 240.0;
+    final cardPadding = isDesktopLayout ? 12.0 : 14.0;
+    final headingFontSize = isDesktopLayout ? 18.0 : 20.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -94,10 +99,10 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
           children: [
             GestureDetector(
               onTap: () => _openFullList(context),
-              child: const Text(
+              child: Text(
                 'Newly Arrived',
                 style: TextStyle(
-                  fontSize: 20,
+                  fontSize: headingFontSize,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
@@ -215,7 +220,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
             final displayList = [...recent, ...recent];
 
             return SizedBox(
-              height: 104,
+              height: cardHeight,
               child: ListView.builder(
                 controller: _scrollController,
                 scrollDirection: Axis.horizontal,
@@ -230,9 +235,9 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                     borderRadius: BorderRadius.circular(18),
                     onTap: () => _openEntryScreen(context, order),
                     child: Container(
-                      width: 240,
+                      width: cardWidth,
                       margin: const EdgeInsets.only(right: 12),
-                      padding: const EdgeInsets.all(14),
+                      padding: EdgeInsets.all(cardPadding),
                       decoration: BoxDecoration(
                         color: const Color(0xFF1E293B),
                         borderRadius: BorderRadius.circular(18),

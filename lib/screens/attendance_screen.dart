@@ -6,6 +6,7 @@ import '../app_state.dart';
 import '../models/attendance_record_model.dart';
 import '../services/attendance_service.dart';
 import '../services/firestore_access_guard.dart';
+import '../widgets/responsive_page_container.dart';
 import 'attendance_admin_screen.dart';
 import 'attendance_logbook_screen.dart';
 import 'attendance_scanner_screen.dart';
@@ -215,7 +216,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
             ),
           ),
           body: SafeArea(
-            child: !canQueryLabData
+            child: ResponsivePageContainer(
+              child: !canQueryLabData
                 ? _AttendanceInfoState(
                     title: 'Attendance needs a lab',
                     message:
@@ -696,6 +698,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                       );
                     },
                   ),
+            ),
           ),
         );
       },

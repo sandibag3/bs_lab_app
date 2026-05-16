@@ -237,95 +237,264 @@ class _HomeScreenState extends State<HomeScreen> {
     final bool showBackButton = activeHomeOverlay != null;
     final bool showMainAddButton = activeHomeOverlay == null;
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: showBackButton
-            ? IconButton(
-                onPressed: () {
-                  setState(() {
-                    activeHomeOverlay = null;
-                  });
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final useDesktopNavigation = constraints.maxWidth >= 900;
+
+        return Scaffold(
+          appBar: AppBar(
+            leading: showBackButton
+                ? IconButton(
+                    onPressed: () {
+                      setState(() {
+                        activeHomeOverlay = null;
+                      });
+                    },
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  )
+                : null,
+            title: Text(
+              appBarTitle,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            actions: [
+              PopupMenuButton<_HomeOverflowAction>(
+                tooltip: 'More options',
+                icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
+                color: const Color(0xFF1E293B),
+                onSelected: (action) {
+                  switch (action) {
+                    case _HomeOverflowAction.importInventory:
+                      openImportInventory();
+                      break;
+                    case _HomeOverflowAction.exportReports:
+                      openExportReports();
+                      break;
+                    case _HomeOverflowAction.signOut:
+                      signOut();
+                      break;
+                  }
                 },
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-              )
-            : null,
-        title: Text(
-          appBarTitle,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
+                itemBuilder: (context) {
+                  return const [
+                    PopupMenuItem(
+                      value: _HomeOverflowAction.importInventory,
+                      child: _OverflowMenuItem(
+                        icon: Icons.file_upload_rounded,
+                        label: 'Import Inventory (Excel)',
+                        color: Color(0xFF38BDF8),
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: _HomeOverflowAction.exportReports,
+                      child: _OverflowMenuItem(
+                        icon: Icons.file_download_rounded,
+                        label: 'Export Reports',
+                        color: Color(0xFF14B8A6),
+                      ),
+                    ),
+                    PopupMenuDivider(),
+                    PopupMenuItem(
+                      value: _HomeOverflowAction.signOut,
+                      child: _OverflowMenuItem(
+                        icon: Icons.logout_rounded,
+                        label: 'Sign Out',
+                        color: Color(0xFFFB7185),
+                      ),
+                    ),
+                  ];
+                },
+              ),
+            ],
           ),
-        ),
-        actions: [
-          PopupMenuButton<_HomeOverflowAction>(
-            tooltip: 'More options',
-            icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
-            color: const Color(0xFF1E293B),
-            onSelected: (action) {
-              switch (action) {
-                case _HomeOverflowAction.importInventory:
-                  openImportInventory();
-                  break;
-                case _HomeOverflowAction.exportReports:
-                  openExportReports();
-                  break;
-                case _HomeOverflowAction.signOut:
-                  signOut();
-                  break;
-              }
-            },
-            itemBuilder: (context) {
-              return const [
-                PopupMenuItem(
-                  value: _HomeOverflowAction.importInventory,
-                  child: _OverflowMenuItem(
-                    icon: Icons.file_upload_rounded,
-                    label: 'Import Inventory (Excel)',
-                    color: Color(0xFF38BDF8),
-                  ),
+          body: useDesktopNavigation
+              ? Row(
+                  children: [
+                    _DesktopHomeSidebar(
+                      selectedIndex: selectedIndex,
+                      hasActiveOverlay: activeHomeOverlay != null,
+                      onSelectTab: changeTab,
+                      onAdd: openAddSheet,
+                    ),
+                    Expanded(
+                      child: ResponsivePageContainer(
+                        maxWidth: 1280,
+                        child: currentScreen,
+                      ),
+                    ),
+                  ],
+                )
+              : ResponsivePageContainer(child: currentScreen),
+          floatingActionButton: !useDesktopNavigation && showMainAddButton
+              ? FloatingActionButton(
+                  onPressed: openAddSheet,
+                  backgroundColor: const Color(0xFF14B8A6),
+                  elevation: 6,
+                  shape: const CircleBorder(),
+                  child: const Icon(Icons.add_rounded, color: Colors.white),
+                )
+              : null,
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerDocked,
+          bottomNavigationBar: useDesktopNavigation
+              ? null
+              : BottomNavBar(
+                  currentIndex: selectedIndex,
+                  onTap: changeTab,
                 ),
-                PopupMenuItem(
-                  value: _HomeOverflowAction.exportReports,
-                  child: _OverflowMenuItem(
-                    icon: Icons.file_download_rounded,
-                    label: 'Export Reports',
-                    color: Color(0xFF14B8A6),
-                  ),
-                ),
-                PopupMenuDivider(),
-                PopupMenuItem(
-                  value: _HomeOverflowAction.signOut,
-                  child: _OverflowMenuItem(
-                    icon: Icons.logout_rounded,
-                    label: 'Sign Out',
-                    color: Color(0xFFFB7185),
-                  ),
-                ),
-              ];
-            },
-          ),
-        ],
-      ),
-      body: ResponsivePageContainer(child: currentScreen),
-      floatingActionButton: showMainAddButton
-          ? FloatingActionButton(
-              onPressed: openAddSheet,
-              backgroundColor: const Color(0xFF14B8A6),
-              elevation: 6,
-              shape: const CircleBorder(),
-              child: const Icon(Icons.add_rounded, color: Colors.white),
-            )
-          : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: selectedIndex,
-        onTap: changeTab,
-      ),
+        );
+      },
     );
   }
 }
 
 enum _HomeOverflowAction { importInventory, exportReports, signOut }
+
+class _DesktopHomeSidebar extends StatelessWidget {
+  final int selectedIndex;
+  final bool hasActiveOverlay;
+  final ValueChanged<int> onSelectTab;
+  final VoidCallback onAdd;
+
+  const _DesktopHomeSidebar({
+    required this.selectedIndex,
+    required this.hasActiveOverlay,
+    required this.onSelectTab,
+    required this.onAdd,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 224,
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        border: Border(
+          right: BorderSide(color: Colors.white.withOpacity(0.06)),
+        ),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                child: Text(
+                  'Labmate',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              _DesktopSidebarItem(
+                icon: Icons.home_rounded,
+                label: 'Home',
+                isSelected: selectedIndex == 0 || hasActiveOverlay,
+                onTap: () => onSelectTab(0),
+              ),
+              _DesktopSidebarItem(
+                icon: Icons.event_rounded,
+                label: 'Events',
+                isSelected: !hasActiveOverlay && selectedIndex == 1,
+                onTap: () => onSelectTab(1),
+              ),
+              _DesktopSidebarItem(
+                icon: Icons.article_rounded,
+                label: 'Articles',
+                isSelected: !hasActiveOverlay && selectedIndex == 2,
+                onTap: () => onSelectTab(2),
+              ),
+              _DesktopSidebarItem(
+                icon: Icons.person_rounded,
+                label: 'Profile',
+                isSelected: !hasActiveOverlay && selectedIndex == 3,
+                onTap: () => onSelectTab(3),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: onAdd,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF14B8A6),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 13),
+                  ),
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: const Text(
+                    'Add',
+                    style: TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+              const Spacer(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DesktopSidebarItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  const _DesktopSidebarItem({
+    required this.icon,
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Material(
+        color: isSelected ? const Color(0x2214B8A6) : Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  size: 20,
+                  color: isSelected
+                      ? const Color(0xFF5EEAD4)
+                      : Colors.white60,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected ? Colors.white : Colors.white70,
+                    fontSize: 13,
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
 class _OverflowMenuItem extends StatelessWidget {
   final IconData icon;
