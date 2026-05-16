@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../widgets/add_action_sheet.dart';
 import '../widgets/bottom_nav_bar.dart';
+import '../widgets/responsive_page_container.dart';
 import 'add_event_screen.dart';
 import 'add_new_chemical_screen.dart';
 import 'add_requirement_screen.dart';
@@ -305,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: currentScreen,
+      body: ResponsivePageContainer(child: currentScreen),
       floatingActionButton: showMainAddButton
           ? FloatingActionButton(
               onPressed: openAddSheet,

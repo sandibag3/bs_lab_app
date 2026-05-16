@@ -1254,6 +1254,7 @@ class _ReorderableWorkflowGrid extends StatefulWidget {
 
 class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
   static const String _prefsKey = 'dashboard_tool_order_v1';
+  static const double _spacing = 14.0;
 
   List<String>? _savedMovableIds;
 
@@ -1348,17 +1349,46 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
     await _persistMovableOrder(nextOrder);
   }
 
+  int _columnCountForWidth(double width) {
+    if (width >= 1100) {
+      return 6;
+    }
+    if (width >= 900) {
+      return 5;
+    }
+    if (width > 700) {
+      return 4;
+    }
+    if (width < 360) {
+      return 3;
+    }
+    return 4;
+  }
+
+  double _aspectRatioForWidth({
+    required double width,
+    required int columnCount,
+  }) {
+    if (width > 700) {
+      return 1.12;
+    }
+    return columnCount == 3 ? 0.96 : 0.92;
+  }
+
   @override
   Widget build(BuildContext context) {
     final orderedItems = _orderedItems();
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth < 360 ? 3 : 4;
-        const spacing = 14.0;
-        final childAspectRatio = crossAxisCount == 3 ? 0.96 : 0.92;
+        final width = constraints.maxWidth;
+        final crossAxisCount = _columnCountForWidth(width);
+        final childAspectRatio = _aspectRatioForWidth(
+          width: width,
+          columnCount: crossAxisCount,
+        );
         final tileWidth =
-            (constraints.maxWidth - ((crossAxisCount - 1) * spacing)) /
+            (width - ((crossAxisCount - 1) * _spacing)) /
             crossAxisCount;
         final tileHeight = tileWidth / childAspectRatio;
 
@@ -1368,8 +1398,8 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
           itemCount: orderedItems.length,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
-            mainAxisSpacing: spacing,
-            crossAxisSpacing: spacing,
+            mainAxisSpacing: _spacing,
+            crossAxisSpacing: _spacing,
             childAspectRatio: childAspectRatio,
           ),
           itemBuilder: (context, index) {
