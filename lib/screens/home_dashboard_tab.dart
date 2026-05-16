@@ -402,7 +402,8 @@ class HomeDashboardTab extends StatelessWidget {
         final pagePadding = isDesktopLayout
             ? const EdgeInsets.fromLTRB(12, 8, 12, 16)
             : const EdgeInsets.fromLTRB(16, 8, 16, 20);
-        final compactGap = isDesktopLayout ? 10.0 : 12.0;
+        final heroSearchGap = isDesktopLayout ? 8.0 : 12.0;
+        final searchSectionGap = isDesktopLayout ? 12.0 : 20.0;
         final sectionGap = isDesktopLayout ? 14.0 : 20.0;
         final heroPadding = isDesktopLayout
             ? const EdgeInsets.all(10)
@@ -425,18 +426,10 @@ class HomeDashboardTab extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: isDesktopLayout ? 680 : double.infinity,
-                    ),
-                    child: isDesktopLayout
-                        ? _DesktopDashboardSearchBar(onTap: onOpenChemicals)
-                        : SearchBarWidget(onTap: onOpenChemicals),
-                  ),
-                ),
-                SizedBox(height: compactGap),
+                if (!isDesktopLayout) ...[
+                  SearchBarWidget(onTap: onOpenChemicals),
+                  SizedBox(height: heroSearchGap),
+                ],
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
@@ -539,7 +532,12 @@ class HomeDashboardTab extends StatelessWidget {
                     ),
                   ),
                 ),
-                SizedBox(height: sectionGap),
+                if (isDesktopLayout) ...[
+                  SizedBox(height: heroSearchGap),
+                  _DesktopDashboardSearchBar(onTap: onOpenChemicals),
+                  SizedBox(height: searchSectionGap),
+                ] else
+                  SizedBox(height: sectionGap),
                 if (appState.shouldShowProfileReminder) ...[
                   _WorkflowEntryCard(
                     title: 'Complete Personal Information',
