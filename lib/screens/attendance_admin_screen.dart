@@ -9,6 +9,7 @@ import '../app_state.dart';
 import '../models/attendance_record_model.dart';
 import '../services/attendance_service.dart';
 import '../services/firestore_access_guard.dart';
+import 'attendance_logbook_screen.dart';
 
 class AttendanceAdminScreen extends StatefulWidget {
   const AttendanceAdminScreen({super.key});
@@ -255,6 +256,13 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
     }
   }
 
+  Future<void> _openAttendanceLogbook(BuildContext context) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const AttendanceLogbookScreen()),
+    );
+  }
+
   Widget _buildInfoState({
     required String title,
     required String message,
@@ -430,6 +438,26 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                             ),
                                     ),
                                   ],
+                                ),
+                                const SizedBox(height: 14),
+                                OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _openAttendanceLogbook(context),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF2DD4BF),
+                                    side: const BorderSide(
+                                      color: Color(0xFF2DD4BF),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 12,
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                    Icons.menu_book_rounded,
+                                    size: 18,
+                                  ),
+                                  label: const Text('Open Attendance Logbook'),
                                 ),
                               ],
                             ),

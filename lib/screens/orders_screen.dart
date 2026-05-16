@@ -516,6 +516,53 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
+  Widget _buildEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withOpacity(0.06)),
+          ),
+          child: const Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.local_shipping_outlined,
+                color: Color(0xFF14B8A6),
+                size: 30,
+              ),
+              SizedBox(height: 12),
+              Text(
+                'No orders yet',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              SizedBox(height: 8),
+              Text(
+                'Approved requirements will appear here after they are placed as orders.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -558,12 +605,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
           final orders = _sortOrders(snapshot.data!);
 
           if (orders.isEmpty) {
-            return const Center(
-              child: Text(
-                'No orders yet.',
-                style: TextStyle(color: Colors.white70, fontSize: 16),
-              ),
-            );
+            return _buildEmptyState();
           }
 
           return Column(

@@ -24,7 +24,6 @@ import 'attendance_screen.dart';
 import 'consumables_inventory_screen.dart';
 import 'lab_members_screen.dart';
 import 'lab_settings_screen.dart';
-import 'lab_switcher_screen.dart';
 import 'recent_activity_screen.dart';
 
 class HomeDashboardTab extends StatelessWidget {
@@ -35,6 +34,7 @@ class HomeDashboardTab extends StatelessWidget {
   final VoidCallback onOpenEvents;
   final VoidCallback onOpenArticles;
   final VoidCallback onOpenInstruments;
+  final VoidCallback onOpenGlassApparatus;
   final VoidCallback onOpenOrders;
   final VoidCallback onOpenCart;
   final VoidCallback onOpenLabManual;
@@ -50,6 +50,7 @@ class HomeDashboardTab extends StatelessWidget {
     required this.onOpenEvents,
     required this.onOpenArticles,
     required this.onOpenInstruments,
+    required this.onOpenGlassApparatus,
     required this.onOpenOrders,
     required this.onOpenCart,
     required this.onOpenLabManual,
@@ -61,13 +62,6 @@ class HomeDashboardTab extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const ConsumablesInventoryScreen()),
-    );
-  }
-
-  Future<void> _openLabSwitcher(BuildContext context) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => LabSwitcherScreen(appState: appState)),
     );
   }
 
@@ -104,9 +98,7 @@ class HomeDashboardTab extends StatelessWidget {
   void _showComingSoonMessage(BuildContext context, String message) {
     final messenger = ScaffoldMessenger.maybeOf(context);
     messenger?.hideCurrentSnackBar();
-    messenger?.showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    messenger?.showSnackBar(SnackBar(content: Text(message)));
   }
 
   int _pendingApprovalCount(List<RequirementModel> requirements) {
@@ -231,14 +223,14 @@ class HomeDashboardTab extends StatelessWidget {
   }) {
     final itemsWithBadges = workflowItems.map((item) {
       final badgeCount = item.id == 'cart'
-            ? pendingApprovalCount
-            : item.id == 'orders'
-            ? ordersInProgressCount
-            : item.id == 'chemical_inventory'
-            ? chemicalAttentionCount
-            : item.id == 'consumables_inventory'
-            ? consumablesLowStockCount
-            : 0;
+          ? pendingApprovalCount
+          : item.id == 'orders'
+          ? ordersInProgressCount
+          : item.id == 'chemical_inventory'
+          ? chemicalAttentionCount
+          : item.id == 'consumables_inventory'
+          ? consumablesLowStockCount
+          : 0;
 
       return item.copyWith(badgeCount: badgeCount);
     }).toList();
@@ -275,22 +267,12 @@ class HomeDashboardTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   const Text(
-                    'Switch labs, view members, or open settings for the current workspace.',
+                    'View members or open settings for the current workspace.',
                     style: TextStyle(
                       color: Colors.white60,
                       fontSize: 13,
                       height: 1.4,
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  _LabActionTile(
-                    icon: Icons.swap_horiz_rounded,
-                    title: 'Switch Lab',
-                    subtitle: 'Choose a different lab context you belong to.',
-                    onTap: () async {
-                      Navigator.pop(sheetContext);
-                      await _openLabSwitcher(context);
-                    },
                   ),
                   const SizedBox(height: 10),
                   _LabActionTile(
@@ -386,40 +368,29 @@ class HomeDashboardTab extends StatelessWidget {
         title: 'Log books',
         icon: Icons.menu_book_outlined,
         accentColor: const Color(0xFF22C55E),
-        onTap: () => _showComingSoonMessage(
-          context,
-          'Log books coming soon',
-        ),
+        onTap: () => _showComingSoonMessage(context, 'Log books coming soon'),
       ),
       _DashboardToolItem(
         id: 'glass_apparatus',
         title: 'Glass apparatus',
         icon: Icons.science_outlined,
         accentColor: const Color(0xFFFB923C),
-        onTap: () => _showComingSoonMessage(
-          context,
-          'Glass apparatus coming soon',
-        ),
+        onTap: onOpenGlassApparatus,
       ),
       _DashboardToolItem(
         id: 'lab_notebook',
         title: 'Lab notebook',
         icon: Icons.edit_note_outlined,
         accentColor: const Color(0xFF38BDF8),
-        onTap: () => _showComingSoonMessage(
-          context,
-          'Lab notebook coming soon',
-        ),
+        onTap: () =>
+            _showComingSoonMessage(context, 'Lab notebook coming soon'),
       ),
       _DashboardToolItem(
         id: 'more',
         title: 'More',
         icon: Icons.apps_outlined,
         accentColor: const Color(0xFF94A3B8),
-        onTap: () => _showComingSoonMessage(
-          context,
-          'More tools coming soon',
-        ),
+        onTap: () => _showComingSoonMessage(context, 'More tools coming soon'),
         isFixed: true,
       ),
     ];
@@ -478,14 +449,12 @@ class HomeDashboardTab extends StatelessWidget {
                               _HeroProfileAvatar(
                                 photoReference: photoReference,
                                 displayName: resolvedName,
-                                fallbackEmail:
-                                    appState.authenticatedUserEmail,
+                                fallbackEmail: appState.authenticatedUserEmail,
                               ),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -651,8 +620,8 @@ class HomeDashboardTab extends StatelessWidget {
                               builder: (context, consumablesSnapshot) {
                                 final consumablesAccessMessage =
                                     _firstAccessMessage([
-                                  consumablesSnapshot.error,
-                                ]);
+                                      consumablesSnapshot.error,
+                                    ]);
 
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -729,8 +698,7 @@ class _HeroProfileAvatar extends StatelessWidget {
     }
 
     final uri = Uri.tryParse(cleanReference);
-    if (uri != null &&
-        (uri.scheme == 'http' || uri.scheme == 'https')) {
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
       return NetworkImage(cleanReference);
     }
 
@@ -809,20 +777,13 @@ class _HeroProfileAvatar extends StatelessWidget {
   }
 }
 
-enum _AttendanceDashboardState {
-  notCheckedIn,
-  present,
-  checkedOut,
-}
+enum _AttendanceDashboardState { notCheckedIn, present, checkedOut }
 
 class _AttendanceStatusButton extends StatefulWidget {
   final AppState appState;
   final Future<void> Function() onOpen;
 
-  const _AttendanceStatusButton({
-    required this.appState,
-    required this.onOpen,
-  });
+  const _AttendanceStatusButton({required this.appState, required this.onOpen});
 
   @override
   State<_AttendanceStatusButton> createState() =>
@@ -854,9 +815,7 @@ class _AttendanceStatusButtonState extends State<_AttendanceStatusButton> {
     }
   }
 
-  _AttendanceDashboardState _statusFromRecord(
-    AttendanceRecordModel? record,
-  ) {
+  _AttendanceDashboardState _statusFromRecord(AttendanceRecordModel? record) {
     if (record == null) {
       return _AttendanceDashboardState.notCheckedIn;
     }
@@ -1052,7 +1011,9 @@ class _UpcomingEventsPreview extends StatelessWidget {
   List<EventModel> _nextUpcomingEvents(List<EventModel> events) {
     final now = DateTime.now();
     return events
-        .where((event) => !event.isCompleted && !event.scheduledAt.isBefore(now))
+        .where(
+          (event) => !event.isCompleted && !event.scheduledAt.isBefore(now),
+        )
         .take(3)
         .toList();
   }
@@ -1154,9 +1115,7 @@ class _UpcomingEventsPreview extends StatelessWidget {
                 return const SizedBox(
                   height: _eventItemHeight,
                   child: Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF14B8A6),
-                    ),
+                    child: CircularProgressIndicator(color: Color(0xFF14B8A6)),
                   ),
                 );
               }
@@ -1270,9 +1229,7 @@ class _DashboardToolItem {
     this.isFixed = false,
   });
 
-  _DashboardToolItem copyWith({
-    int? badgeCount,
-  }) {
+  _DashboardToolItem copyWith({int? badgeCount}) {
     return _DashboardToolItem(
       id: id,
       title: title,
@@ -1344,19 +1301,14 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
   }
 
   List<_DashboardToolItem> _orderedItems() {
-    final itemsById = {
-      for (final item in widget.items) item.id: item,
-    };
+    final itemsById = {for (final item in widget.items) item.id: item};
 
     final orderedMovableItems = _normalizedMovableOrderIds()
         .map((id) => itemsById[id])
         .whereType<_DashboardToolItem>()
         .toList();
 
-    return [
-      ...orderedMovableItems,
-      ..._fixedItems,
-    ];
+    return [...orderedMovableItems, ..._fixedItems];
   }
 
   Future<void> _persistMovableOrder(List<String> ids) async {
@@ -1407,7 +1359,7 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
         final childAspectRatio = crossAxisCount == 3 ? 0.96 : 0.92;
         final tileWidth =
             (constraints.maxWidth - ((crossAxisCount - 1) * spacing)) /
-                crossAxisCount;
+            crossAxisCount;
         final tileHeight = tileWidth / childAspectRatio;
 
         return GridView.builder(
@@ -1455,15 +1407,9 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
                     feedback: SizedBox(
                       width: tileWidth,
                       height: tileHeight,
-                      child: Material(
-                        color: Colors.transparent,
-                        child: card,
-                      ),
+                      child: Material(color: Colors.transparent, child: card),
                     ),
-                    childWhenDragging: Opacity(
-                      opacity: 0.35,
-                      child: card,
-                    ),
+                    childWhenDragging: Opacity(opacity: 0.35, child: card),
                     child: card,
                   ),
                 );
@@ -1710,4 +1656,3 @@ class _LabActionTile extends StatelessWidget {
     );
   }
 }
-

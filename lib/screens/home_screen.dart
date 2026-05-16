@@ -13,6 +13,7 @@ import 'edit_profile_screen.dart';
 import 'electronic_lab_manual_screen.dart';
 import 'events_screen.dart';
 import 'export_reports_screen.dart';
+import 'glass_apparatus_screen.dart';
 import 'home_dashboard_tab.dart';
 import 'import_inventory_screen.dart';
 import 'instruments_screen.dart';
@@ -161,6 +162,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return 'Calculator';
       case 'instruments':
         return 'Instruments';
+      case 'glass_apparatus':
+        return 'Glass Apparatus';
       case 'orders':
         return 'Orders';
       case 'cart':
@@ -177,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
       case 3:
         return 'Personal Information';
       default:
-        return 'Labmate Dashboard';
+        return 'Labmate';
     }
   }
 
@@ -190,6 +193,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (activeHomeOverlay == 'instruments') {
       return const InstrumentsScreen();
+    }
+    if (activeHomeOverlay == 'glass_apparatus') {
+      return const GlassApparatusScreen();
     }
     if (activeHomeOverlay == 'orders') {
       return const OrdersScreen();
@@ -211,6 +217,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onOpenEvents: () => changeTab(1),
           onOpenArticles: () => changeTab(2),
           onOpenInstruments: () => openOverlay('instruments'),
+          onOpenGlassApparatus: () => openOverlay('glass_apparatus'),
           onOpenOrders: () => openOverlay('orders'),
           onOpenCart: () => openOverlay('cart'),
           onOpenLabManual: () => openOverlay('lab_manual'),

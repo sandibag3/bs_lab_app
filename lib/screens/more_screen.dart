@@ -9,6 +9,14 @@ class MoreScreen extends StatelessWidget {
 
   const MoreScreen({super.key, required this.appState});
 
+  void _showComingSoon(BuildContext context, String featureName) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(
+      SnackBar(content: Text('$featureName coming soon')),
+    );
+  }
+
   Widget buildSectionTitle(String title) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12, top: 4),
@@ -194,12 +202,16 @@ class MoreScreen extends StatelessWidget {
               icon: Icons.settings_rounded,
               title: 'Settings',
               subtitle: 'Theme, app behavior, and preferences.',
+              showChevron: false,
+              onTap: () => _showComingSoon(context, 'Settings'),
             ),
             buildOptionCard(
               context: context,
               icon: Icons.help_outline_rounded,
               title: 'Help & Support',
               subtitle: 'Get help, contact support, and FAQs.',
+              showChevron: false,
+              onTap: () => _showComingSoon(context, 'Help & Support'),
             ),
             buildSectionTitle('Data'),
             buildOptionCard(
@@ -207,12 +219,16 @@ class MoreScreen extends StatelessWidget {
               icon: Icons.backup_rounded,
               title: 'Backup & Restore',
               subtitle: 'Save or recover important lab app data.',
+              showChevron: false,
+              onTap: () => _showComingSoon(context, 'Backup & Restore'),
             ),
             buildOptionCard(
               context: context,
               icon: Icons.admin_panel_settings_rounded,
               title: 'Admin Tools',
               subtitle: 'Manage advanced controls and permissions.',
+              showChevron: false,
+              onTap: () => _showComingSoon(context, 'Admin tools'),
             ),
             buildSectionTitle('Account'),
             buildOptionCard(
@@ -231,6 +247,8 @@ class MoreScreen extends StatelessWidget {
               icon: Icons.info_outline_rounded,
               title: 'About App',
               subtitle: 'Version, credits, and app information.',
+              showChevron: false,
+              onTap: () => _showComingSoon(context, 'About App'),
             ),
           ],
         ),

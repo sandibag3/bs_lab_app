@@ -938,6 +938,56 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     );
   }
 
+  Widget _buildEmptyState({
+    required String title,
+    required String message,
+  }) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: Colors.white.withOpacity(0.06)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.science_outlined,
+                color: Color(0xFF14B8A6),
+                size: 30,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 16,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: Colors.white70,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -1037,15 +1087,19 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                   final raw = snapshot.data ?? [];
                   final groupedChemicals = processChemicals(raw);
 
+                  if (raw.isEmpty) {
+                    return _buildEmptyState(
+                      title: 'No chemicals added yet',
+                      message:
+                          'Import inventory or add a chemical manually to start building this lab inventory.',
+                    );
+                  }
+
                   if (groupedChemicals.isEmpty) {
-                    return const Center(
-                      child: Text(
-                        'No chemicals found.',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.white70,
-                        ),
-                      ),
+                    return _buildEmptyState(
+                      title: 'No chemicals match current filters',
+                      message:
+                          'Try a different search term or reset the current filters.',
                     );
                   }
 

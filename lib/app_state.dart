@@ -277,6 +277,13 @@ class AppState extends ChangeNotifier {
       return false;
     }
 
+    final selectedLabBelongsToDifferentUser =
+        _selectedLabUserId.trim().isNotEmpty &&
+        _selectedLabUserId.trim() != userId;
+    if (selectedLabBelongsToDifferentUser) {
+      await clearSessionContext();
+    }
+
     await loadAuthenticatedUserProfile();
 
     final savedLabBelongsToUser =
