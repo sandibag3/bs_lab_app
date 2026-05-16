@@ -87,10 +87,294 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
   Widget build(BuildContext context) {
     final orderService = OrderService();
     final isDesktopLayout = MediaQuery.sizeOf(context).width >= 900;
-    final cardHeight = isDesktopLayout ? 92.0 : 104.0;
+    final cardHeight = isDesktopLayout ? 82.0 : 104.0;
     final cardWidth = isDesktopLayout ? 220.0 : 240.0;
-    final cardPadding = isDesktopLayout ? 12.0 : 14.0;
-    final headingFontSize = isDesktopLayout ? 18.0 : 20.0;
+    final cardPadding = isDesktopLayout ? 11.0 : 14.0;
+    final headingFontSize = isDesktopLayout ? 15.5 : 20.0;
+    final headerGap = isDesktopLayout ? 8.0 : 12.0;
+    final sectionContent = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            GestureDetector(
+              onTap: () => _openFullList(context),
+              child: Text(
+                'Newly Arrived',
+                style: TextStyle(
+                  fontSize: headingFontSize,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const Spacer(),
+            StreamBuilder<List<OrderModel>>(
+              stream: OrderService().getOrders(),
+              builder: (context, snapshot) {
+                final count = snapshot.hasData
+                    ? _pendingRecentOrders(snapshot.data!).length
+                    : 0;
+                if (count == 0) {
+                  return const SizedBox.shrink();
+                }
+
+                return Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 9,
+                    vertical: 5,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFB7185),
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    count > 99 ? '99+' : '$count',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                );
+              },
+            ),
+            TextButton(
+              onPressed: () => _openFullList(context),
+              style: isDesktopLayout
+                  ? TextButton.styleFrom(
+                      foregroundColor: const Color(0xFFF59E0B),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: const Size(0, 34),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    )
+                  : null,
+              child: Text(
+                isDesktopLayout ? 'View All' : 'View all',
+                style: TextStyle(
+                  color: isDesktopLayout
+                      ? const Color(0xFFF59E0B)
+                      : const Color(0xFF14B8A6),
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: headerGap),
+        StreamBuilder<List<OrderModel>>(
+          stream: orderService.getOrders(),
+          builder: (context, snapshot) {
+            if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+              return Container(
+                padding: isDesktopLayout
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDesktopLayout
+                      ? Colors.transparent
+                      : const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: const Text(
+                  FirestoreAccessGuard.userMessage,
+                  style: TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12.8,
+                    height: 1.4,
+                  ),
+                ),
+              );
+            }
+
+            if (snapshot.hasError) {
+              return Container(
+                padding: isDesktopLayout
+                    ? EdgeInsets.zero
+                    : const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDesktopLayout
+                      ? Colors.transparent
+                      : const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                child: Text(
+                  FirestoreAccessGuard.messageFor(snapshot.error),
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12.8,
+                    height: 1.4,
+                  ),
+                ),
+              );
+            }
+
+            if (!snapshot.hasData) {
+              return SizedBox(
+                height: isDesktopLayout ? 58 : 80,
+                child: const Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final recent = _pendingRecentOrders(snapshot.data!);
+
+            if (recent.isEmpty) {
+              return InkWell(
+                borderRadius: BorderRadius.circular(18),
+                onTap: () => _openFullList(context),
+                child: Container(
+                  padding: isDesktopLayout
+                      ? EdgeInsets.zero
+                      : const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: isDesktopLayout
+                        ? Colors.transparent
+                        : const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Text(
+                    'No newly arrived items this week.',
+                    style: TextStyle(
+                      color: Colors.white60,
+                      fontSize: 12.8,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            final displayList = [...recent, ...recent];
+
+            return SizedBox(
+              height: cardHeight,
+              child: ListView.builder(
+                controller: _scrollController,
+                scrollDirection: Axis.horizontal,
+                itemCount: displayList.length,
+                itemBuilder: (context, index) {
+                  final order = displayList[index];
+                  final secondary = order.brand.trim().isNotEmpty
+                      ? order.brand
+                      : order.vendor;
+
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: () => _openEntryScreen(context, order),
+                    child: Container(
+                      width: cardWidth,
+                      margin: const EdgeInsets.only(right: 10),
+                      padding: EdgeInsets.all(cardPadding),
+                      decoration: BoxDecoration(
+                        color: isDesktopLayout
+                            ? const Color(0xFF0F172A).withOpacity(0.55)
+                            : const Color(0xFF1E293B),
+                        borderRadius: BorderRadius.circular(
+                          isDesktopLayout ? 14 : 18,
+                        ),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.06),
+                        ),
+                        boxShadow: isDesktopLayout
+                            ? const []
+                            : const [
+                                BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 8,
+                                  offset: Offset(0, 3),
+                                ),
+                              ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  order.displayName,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: order.isConsumable
+                                      ? const Color(0x2238BDF8)
+                                      : const Color(0x2214B8A6),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  order.typeLabel,
+                                  style: TextStyle(
+                                    color: order.isConsumable
+                                        ? const Color(0xFF38BDF8)
+                                        : const Color(0xFF14B8A6),
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            secondary.trim().isEmpty
+                                ? 'Details not set'
+                                : secondary,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white60,
+                              fontSize: 12.5,
+                            ),
+                          ),
+                          const Spacer(),
+                          const Text(
+                            'Tap to confirm entry',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Color(0xFF14B8A6),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        ),
+      ],
+    );
+
+    if (isDesktopLayout) {
+      return Container(
+        height: double.infinity,
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E293B),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        ),
+        child: sectionContent,
+      );
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

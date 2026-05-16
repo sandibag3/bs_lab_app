@@ -429,9 +429,11 @@ class HomeDashboardTab extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxWidth: isDesktopLayout ? 720 : double.infinity,
+                      maxWidth: isDesktopLayout ? 680 : double.infinity,
                     ),
-                    child: SearchBarWidget(onTap: onOpenChemicals),
+                    child: isDesktopLayout
+                        ? _DesktopDashboardSearchBar(onTap: onOpenChemicals)
+                        : SearchBarWidget(onTap: onOpenChemicals),
                   ),
                 ),
                 SizedBox(height: compactGap),
@@ -550,19 +552,24 @@ class HomeDashboardTab extends StatelessWidget {
                   SizedBox(height: sectionGap),
                 ],
                 if (isDesktopLayout)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Expanded(
-                        flex: 3,
-                        child: NewlyArrivedSection(),
-                      ),
-                      const SizedBox(width: 14),
-                      Expanded(
-                        flex: 2,
-                        child: _UpcomingEventsPreview(onViewAll: onOpenEvents),
-                      ),
-                    ],
+                  SizedBox(
+                    height: 176,
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Expanded(
+                          flex: 3,
+                          child: NewlyArrivedSection(),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          flex: 2,
+                          child: _UpcomingEventsPreview(
+                            onViewAll: onOpenEvents,
+                          ),
+                        ),
+                      ],
+                    ),
                   )
                 else ...[
                   const NewlyArrivedSection(),
@@ -710,6 +717,54 @@ class HomeDashboardTab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _DesktopDashboardSearchBar extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _DesktopDashboardSearchBar({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onTap,
+        child: Container(
+          height: 42,
+          padding: const EdgeInsets.symmetric(horizontal: 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.white.withOpacity(0.06)),
+          ),
+          child: const Row(
+            children: [
+              Icon(
+                Icons.search_rounded,
+                color: Color(0xFF5EEAD4),
+                size: 19,
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Search chemical by name, CAS, or functional group',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white54,
+                    fontSize: 13,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -1071,7 +1126,7 @@ class _UpcomingEventsPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDesktopLayout = MediaQuery.sizeOf(context).width >= 900;
-    final eventItemHeight = isDesktopLayout ? 44.0 : _eventItemHeight;
+    final eventItemHeight = isDesktopLayout ? 36.0 : _eventItemHeight;
 
     return Container(
       padding: isDesktopLayout
@@ -1080,6 +1135,9 @@ class _UpcomingEventsPreview extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(20),
+        border: isDesktopLayout
+            ? Border.all(color: Colors.white.withOpacity(0.06))
+            : null,
       ),
       child: Column(
         children: [
