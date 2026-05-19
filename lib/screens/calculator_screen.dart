@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../widgets/responsive_page_container.dart';
+
 class CalculatorScreen extends StatefulWidget {
   const CalculatorScreen({super.key});
 
@@ -600,16 +602,42 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
         : _result;
 
     return SafeArea(
-      child: LayoutBuilder(
+      child: ResponsivePageContainer(
+        maxWidth: 560,
+        child: LayoutBuilder(
         builder: (context, constraints) {
+          final veryShort = constraints.maxHeight < 640;
           final compact = constraints.maxHeight < 760;
           final displayHeight = (constraints.maxHeight * 0.18)
-              .clamp(120.0, 154.0)
+              .clamp(
+                veryShort ? 80.0 : 120.0,
+                veryShort
+                    ? 110.0
+                    : compact
+                    ? 138.0
+                    : 154.0,
+              )
               .toDouble();
-          final buttonHeight = compact ? 58.0 : 64.0;
-          final keypadGap = compact ? 8.0 : 10.0;
-          final keypadPadding = compact ? 12.0 : 14.0;
-          final utilityIconSize = compact ? 18.0 : 20.0;
+          final buttonHeight = veryShort
+              ? 42.0
+              : compact
+              ? 58.0
+              : 64.0;
+          final keypadGap = veryShort
+              ? 4.0
+              : compact
+              ? 8.0
+              : 10.0;
+          final keypadPadding = veryShort
+              ? 8.0
+              : compact
+              ? 12.0
+              : 14.0;
+          final utilityIconSize = veryShort
+              ? 14.0
+              : compact
+              ? 18.0
+              : 20.0;
 
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
@@ -894,7 +922,10 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
                           isDark: isDark,
                           buttonHeight: buttonHeight,
                         ),
-                        const Spacer(),
+                        if (veryShort)
+                          SizedBox(height: keypadGap)
+                        else
+                          const Spacer(),
                         _buildChemistryUtilityStrip(
                           compact: compact,
                           iconSize: utilityIconSize,
@@ -913,6 +944,7 @@ class _CalculatorScreenState extends State<CalculatorScreen> {
             ),
           );
         },
+      ),
       ),
     );
   }

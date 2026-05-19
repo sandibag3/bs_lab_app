@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
@@ -21,6 +22,12 @@ class AttendanceScreen extends StatefulWidget {
 class _AttendanceScreenState extends State<AttendanceScreen> {
   final AttendanceService _attendanceService = AttendanceService();
   bool _isCheckingOut = false;
+
+  bool get _isQrScannerSupported {
+    return !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+  }
 
   void _showMessage(String message) {
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -180,6 +187,11 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   }
 
   Future<void> _openAttendanceScanner(BuildContext context) async {
+    if (!_isQrScannerSupported) {
+      _showMessage('QR scanning is available on mobile only.');
+      return;
+    }
+
     final result = await Navigator.push<String>(
       context,
       MaterialPageRoute(builder: (_) => const AttendanceScannerScreen()),

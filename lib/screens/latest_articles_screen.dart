@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/article_feed.dart';
 import '../models/rss_article.dart';
 import '../services/article_feed_service.dart';
+import '../widgets/responsive_page_container.dart';
 import 'article_detail_screen.dart';
 
 class LatestArticlesScreen extends StatefulWidget {
@@ -314,42 +315,46 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
     final filteredArticles = _filteredArticles;
 
     return SafeArea(
-      child: RefreshIndicator(
-        onRefresh: _refreshArticles,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildToolbar(),
-            const SizedBox(height: 12),
-            _buildSearchField(),
-            const SizedBox(height: 12),
-            if (_failures.isNotEmpty) _buildFailureNotice(),
-            if (_isLoading)
-              const Padding(
-                padding: EdgeInsets.only(top: 80),
-                child: Center(child: CircularProgressIndicator()),
-              )
-            else if (_enabledFeeds.isEmpty)
-              _buildEmptyState(
-                icon: Icons.rss_feed_rounded,
-                title: 'No feeds enabled',
-                message: 'Enable at least one chemistry feed to load articles.',
-              )
-            else if (filteredArticles.isEmpty)
-              _buildEmptyState(
-                icon: Icons.search_off_rounded,
-                title: 'No articles found',
-                message: 'Try another keyword or refresh the enabled feeds.',
-              )
-            else
-              for (var i = 0; i < filteredArticles.length; i++)
-                _buildArticleCard(
-                  filteredArticles[i],
-                  filteredArticles,
-                  i,
-                ),
-          ],
+      child: ResponsivePageContainer(
+        maxWidth: 980,
+        child: RefreshIndicator(
+          onRefresh: _refreshArticles,
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildToolbar(),
+              const SizedBox(height: 12),
+              _buildSearchField(),
+              const SizedBox(height: 12),
+              if (_failures.isNotEmpty) _buildFailureNotice(),
+              if (_isLoading)
+                const Padding(
+                  padding: EdgeInsets.only(top: 80),
+                  child: Center(child: CircularProgressIndicator()),
+                )
+              else if (_enabledFeeds.isEmpty)
+                _buildEmptyState(
+                  icon: Icons.rss_feed_rounded,
+                  title: 'No feeds enabled',
+                  message:
+                      'Enable at least one chemistry feed to load articles.',
+                )
+              else if (filteredArticles.isEmpty)
+                _buildEmptyState(
+                  icon: Icons.search_off_rounded,
+                  title: 'No articles found',
+                  message: 'Try another keyword or refresh the enabled feeds.',
+                )
+              else
+                for (var i = 0; i < filteredArticles.length; i++)
+                  _buildArticleCard(
+                    filteredArticles[i],
+                    filteredArticles,
+                    i,
+                  ),
+            ],
+          ),
         ),
       ),
     );

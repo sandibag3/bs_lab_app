@@ -3,6 +3,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/rss_article.dart';
+import '../widgets/responsive_page_container.dart';
 
 class ArticleDetailScreen extends StatefulWidget {
   final RssArticle article;
@@ -119,9 +120,11 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
+        child: ResponsivePageContainer(
+          maxWidth: 900,
+          child: ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
             _ArticleImage(article: article, height: 270),
             const SizedBox(height: 18),
             Text(
@@ -229,7 +232,8 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
                 ),
               ],
             ),
-          ],
+            ],
+          ),
         ),
       ),
     );

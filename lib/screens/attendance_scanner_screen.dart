@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -20,16 +21,23 @@ class AttendanceScannerScreen extends StatefulWidget {
 class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
   final AttendanceService _attendanceService = AttendanceService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final MobileScannerController _scannerController = MobileScannerController();
+  late final MobileScannerController? _scannerController =
+      _isScannerSupported ? MobileScannerController() : null;
   final WifiVerificationService _wifiVerificationService =
       WifiVerificationService();
 
   bool _isHandlingScan = false;
   bool _isTorchEnabled = false;
 
+  bool get _isScannerSupported {
+    return !kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.android ||
+            defaultTargetPlatform == TargetPlatform.iOS);
+  }
+
   @override
   void dispose() {
-    _scannerController.dispose();
+    _scannerController?.dispose();
     super.dispose();
   }
 
@@ -74,11 +82,16 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
     setState(() {
       _isHandlingScan = false;
     });
-    await _scannerController.start();
+    await _scannerController?.start();
   }
 
   Future<void> _toggleTorch() async {
-    await _scannerController.toggleTorch();
+    final scannerController = _scannerController;
+    if (scannerController == null) {
+      return;
+    }
+
+    await scannerController.toggleTorch();
     if (!mounted) {
       return;
     }
@@ -97,7 +110,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
       _isHandlingScan = true;
     });
 
-    await _scannerController.stop();
+    await _scannerController?.stop();
 
     final appState = AppState.instance;
     final selectedLabId = appState.selectedLabId.trim();
@@ -228,16 +241,17 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
               style: TextStyle(color: Colors.white),
             ),
             actions: [
-              IconButton(
-                onPressed: _toggleTorch,
-                tooltip: _isTorchEnabled ? 'Turn torch off' : 'Turn torch on',
-                icon: Icon(
-                  _isTorchEnabled
-                      ? Icons.flashlight_on_rounded
-                      : Icons.flashlight_off_rounded,
-                  color: Colors.white,
+              if (_isScannerSupported)
+                IconButton(
+                  onPressed: _toggleTorch,
+                  tooltip: _isTorchEnabled ? 'Turn torch off' : 'Turn torch on',
+                  icon: Icon(
+                    _isTorchEnabled
+                        ? Icons.flashlight_on_rounded
+                        : Icons.flashlight_off_rounded,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
             ],
           ),
           body: SafeArea(
@@ -253,6 +267,12 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
                     title: 'Sign in required',
                     message: 'Please sign in again to use attendance scanning.',
                     icon: Icons.lock_outline_rounded,
+                  )
+                : !_isScannerSupported
+                ? const _AttendanceScannerInfoState(
+                    title: 'Mobile only',
+                    message: 'QR scanning is available on mobile only.',
+                    icon: Icons.qr_code_scanner_rounded,
                   )
                 : Column(
                     children: [
@@ -311,7 +331,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
                               fit: StackFit.expand,
                               children: [
                                 MobileScanner(
-                                  controller: _scannerController,
+                                  controller: _scannerController!,
                                   onDetect: (capture) {
                                     if (_isHandlingScan) {
                                       return;

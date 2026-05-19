@@ -3,6 +3,7 @@ import '../app_state.dart';
 import '../models/event_model.dart';
 import '../services/event_service.dart';
 import '../services/firestore_access_guard.dart';
+import '../widgets/responsive_page_container.dart';
 import 'add_event_screen.dart';
 
 class EventsScreen extends StatelessWidget {
@@ -218,7 +219,8 @@ class EventsScreen extends StatelessWidget {
     final currentUserEmail = AppState.instance.authenticatedUserEmail;
 
     return SafeArea(
-      child: StreamBuilder<List<EventModel>>(
+      child: ResponsivePageContainer(
+        child: StreamBuilder<List<EventModel>>(
         stream: EventService().getEvents(),
         builder: (context, snapshot) {
           if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
@@ -532,6 +534,7 @@ class EventsScreen extends StatelessWidget {
             ],
           );
         },
+        ),
       ),
     );
   }
