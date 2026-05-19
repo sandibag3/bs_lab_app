@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:network_info_plus/network_info_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler_platform_interface/permission_handler_platform_interface.dart';
 
 class WifiSsidResult {
   final String ssid;
@@ -29,8 +29,26 @@ class WifiVerificationResult {
 class WifiVerificationService {
   static const String _ssidReadFailureMessage =
       'Could not read Wi-Fi name. Please allow location permission and turn on Wi-Fi.';
+  static const String _unsupportedPlatformMessage =
+      'Wi-Fi SSID verification is only supported on Android.';
 
   final NetworkInfo _networkInfo = NetworkInfo();
+
+  bool get _isAndroid {
+    return !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+  }
+
+  String get _platformUnsupportedMessage {
+    if (kIsWeb) {
+      return 'Wi-Fi SSID verification is not supported on Web.';
+    }
+
+    if (defaultTargetPlatform == TargetPlatform.windows) {
+      return 'Wi-Fi SSID verification is not supported on Windows.';
+    }
+
+    return _unsupportedPlatformMessage;
+  }
 
   String _cleanSsid(String? rawSsid) {
     final value = (rawSsid ?? '').trim();
@@ -50,19 +68,34 @@ class WifiVerificationService {
     return withoutQuotes;
   }
 
-  Future<bool> _ensureLocationPermission() async {
-    final currentStatus = await Permission.location.status;
+  Future<bool> _ensureAndroidLocationPermission() async {
+    final permissionHandler = PermissionHandlerPlatform.instance;
+    final currentStatus = await permissionHandler.checkPermissionStatus(
+      Permission.location,
+    );
     if (currentStatus.isGranted) {
       return true;
     }
 
-    final requestedStatus = await Permission.location.request();
-    return requestedStatus.isGranted;
+    final requestedStatuses = await permissionHandler.requestPermissions([
+      Permission.location,
+    ]);
+    return requestedStatuses[Permission.location]?.isGranted ?? false;
   }
 
   Future<WifiSsidResult> getCurrentWifiSsid() async {
+    if (!_isAndroid) {
+      debugPrint(
+        'Wi-Fi verification skipped: $_platformUnsupportedMessage',
+      );
+      return WifiSsidResult(
+        ssid: '',
+        errorMessage: _platformUnsupportedMessage,
+      );
+    }
+
     try {
-      final hasPermission = await _ensureLocationPermission();
+      final hasPermission = await _ensureAndroidLocationPermission();
       if (!hasPermission) {
         debugPrint('Wi-Fi verification failed: location permission denied.');
         return const WifiSsidResult(

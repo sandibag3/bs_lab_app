@@ -4,10 +4,14 @@ import 'login_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
   final AppState appState;
+  final bool showDevWebDemo;
+  final Future<void> Function()? onDevWebDemo;
 
   const WelcomeScreen({
     super.key,
     required this.appState,
+    this.showDevWebDemo = false,
+    this.onDevWebDemo,
   });
 
   @override
@@ -78,7 +82,11 @@ class WelcomeScreen extends StatelessWidget {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => LoginScreen(appState: appState),
+                      builder: (context) => LoginScreen(
+                        appState: appState,
+                        showDevWebDemo: showDevWebDemo,
+                        onDevWebDemo: onDevWebDemo,
+                      ),
                     ),
                   );
                 },
@@ -97,6 +105,30 @@ class WelcomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
+            if (showDevWebDemo && onDevWebDemo != null) ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    onDevWebDemo!();
+                  },
+                  icon: const Icon(Icons.web_asset_rounded),
+                  label: const Text(
+                    'Dev Web Demo',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    foregroundColor: const Color(0xFF5EEAD4),
+                    side: const BorderSide(color: Color(0xFF5EEAD4)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             SizedBox(
               width: double.infinity,
               child: OutlinedButton(

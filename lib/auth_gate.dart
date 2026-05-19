@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'app_state.dart';
 import 'screens/home_screen.dart';
@@ -18,6 +19,30 @@ class _AuthGateState extends State<AuthGate> {
   String _resolvedUserId = '';
   String _resolvedLabId = '';
   Future<bool>? _labContextFuture;
+  bool _isDevWebDemoSession = false;
+
+  bool get _canUseDevWebDemo => kDebugMode && kIsWeb;
+
+  bool get _shouldUseDevWebDemo {
+    return _canUseDevWebDemo &&
+        (_isDevWebDemoSession || widget.appState.isDemoLabSelected);
+  }
+
+  Future<void> _enterDevWebDemo() async {
+    if (!_canUseDevWebDemo) {
+      return;
+    }
+
+    await widget.appState.enterDemoLab();
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isDevWebDemoSession = true;
+    });
+  }
 
   Future<bool> _resolveLabContextFor(User user) {
     final selectedLabId = widget.appState.selectedLabId.trim();
@@ -40,6 +65,10 @@ class _AuthGateState extends State<AuthGate> {
 
   @override
   Widget build(BuildContext context) {
+    if (_shouldUseDevWebDemo) {
+      return HomeScreen(appState: widget.appState);
+    }
+
     return StreamBuilder<User?>(
       stream: FirebaseAuth.instance.authStateChanges(),
       builder: (context, snapshot) {
@@ -76,7 +105,11 @@ class _AuthGateState extends State<AuthGate> {
         }
 
         _resetLabContextResolution();
-        return WelcomeScreen(appState: widget.appState);
+        return WelcomeScreen(
+          appState: widget.appState,
+          showDevWebDemo: _canUseDevWebDemo,
+          onDevWebDemo: _enterDevWebDemo,
+        );
       },
     );
   }

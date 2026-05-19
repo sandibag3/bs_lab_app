@@ -4,10 +4,14 @@ import '../app_state.dart';
 
 class LoginScreen extends StatefulWidget {
   final AppState appState;
+  final bool showDevWebDemo;
+  final Future<void> Function()? onDevWebDemo;
 
   const LoginScreen({
     super.key,
     required this.appState,
+    this.showDevWebDemo = false,
+    this.onDevWebDemo,
   });
 
   @override
@@ -41,6 +45,21 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => isLoading = false);
       }
     }
+  }
+
+  Future<void> enterDevWebDemo() async {
+    final onDevWebDemo = widget.onDevWebDemo;
+    if (onDevWebDemo == null) {
+      return;
+    }
+
+    await onDevWebDemo();
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.popUntil(context, (route) => route.isFirst);
   }
 
   @override
@@ -90,6 +109,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     : const Text('Login'),
               ),
             ),
+            if (widget.showDevWebDemo && widget.onDevWebDemo != null) ...[
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isLoading ? null : () => enterDevWebDemo(),
+                  icon: const Icon(Icons.web_asset_rounded),
+                  label: const Text('Dev Web Demo'),
+                ),
+              ),
+            ],
           ],
         ),
       ),
