@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "bs_lab_app" "\0"
+            VALUE "FileDescription", "Labmate" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "bs_lab_app" "\0"
+            VALUE "InternalName", "Labmate" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2026 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "bs_lab_app.exe" "\0"
-            VALUE "ProductName", "bs_lab_app" "\0"
+            VALUE "OriginalFilename", "Labmate.exe" "\0"
+            VALUE "ProductName", "Labmate" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
