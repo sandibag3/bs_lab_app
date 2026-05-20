@@ -507,7 +507,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
         ),
       ),
       body: ResponsivePageContainer(
-        maxWidth: 980,
+        maxWidth: 1120,
         child: StreamBuilder<List<ChemicalModel>>(
           stream: inventoryService.getChemicals(),
           builder: (context, snapshot) {
@@ -730,6 +730,24 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
+  Widget _compactMetricGrid(List<Widget> children, {int columns = 3}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const gap = 8.0;
+        final itemWidth =
+            (constraints.maxWidth - (gap * (columns - 1))) / columns;
+
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: children.map((child) {
+            return SizedBox(width: itemWidth, child: child);
+          }).toList(),
+        );
+      },
+    );
+  }
+
   Widget _compactPanel({
     required String title,
     required Widget child,
@@ -806,69 +824,123 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     final safeStatus = _safeBottleStatus(bottle.availability);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: const Color(0xFF111827),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.white.withOpacity(0.05)),
       ),
       child: Row(
         children: [
-          SizedBox(
-            width: 68,
-            child: Text(
-              'Bottle ${index + 1}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+          _desktopTableCell(
+            'Bottle ${index + 1}',
+            flex: 2,
+            isStrong: true,
           ),
-          Expanded(child: Text('Brand: ${_display(bottle.brand)}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 11.6))),
-          Expanded(child: Text('Qty: ${_display(bottle.quantity)}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 11.6))),
-          Expanded(child: Text('Loc: ${_display(bottle.location)}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white70, fontSize: 11.6))),
+          _desktopTableCell(_display(bottle.brand), flex: 3),
+          _desktopTableCell(_display(bottle.quantity), flex: 2),
+          _desktopTableCell(_display(bottle.location), flex: 3),
           const SizedBox(width: 8),
           SizedBox(
-            width: 118,
-            height: 32,
-            child: DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                value: safeStatus,
-                dropdownColor: const Color(0xFF1E293B),
-                style: const TextStyle(color: Colors.white, fontSize: 12),
-                isDense: true,
-                items: _allowedBottleStatuses
-                    .map(
-                      (status) => DropdownMenuItem<String>(
-                        value: status,
-                        child: Text(_bottleStatusLabel(status)),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (value) async {
-                  if (value == null) return;
+            width: 126,
+            height: 30,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E293B),
+                borderRadius: BorderRadius.circular(9),
+                border: Border.all(color: Colors.white.withOpacity(0.06)),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: safeStatus,
+                  dropdownColor: const Color(0xFF1E293B),
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  isDense: true,
+                  isExpanded: true,
+                  items: _allowedBottleStatuses
+                      .map(
+                        (status) => DropdownMenuItem<String>(
+                          value: status,
+                          child: Text(_bottleStatusLabel(status)),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) async {
+                    if (value == null) return;
 
-                  await inventoryService.inventoryRef.doc(bottle.id).update({
-                    'availability': _safeBottleStatus(value),
-                    'updatedAt': DateTime.now(),
-                  });
+                    await inventoryService.inventoryRef.doc(bottle.id).update({
+                      'availability': _safeBottleStatus(value),
+                      'updatedAt': DateTime.now(),
+                    });
 
-                  setState(() {});
-                },
+                    setState(() {});
+                  },
+                ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _desktopBottleHeader() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+      child: Row(
+        children: [
+          _desktopTableHeader('Bottle', flex: 2),
+          _desktopTableHeader('Brand', flex: 3),
+          _desktopTableHeader('Qty', flex: 2),
+          _desktopTableHeader('Location', flex: 3),
+          const SizedBox(width: 8),
+          const SizedBox(
+            width: 126,
+            child: Text(
+              'Status',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 10.8,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _desktopTableHeader(String text, {required int flex}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white54,
+          fontSize: 10.8,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _desktopTableCell(
+    String text, {
+    required int flex,
+    bool isStrong = false,
+  }) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: isStrong ? Colors.white : Colors.white70,
+          fontSize: 11.7,
+          fontWeight: isStrong ? FontWeight.w800 : FontWeight.w600,
+        ),
       ),
     );
   }
@@ -911,78 +983,232 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
 
         return _compactPanel(
           title: 'PubChem Molecular Data',
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          child: Column(
             children: [
-              Container(
-                width: 118,
-                height: 118,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Image.network(
-                  p.imageUrl,
-                  fit: BoxFit.contain,
-                  errorBuilder: (_, __, ___) => const Icon(
-                    Icons.biotech_rounded,
-                    color: Color(0xFF14B8A6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 176,
+                    height: 176,
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF111827),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                    ),
+                    child: Image.network(
+                      p.imageUrl,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const Icon(
+                        Icons.biotech_rounded,
+                        color: Color(0xFF14B8A6),
+                        size: 42,
+                      ),
+                    ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    SizedBox(
-                      width: 138,
-                      child: _compactMetric(
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        _compactMetric(
                         label: 'Formula',
                         value: p.molecularFormula,
                       ),
-                    ),
-                    SizedBox(
-                      width: 138,
-                      child: _compactMetric(
+                        const SizedBox(height: 8),
+                        _compactMetric(
                         label: 'MW',
                         value: p.molecularWeight,
                       ),
+                        const SizedBox(height: 8),
+                        _compactMetric(label: 'CID', value: p.cid),
+                      ],
                     ),
-                    SizedBox(
-                      width: 138,
-                      child: _compactMetric(label: 'CID', value: p.cid),
-                    ),
-                    SizedBox(
-                      width: 138,
-                      child: _compactMetric(
-                        label: 'InChIKey',
-                        value: p.inchiKey,
-                      ),
-                    ),
-                    SizedBox(
-                      width: 284,
-                      child: _compactMetric(
-                        label: 'IUPAC',
-                        value: p.iupacName,
-                      ),
-                    ),
-                    SizedBox(
-                      width: 284,
-                      child: _compactMetric(
-                        label: 'SMILES',
-                        value: p.canonicalSmiles,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
+              const SizedBox(height: 10),
+              _identifierBlock(label: 'InChIKey', value: p.inchiKey),
+              const SizedBox(height: 8),
+              _identifierBlock(label: 'IUPAC Name', value: p.iupacName),
+              const SizedBox(height: 8),
+              _identifierBlock(label: 'Canonical SMILES', value: p.canonicalSmiles),
             ],
           ),
         );
       },
+    );
+  }
+
+  Widget _identifierBlock({
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white.withOpacity(0.05)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 10.8,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            _display(value),
+            softWrap: true,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 11.7,
+              height: 1.25,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _desktopHeaderCard({
+    required ChemicalModel chemical,
+    required int bottleCount,
+    required String availability,
+    required Color statusColor,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0x2214B8A6),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  chemical.label,
+                  style: const TextStyle(
+                    color: Color(0xFF14B8A6),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: statusColor.withOpacity(0.34)),
+                ),
+                child: Text(
+                  '$availability - $bottleCount ${bottleCount == 1 ? 'bottle' : 'bottles'}',
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            chemical.chemicalName,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 21,
+              fontWeight: FontWeight.w900,
+              height: 1.15,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _compactMetricGrid(
+            [
+              _compactMetric(label: 'CAS', value: chemical.cas),
+              _compactMetric(label: 'Formula', value: chemical.formula),
+              _compactMetric(label: 'MW', value: chemical.molWt),
+            ],
+            columns: 3,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _desktopInventoryPanel({
+    required ChemicalModel chemical,
+    required String brand,
+    required String quantity,
+    required String location,
+    required String availability,
+    required Color statusColor,
+    required int bottleCount,
+  }) {
+    return _compactPanel(
+      title: 'Inventory Details',
+      child: Column(
+        children: [
+          _compactMetricGrid(
+            [
+              _compactMetric(label: 'Brand', value: brand),
+              _compactMetric(label: 'Pack size', value: quantity),
+              _compactMetric(label: 'Location', value: location),
+              _compactMetric(label: 'Texture', value: chemical.texture),
+              _compactMetric(label: 'Catalog no', value: chemical.catNumber),
+              _compactMetric(label: 'Ordered by', value: chemical.orderedBy),
+              _compactMetric(
+                label: 'Availability',
+                value: availability,
+                valueColor: statusColor,
+              ),
+              _compactMetric(label: 'Bottles', value: bottleCount.toString()),
+              _compactMetric(label: 'Last updated', value: chemical.arrivalDate),
+              _compactMetric(label: 'Sheet tab', value: chemical.sheetTab),
+            ],
+            columns: 3,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _desktopBottlePanel(List<ChemicalModel> bottles) {
+    return _compactPanel(
+      title: 'Bottles',
+      child: Column(
+        children: [
+          _desktopBottleHeader(),
+          const SizedBox(height: 6),
+          for (int index = 0; index < bottles.length; index++) ...[
+            _desktopBottleRow(bottles[index], index),
+            if (index != bottles.length - 1) const SizedBox(height: 6),
+          ],
+        ],
+      ),
     );
   }
 
@@ -994,141 +1220,45 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     final statusColor = availabilityColor(availability);
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      padding: const EdgeInsets.all(12),
+      child: Column(
         children: [
-          Expanded(
-            flex: 5,
-            child: Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 11,
-                          vertical: 5,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0x2214B8A6),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          c.label,
-                          style: const TextStyle(
-                            color: Color(0xFF14B8A6),
-                            fontWeight: FontWeight.w800,
-                            fontSize: 12.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              c.chemicalName,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w800,
-                                height: 1.2,
-                              ),
-                            ),
-                            const SizedBox(height: 5),
-                            Text(
-                              '$availability - ${bottles.length} ${bottles.length == 1 ? 'bottle' : 'bottles'}',
-                              style: TextStyle(
-                                color: statusColor,
-                                fontSize: 12.2,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                _compactMetricRow([
-                  _compactMetric(label: 'CAS', value: c.cas),
-                  _compactMetric(label: 'Formula', value: c.formula),
-                  _compactMetric(label: 'MW', value: c.molWt),
-                ]),
-                const SizedBox(height: 8),
-                _compactMetricRow([
-                  _compactMetric(label: 'Brand', value: brand),
-                  _compactMetric(label: 'Pack size', value: quantity),
-                  _compactMetric(label: 'Location', value: location),
-                ]),
-                const SizedBox(height: 8),
-                _compactMetricRow([
-                  _compactMetric(
-                    label: 'Bottles',
-                    value: bottles.length.toString(),
-                  ),
-                  _compactMetric(
-                    label: 'Availability',
-                    value: availability,
-                    valueColor: statusColor,
-                  ),
-                  _compactMetric(label: 'Last updated', value: c.arrivalDate),
-                ]),
-                const SizedBox(height: 8),
-                _desktopFunctionalGroups(c.functionalGroups),
-                const SizedBox(height: 8),
-                _compactPanel(
-                  title: 'Bottles',
-                  child: Column(
-                    children: [
-                      for (int index = 0; index < bottles.length; index++) ...[
-                        _desktopBottleRow(bottles[index], index),
-                        if (index != bottles.length - 1)
-                          const SizedBox(height: 6),
-                      ],
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          _desktopHeaderCard(
+            chemical: c,
+            bottleCount: bottles.length,
+            availability: availability,
+            statusColor: statusColor,
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            flex: 4,
-            child: Column(
-              children: [
-                _compactPanel(
-                  title: 'Inventory Details',
-                  child: Column(
-                    children: [
-                      _compactMetricRow([
-                        _compactMetric(label: 'Texture', value: c.texture),
-                        _compactMetric(label: 'Catalog no', value: c.catNumber),
-                      ]),
-                      const SizedBox(height: 8),
-                      _compactMetricRow([
-                        _compactMetric(label: 'Ordered by', value: c.orderedBy),
-                        _compactMetric(label: 'Sheet tab', value: c.sheetTab),
-                      ]),
-                    ],
-                  ),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 6,
+                child: Column(
+                  children: [
+                    _desktopInventoryPanel(
+                      chemical: c,
+                      brand: brand,
+                      quantity: quantity,
+                      location: location,
+                      availability: availability,
+                      statusColor: statusColor,
+                      bottleCount: bottles.length,
+                    ),
+                    const SizedBox(height: 10),
+                    _desktopBottlePanel(bottles),
+                    const SizedBox(height: 10),
+                    _desktopFunctionalGroups(c.functionalGroups),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                _desktopPubChemPanel(),
-              ],
-            ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 5,
+                child: _desktopPubChemPanel(),
+              ),
+            ],
           ),
         ],
       ),
