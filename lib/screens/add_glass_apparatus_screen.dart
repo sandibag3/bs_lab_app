@@ -5,6 +5,7 @@ import '../app_state.dart';
 import '../models/glass_apparatus_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/glass_apparatus_service.dart';
+import '../widgets/responsive_page_container.dart';
 
 class AddGlassApparatusScreen extends StatefulWidget {
   final GlassApparatusModel? existingApparatus;
@@ -91,13 +92,14 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     required String title,
     required String subtitle,
     required List<Widget> children,
+    bool dense = false,
   }) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(dense ? 14 : 16),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(dense ? 18 : 20),
         border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
@@ -120,11 +122,54 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
               height: 1.4,
             ),
           ),
-          const SizedBox(height: 14),
+          SizedBox(height: dense ? 12 : 14),
           ...children,
         ],
       ),
     );
+  }
+
+  Widget _fieldGrid({
+    required bool isDesktop,
+    required List<Widget> children,
+  }) {
+    if (!isDesktop) {
+      return Column(
+        children: [
+          for (int index = 0; index < children.length; index++) ...[
+            children[index],
+            if (index != children.length - 1) const SizedBox(height: 12),
+          ],
+        ],
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 12.0;
+        final itemWidth = (constraints.maxWidth - spacing) / 2;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final child in children)
+              SizedBox(width: itemWidth, child: child),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _fullWidthField({
+    required bool isDesktop,
+    required Widget child,
+  }) {
+    if (!isDesktop) {
+      return child;
+    }
+
+    return SizedBox(width: double.infinity, child: child);
   }
 
   Future<void> _save() async {
@@ -213,153 +258,173 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
         ),
       ),
       body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              _buildSectionCard(
-                title: 'Apparatus Details',
-                subtitle: _isEditMode
-                    ? 'Update this lab-scoped glassware record.'
-                    : 'Create a lightweight glassware record for this lab.',
-                children: [
-                  TextFormField(
-                    controller: _nameController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Name'),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Enter apparatus name';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedCategory,
-                    dropdownColor: const Color(0xFF111827),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Category'),
-                    items: GlassApparatusModel.categories.map((category) {
-                      return DropdownMenuItem<String>(
-                        value: category,
-                        child: Text(category),
-                      );
-                    }).toList(),
-                    onChanged: _isSaving
-                        ? null
-                        : (value) {
-                            if (value == null) return;
-                            setState(() {
-                              _selectedCategory = value;
-                            });
-                          },
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _sizeController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Size / capacity'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              _buildSectionCard(
-                title: 'Stock Status',
-                subtitle:
-                    'Keep the count and condition easy to scan from the list.',
-                children: [
-                  TextFormField(
-                    controller: _quantityController,
-                    style: const TextStyle(color: Colors.white),
-                    keyboardType: TextInputType.number,
-                    decoration: _inputDecoration('Quantity'),
-                    validator: (value) {
-                      final quantity = int.tryParse((value ?? '').trim());
-                      if (quantity == null || quantity < 0) {
-                        return 'Enter a valid quantity';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedCondition,
-                    dropdownColor: const Color(0xFF111827),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Condition'),
-                    items: GlassApparatusModel.conditionOptions.map((status) {
-                      return DropdownMenuItem<String>(
-                        value: status,
-                        child: Text(status),
-                      );
-                    }).toList(),
-                    onChanged: _isSaving
-                        ? null
-                        : (value) {
-                            if (value == null) return;
-                            setState(() {
-                              _selectedCondition = value;
-                            });
-                          },
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              _buildSectionCard(
-                title: 'Location & Ownership',
-                subtitle:
-                    'Optional placement and point-of-contact details for the lab.',
-                children: [
-                  TextFormField(
-                    controller: _locationController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Location'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _inchargeController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('In-charge'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _notesController,
-                    style: const TextStyle(color: Colors.white),
-                    maxLines: 3,
-                    decoration: _inputDecoration('Notes'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isSaving ? null : _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF14B8A6),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  icon: _isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
+        child: ResponsivePageContainer(
+          maxWidth: 980,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth >= 700;
+
+              return Form(
+                key: _formKey,
+                child: ListView(
+                  padding: EdgeInsets.all(isDesktop ? 14 : 16),
+                  children: [
+                    _buildSectionCard(
+                      title: 'Apparatus Details',
+                      subtitle: _isEditMode
+                          ? 'Update this lab-scoped glassware record.'
+                          : 'Create a lightweight glassware record for this lab.',
+                      dense: isDesktop,
+                      children: [
+                        _fieldGrid(
+                          isDesktop: isDesktop,
+                          children: [
+                            TextFormField(
+                              controller: _nameController,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: _inputDecoration('Name'),
+                              validator: (value) {
+                                if (value == null || value.trim().isEmpty) {
+                                  return 'Enter apparatus name';
+                                }
+                                return null;
+                              },
+                            ),
+                            DropdownButtonFormField<String>(
+                              initialValue: _selectedCategory,
+                              dropdownColor: const Color(0xFF111827),
+                              style: const TextStyle(color: Colors.white),
+                              decoration: _inputDecoration('Category'),
+                              items:
+                                  GlassApparatusModel.categories.map((category) {
+                                return DropdownMenuItem<String>(
+                                  value: category,
+                                  child: Text(category),
+                                );
+                              }).toList(),
+                              onChanged: _isSaving
+                                  ? null
+                                  : (value) {
+                                      if (value == null) return;
+                                      setState(() {
+                                        _selectedCategory = value;
+                                      });
+                                    },
+                            ),
+                            TextFormField(
+                              controller: _sizeController,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: _inputDecoration('Size / capacity'),
+                            ),
+                            TextFormField(
+                              controller: _quantityController,
+                              style: const TextStyle(color: Colors.white),
+                              keyboardType: TextInputType.number,
+                              decoration: _inputDecoration('Quantity'),
+                              validator: (value) {
+                                final quantity =
+                                    int.tryParse((value ?? '').trim());
+                                if (quantity == null || quantity < 0) {
+                                  return 'Enter a valid quantity';
+                                }
+                                return null;
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: isDesktop ? 12 : 14),
+                    _buildSectionCard(
+                      title: 'Status & Ownership',
+                      subtitle:
+                          'Keep condition, placement, and point-of-contact details easy to scan.',
+                      dense: isDesktop,
+                      children: [
+                        _fieldGrid(
+                          isDesktop: isDesktop,
+                          children: [
+                            DropdownButtonFormField<String>(
+                              initialValue: _selectedCondition,
+                              dropdownColor: const Color(0xFF111827),
+                              style: const TextStyle(color: Colors.white),
+                              decoration: _inputDecoration('Condition'),
+                              items: GlassApparatusModel.conditionOptions.map(
+                                (status) {
+                                  return DropdownMenuItem<String>(
+                                    value: status,
+                                    child: Text(status),
+                                  );
+                                },
+                              ).toList(),
+                              onChanged: _isSaving
+                                  ? null
+                                  : (value) {
+                                      if (value == null) return;
+                                      setState(() {
+                                        _selectedCondition = value;
+                                      });
+                                    },
+                            ),
+                            TextFormField(
+                              controller: _locationController,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: _inputDecoration('Location'),
+                            ),
+                            TextFormField(
+                              controller: _inchargeController,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: _inputDecoration('In-charge'),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        _fullWidthField(
+                          isDesktop: isDesktop,
+                          child: TextFormField(
+                            controller: _notesController,
+                            style: const TextStyle(color: Colors.white),
+                            maxLines: isDesktop ? 2 : 3,
+                            decoration: _inputDecoration('Notes'),
                           ),
-                        )
-                      : const Icon(Icons.save_rounded),
-                  label: Text(
-                    _isSaving
-                        ? (_isEditMode ? 'Updating...' : 'Saving...')
-                        : (_isEditMode ? 'Update Apparatus' : 'Save Apparatus'),
-                  ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: isDesktop ? 16 : 18),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: _isSaving ? null : _save,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF14B8A6),
+                          foregroundColor: Colors.white,
+                          padding: EdgeInsets.symmetric(
+                            vertical: isDesktop ? 14 : 16,
+                          ),
+                        ),
+                        icon: _isSaving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.save_rounded),
+                        label: Text(
+                          _isSaving
+                              ? (_isEditMode ? 'Updating...' : 'Saving...')
+                              : (_isEditMode
+                                  ? 'Update Apparatus'
+                                  : 'Save Apparatus'),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+              );
+            },
           ),
         ),
       ),

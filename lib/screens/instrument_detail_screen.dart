@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../models/instrument_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/instrument_service.dart';
+import '../widgets/responsive_page_container.dart';
 import 'add_instrument_screen.dart';
 
 class InstrumentDetailScreen extends StatefulWidget {
@@ -1003,6 +1004,423 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
     }
   }
 
+  Widget _buildDesktopField(String label, String value) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white54,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12.8,
+              height: 1.3,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopGrid(List<Widget> children, {int columns = 2}) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final spacing = 8.0;
+        final itemWidth =
+            (constraints.maxWidth - (spacing * (columns - 1))) / columns;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: [
+            for (final child in children)
+              SizedBox(width: itemWidth, child: child),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildDesktopSection({
+    required String title,
+    String? actionLabel,
+    VoidCallback? onAction,
+    required List<Widget> children,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14.4,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              if (actionLabel != null && onAction != null)
+                TextButton.icon(
+                  onPressed: onAction,
+                  icon: const Icon(Icons.add_circle_outline_rounded, size: 17),
+                  label: Text(actionLabel),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopServiceAlert() {
+    final message = _serviceTimingMessage(_instrument.nextServiceDue);
+    if (message == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF7C2D12).withOpacity(0.28),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFF59E0B).withOpacity(0.4),
+        ),
+      ),
+      child: Text(
+        message,
+        style: const TextStyle(
+          color: Color(0xFFFCD34D),
+          fontSize: 12.5,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopHeader() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E293B),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Row(
+        children: [
+          _InstrumentDetailPreview(
+            photoReference: _instrument.previewPhoto,
+            fallbackIcon: _iconForCategory(_instrument.normalizedCategory),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _instrument.normalizedName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    height: 1.18,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        _instrument.normalizedCategory,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    _InstrumentStatusBadge(
+                      status: _instrument.normalizedStatus,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'In-charge: ${_displayValue(_instrument.instrumentIncharge)}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12.8,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 16),
+          ElevatedButton.icon(
+            onPressed: _openEdit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF14B8A6),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+            icon: const Icon(Icons.edit_rounded, size: 18),
+            label: const Text(
+              'Edit Instrument',
+              style: TextStyle(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopDetail() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        children: [
+          _buildDesktopHeader(),
+          const SizedBox(height: 12),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                flex: 3,
+                child: Column(
+                  children: [
+                    _buildDesktopSection(
+                      title: 'Instrument Details',
+                      children: [
+                        _buildDesktopGrid(
+                          [
+                            _buildDesktopField(
+                              'Arrived on',
+                              _formatDate(_instrument.arrivedOn),
+                            ),
+                            _buildDesktopField(
+                              'Brand',
+                              _displayValue(_instrument.brand),
+                            ),
+                            _buildDesktopField(
+                              'Serial no',
+                              _displayValue(_instrument.serialNo),
+                            ),
+                            _buildDesktopField(
+                              'Catalog number',
+                              _displayValue(_instrument.catalogNumber),
+                            ),
+                          ],
+                          columns: 2,
+                        ),
+                        const SizedBox(height: 8),
+                        _buildDesktopField(
+                          'Specification',
+                          _displayValue(_instrument.specification),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDesktopSection(
+                      title: 'Current In-charge',
+                      children: [
+                        _buildDesktopGrid(
+                          [
+                            _buildDesktopField(
+                              'Instrument in-charge',
+                              _displayValue(_instrument.instrumentIncharge),
+                            ),
+                            _buildDesktopField(
+                              'Contact no',
+                              _displayValue(
+                                _instrument.instrumentInchargeContactNo,
+                              ),
+                            ),
+                            _buildDesktopField(
+                              'Current tenure',
+                              _formatTenure(
+                                _instrument.instrumentInchargeTenureFrom,
+                                _instrument.instrumentInchargeTenureTo,
+                              ),
+                            ),
+                          ],
+                          columns: 3,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDesktopSection(
+                      title: 'Maintenance Status',
+                      children: [
+                        _buildDesktopGrid(
+                          [
+                            _buildDesktopField(
+                              'Status',
+                              _instrument.normalizedStatus,
+                            ),
+                            _buildDesktopField(
+                              'Last serviced on',
+                              _formatDate(_instrument.lastServicedOn),
+                            ),
+                            _buildDesktopField(
+                              'Next service due',
+                              _formatDate(_instrument.nextServiceDue),
+                            ),
+                            _buildDesktopField(
+                              'Service date',
+                              _formatDate(_instrument.serviceDate),
+                            ),
+                            _buildDesktopField(
+                              'Service incharge',
+                              _displayValue(_instrument.serviceIncharge),
+                            ),
+                            _buildDesktopField(
+                              'Service contact',
+                              _displayValue(
+                                _instrument.serviceInchargeContactNo,
+                              ),
+                            ),
+                          ],
+                          columns: 3,
+                        ),
+                        if (_serviceTimingMessage(
+                              _instrument.nextServiceDue,
+                            ) !=
+                            null) ...[
+                          const SizedBox(height: 8),
+                          _buildDesktopServiceAlert(),
+                        ],
+                        const SizedBox(height: 8),
+                        _buildDesktopField(
+                          'Maintenance notes',
+                          _displayValue(_instrument.maintenanceNotes),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildDesktopField(
+                          'Service details',
+                          _displayValue(_instrument.serviceDetails),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: Column(
+                  children: [
+                    _buildDesktopSection(
+                      title: 'User Guide',
+                      children: [
+                        _buildDesktopField(
+                          'User guide',
+                          _displayValue(_instrument.userGuide),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDesktopSection(
+                      title: 'Service History',
+                      actionLabel: 'Add service record',
+                      onAction: _addServiceRecord,
+                      children: _instrument.serviceHistory.isEmpty
+                          ? [
+                              _buildHistoryEmptyState(
+                                'No service history yet',
+                              ),
+                            ]
+                          : [
+                              _buildServiceHistoryPreviewCard(
+                                _instrument.serviceHistory.last,
+                              ),
+                              const SizedBox(height: 4),
+                              _buildViewAllHistoryButton(
+                                label: 'View all history',
+                                onTap: _showServiceHistorySheet,
+                              ),
+                            ],
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDesktopSection(
+                      title: 'In-charge History',
+                      actionLabel: 'Add in-charge record',
+                      onAction: _addInchargeRecord,
+                      children: _instrument.inchargeHistory.isEmpty
+                          ? [
+                              _buildHistoryEmptyState(
+                                'No in-charge history yet',
+                              ),
+                            ]
+                          : [
+                              _buildInchargeHistoryPreviewCard(
+                                _instrument.inchargeHistory.last,
+                              ),
+                              const SizedBox(height: 4),
+                              _buildViewAllHistoryButton(
+                                label: 'View all history',
+                                onTap: _showInchargeHistorySheet,
+                              ),
+                            ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1045,9 +1463,20 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
         ],
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth >= 900) {
+              return ResponsivePageContainer(
+                maxWidth: 1120,
+                child: _buildDesktopDetail(),
+              );
+            }
+
+            return ResponsivePageContainer(
+              maxWidth: 980,
+              child: ListView(
+                padding: const EdgeInsets.all(14),
+                children: [
             _InstrumentDetailHero(
               instrument: _instrument,
             ),
@@ -1220,7 +1649,10 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                       ),
                     ],
             ),
-          ],
+                ],
+              ),
+            );
+          },
         ),
       ),
     );

@@ -86,7 +86,7 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
     }).toList();
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar({bool dense = false}) {
     return TextField(
       controller: _searchController,
       style: const TextStyle(color: Colors.white),
@@ -108,9 +108,9 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
               ),
         filled: true,
         fillColor: const Color(0xFF111827),
-        contentPadding: const EdgeInsets.symmetric(
+        contentPadding: EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 14,
+          vertical: dense ? 11 : 14,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
@@ -120,7 +120,7 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
     );
   }
 
-  Widget _buildConditionFilters() {
+  Widget _buildConditionFilters({bool dense = false}) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -138,7 +138,7 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
               },
               labelStyle: TextStyle(
                 color: isSelected ? Colors.white : Colors.white70,
-                fontSize: 12.5,
+                fontSize: dense ? 12.0 : 12.5,
                 fontWeight: FontWeight.w700,
               ),
               backgroundColor: const Color(0xFF111827),
@@ -190,11 +190,17 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
           final filteredApparatus = _applyFilters(apparatus);
           final categoryGroups = _buildCategoryGroups(filteredApparatus);
 
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth >= 900;
+              final pagePadding = isDesktop ? 12.0 : 16.0;
+              final sectionGap = isDesktop ? 10.0 : 14.0;
+
+              return Padding(
+                padding: EdgeInsets.all(pagePadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 _ApparatusHeaderCard(
                   apparatusCount: apparatus.length,
                   totalQuantity: apparatus.fold<int>(
@@ -202,18 +208,35 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
                     (total, item) => total + item.quantity,
                   ),
                   onAddApparatus: _openAddApparatus,
+                  dense: isDesktop,
                 ),
-                const SizedBox(height: 14),
-                _buildSearchBar(),
-                const SizedBox(height: 12),
-                _buildConditionFilters(),
-                const SizedBox(height: 14),
+                SizedBox(height: sectionGap),
+                if (isDesktop)
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: _buildSearchBar(dense: true),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 3,
+                        child: _buildConditionFilters(dense: true),
+                      ),
+                    ],
+                  )
+                else ...[
+                  _buildSearchBar(),
+                  const SizedBox(height: 12),
+                  _buildConditionFilters(),
+                ],
+                SizedBox(height: sectionGap),
                 if (apparatus.isEmpty) ...[
                   const _ApparatusEmptyState(),
-                  const SizedBox(height: 14),
+                  SizedBox(height: sectionGap),
                 ] else if (filteredApparatus.isEmpty) ...[
                   const _ApparatusFilteredEmptyState(),
-                  const SizedBox(height: 14),
+                  SizedBox(height: sectionGap),
                 ],
                 Expanded(
                   child: ListView.builder(
@@ -221,14 +244,19 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
                     itemBuilder: (context, index) {
                       final group = categoryGroups[index];
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: _ApparatusCategorySection(group: group),
+                        padding: EdgeInsets.only(bottom: isDesktop ? 8 : 12),
+                        child: _ApparatusCategorySection(
+                          group: group,
+                          dense: isDesktop,
+                        ),
                       );
                     },
                   ),
                 ),
               ],
-            ),
+                ),
+              );
+            },
           );
         },
       ),
@@ -265,18 +293,20 @@ class _ApparatusHeaderCard extends StatelessWidget {
   final int apparatusCount;
   final int totalQuantity;
   final VoidCallback onAddApparatus;
+  final bool dense;
 
   const _ApparatusHeaderCard({
     required this.apparatusCount,
     required this.totalQuantity,
     required this.onAddApparatus,
+    this.dense = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(dense ? 14 : 18),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(20),
@@ -285,49 +315,93 @@ class _ApparatusHeaderCard extends StatelessWidget {
           BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 3)),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Glass Apparatus',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            apparatusCount == 0
-                ? 'Track shared glassware by category, count, condition, and location.'
-                : '$apparatusCount records with $totalQuantity total pieces in this lab.',
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 13,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ElevatedButton.icon(
-              onPressed: onAddApparatus,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF14B8A6),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+      child: dense
+          ? Row(
+              children: [
+                Expanded(
+                  child: _ApparatusHeaderCopy(
+                    apparatusCount: apparatusCount,
+                    totalQuantity: totalQuantity,
+                  ),
                 ),
-              ),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text(
-                'Add Apparatus',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
+                const SizedBox(width: 16),
+                _ApparatusAddButton(onAddApparatus: onAddApparatus),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _ApparatusHeaderCopy(
+                  apparatusCount: apparatusCount,
+                  totalQuantity: totalQuantity,
+                ),
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _ApparatusAddButton(onAddApparatus: onAddApparatus),
+                ),
+              ],
             ),
+    );
+  }
+}
+
+class _ApparatusHeaderCopy extends StatelessWidget {
+  final int apparatusCount;
+  final int totalQuantity;
+
+  const _ApparatusHeaderCopy({
+    required this.apparatusCount,
+    required this.totalQuantity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Glass Apparatus',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
           ),
-        ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          apparatusCount == 0
+              ? 'Track shared glassware by category, count, condition, and location.'
+              : '$apparatusCount records with $totalQuantity total pieces in this lab.',
+          style: const TextStyle(
+            color: Colors.white60,
+            fontSize: 13,
+            height: 1.35,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ApparatusAddButton extends StatelessWidget {
+  final VoidCallback onAddApparatus;
+
+  const _ApparatusAddButton({required this.onAddApparatus});
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      onPressed: onAddApparatus,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF14B8A6),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      icon: const Icon(Icons.add_rounded),
+      label: const Text(
+        'Add Apparatus',
+        style: TextStyle(fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -382,8 +456,12 @@ class _ApparatusFilteredEmptyState extends StatelessWidget {
 
 class _ApparatusCategorySection extends StatelessWidget {
   final _ApparatusCategoryGroup group;
+  final bool dense;
 
-  const _ApparatusCategorySection({required this.group});
+  const _ApparatusCategorySection({
+    required this.group,
+    this.dense = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -397,16 +475,25 @@ class _ApparatusCategorySection extends StatelessWidget {
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           initiallyExpanded: group.count > 0,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-          childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+          tilePadding: EdgeInsets.symmetric(horizontal: dense ? 10 : 14),
+          childrenPadding: EdgeInsets.fromLTRB(
+            dense ? 10 : 12,
+            0,
+            dense ? 10 : 12,
+            dense ? 8 : 12,
+          ),
           iconColor: Colors.white70,
           collapsedIconColor: Colors.white54,
-          leading: CircleAvatar(
-            backgroundColor: const Color(0x22FB923C),
-            child: Icon(
-              _iconForCategory(group.category),
-              color: const Color(0xFFFB923C),
-              size: 20,
+          leading: SizedBox(
+            height: dense ? 32 : 40,
+            width: dense ? 32 : 40,
+            child: CircleAvatar(
+              backgroundColor: const Color(0x22FB923C),
+              child: Icon(
+                _iconForCategory(group.category),
+                color: const Color(0xFFFB923C),
+                size: dense ? 17 : 20,
+              ),
             ),
           ),
           title: Text(
@@ -434,13 +521,63 @@ class _ApparatusCategorySection extends StatelessWidget {
                     ),
                   ),
                 ]
-              : group.apparatus.map((item) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: _ApparatusCard(apparatus: item),
-                  );
-                }).toList(),
+              : [
+                  if (dense) const _ApparatusDesktopHeader(),
+                  ...group.apparatus.map((item) {
+                    return Padding(
+                      padding: EdgeInsets.only(top: dense ? 6 : 10),
+                      child: _ApparatusCard(
+                        apparatus: item,
+                        dense: dense,
+                      ),
+                    );
+                  }),
+                ],
         ),
+      ),
+    );
+  }
+}
+
+class _ApparatusDesktopHeader extends StatelessWidget {
+  const _ApparatusDesktopHeader();
+
+  Widget _header(String label, {int flex = 1}) {
+    return Expanded(
+      flex: flex,
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: Colors.white38,
+          fontSize: 10.8,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(58, 2, 34, 0),
+      child: Row(
+        children: [
+          _header('Name', flex: 3),
+          const SizedBox(width: 10),
+          _header('Category', flex: 2),
+          const SizedBox(width: 10),
+          _header('Size'),
+          const SizedBox(width: 10),
+          _header('Qty'),
+          const SizedBox(width: 10),
+          _header('Condition', flex: 2),
+          const SizedBox(width: 10),
+          _header('Location', flex: 2),
+          const SizedBox(width: 10),
+          _header('In-charge', flex: 2),
+        ],
       ),
     );
   }
@@ -448,11 +585,96 @@ class _ApparatusCategorySection extends StatelessWidget {
 
 class _ApparatusCard extends StatelessWidget {
   final GlassApparatusModel apparatus;
+  final bool dense;
 
-  const _ApparatusCard({required this.apparatus});
+  const _ApparatusCard({
+    required this.apparatus,
+    this.dense = false,
+  });
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _desktopText(String value, {int flex = 1, bool strong = false}) {
+    final displayValue = value.trim().isEmpty ? 'Not set' : value.trim();
+
+    return Expanded(
+      flex: flex,
+      child: Text(
+        displayValue,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: strong ? Colors.white : Colors.white70,
+          fontSize: strong ? 13.4 : 12.4,
+          height: 1.25,
+          fontWeight: strong ? FontWeight.w800 : FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopCard(BuildContext context) {
+    return Material(
+      color: const Color(0xFF111827),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) =>
+                  AddGlassApparatusScreen(existingApparatus: apparatus),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            children: [
+              Container(
+                height: 38,
+                width: 38,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  _iconForCategory(apparatus.normalizedCategory),
+                  color: const Color(0xFFFB923C),
+                  size: 18,
+                ),
+              ),
+              const SizedBox(width: 10),
+              _desktopText(apparatus.normalizedName, flex: 3, strong: true),
+              const SizedBox(width: 10),
+              _desktopText(apparatus.normalizedCategory, flex: 2),
+              const SizedBox(width: 10),
+              _desktopText(apparatus.displaySize),
+              const SizedBox(width: 10),
+              _desktopText(apparatus.quantity.toString()),
+              const SizedBox(width: 10),
+              Expanded(
+                flex: 2,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _ConditionChip(
+                    condition: apparatus.normalizedCondition,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              _desktopText(apparatus.location, flex: 2),
+              const SizedBox(width: 10),
+              _desktopText(apparatus.incharge, flex: 2),
+              const SizedBox(width: 8),
+              const Icon(Icons.edit_outlined, color: Colors.white38, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileCard(BuildContext context) {
     final location = apparatus.location.trim();
     final incharge = apparatus.incharge.trim();
 
@@ -538,6 +760,11 @@ class _ApparatusCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return dense ? _buildDesktopCard(context) : _buildMobileCard(context);
   }
 }
 

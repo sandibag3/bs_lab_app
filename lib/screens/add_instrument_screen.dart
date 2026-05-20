@@ -8,6 +8,7 @@ import '../app_state.dart';
 import '../models/instrument_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/instrument_service.dart';
+import '../widgets/responsive_page_container.dart';
 
 class AddInstrumentScreen extends StatefulWidget {
   final InstrumentModel? existingInstrument;
@@ -467,11 +468,13 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
         ),
       ),
       body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
+        child: ResponsivePageContainer(
+          maxWidth: 980,
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
               _buildSectionCard(
                 title: 'Basic Information',
                 subtitle: _isEditMode
@@ -768,7 +771,8 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
                   ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -94,7 +94,7 @@ class _InstrumentsScreenState extends State<InstrumentsScreen> {
         _selectedStatusFilter != 'All';
   }
 
-  Widget _buildSearchBar() {
+  Widget _buildSearchBar({bool dense = false}) {
     return TextField(
       controller: _searchController,
       style: const TextStyle(color: Colors.white),
@@ -119,9 +119,9 @@ class _InstrumentsScreenState extends State<InstrumentsScreen> {
               ),
         filled: true,
         fillColor: const Color(0xFF111827),
-        contentPadding: const EdgeInsets.symmetric(
+        contentPadding: EdgeInsets.symmetric(
           horizontal: 16,
-          vertical: 14,
+          vertical: dense ? 11 : 14,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
@@ -131,7 +131,7 @@ class _InstrumentsScreenState extends State<InstrumentsScreen> {
     );
   }
 
-  Widget _buildStatusFilters() {
+  Widget _buildStatusFilters({bool dense = false}) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -149,7 +149,7 @@ class _InstrumentsScreenState extends State<InstrumentsScreen> {
               },
               labelStyle: TextStyle(
                 color: isSelected ? Colors.white : Colors.white70,
-                fontSize: 12.5,
+                fontSize: dense ? 12.0 : 12.5,
                 fontWeight: FontWeight.w700,
               ),
               backgroundColor: const Color(0xFF111827),
@@ -201,51 +201,80 @@ class _InstrumentsScreenState extends State<InstrumentsScreen> {
           final filteredInstruments = _applyFilters(instruments);
           final categoryGroups = _buildCategoryGroups(filteredInstruments);
 
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
+          return LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth >= 900;
+              final pagePadding = isDesktop ? 12.0 : 16.0;
+              final sectionGap = isDesktop ? 10.0 : 14.0;
+
+              return Padding(
+                padding: EdgeInsets.all(pagePadding),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                 _InstrumentHeaderCard(
                   instrumentCount: instruments.length,
                   onAddInstrument: () => _openAddInstrument(context),
+                  dense: isDesktop,
                 ),
-                const SizedBox(height: 14),
-                _buildSearchBar(),
-                const SizedBox(height: 12),
-                _buildStatusFilters(),
-                const SizedBox(height: 14),
+                SizedBox(height: sectionGap),
+                if (isDesktop)
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: _buildSearchBar(dense: true),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 3,
+                        child: _buildStatusFilters(dense: true),
+                      ),
+                    ],
+                  )
+                else ...[
+                  _buildSearchBar(),
+                  const SizedBox(height: 12),
+                  _buildStatusFilters(),
+                ],
+                SizedBox(height: sectionGap),
                 if (instruments.isEmpty) ...[
                   const _InstrumentEmptyState(),
-                  const SizedBox(height: 14),
+                  SizedBox(height: sectionGap),
                 ] else if (filteredInstruments.isEmpty) ...[
                   const _InstrumentFilteredEmptyState(),
-                  const SizedBox(height: 14),
+                  SizedBox(height: sectionGap),
                 ],
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final crossAxisCount = constraints.maxWidth >= 1100
+                      final crossAxisCount = constraints.maxWidth >= 1120
+                          ? 6
+                          : constraints.maxWidth >= 900
                           ? 5
-                          : constraints.maxWidth >= 840
+                          : constraints.maxWidth >= 720
                           ? 4
                           : 3;
-                      final childAspectRatio = constraints.maxWidth >= 840
-                          ? 0.98
+                      final childAspectRatio = constraints.maxWidth >= 900
+                          ? 1.72
+                          : constraints.maxWidth >= 720
+                          ? 1.08
                           : 0.84;
 
                       return GridView.builder(
                         itemCount: categoryGroups.length,
                         gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: crossAxisCount,
-                          mainAxisSpacing: 12,
-                          crossAxisSpacing: 12,
+                          mainAxisSpacing: isDesktop ? 10 : 12,
+                          crossAxisSpacing: isDesktop ? 10 : 12,
                           childAspectRatio: childAspectRatio,
                         ),
                         itemBuilder: (context, index) {
                           final group = categoryGroups[index];
                           return _InstrumentCategoryTile(
                             group: group,
+                            dense: isDesktop,
                             onTap: () {
                               Navigator.push(
                                 context,
@@ -265,7 +294,9 @@ class _InstrumentsScreenState extends State<InstrumentsScreen> {
                   ),
                 ),
               ],
-            ),
+                ),
+              );
+            },
           );
         },
       ),
@@ -301,17 +332,19 @@ class _InstrumentAccessState extends StatelessWidget {
 class _InstrumentHeaderCard extends StatelessWidget {
   final int instrumentCount;
   final VoidCallback onAddInstrument;
+  final bool dense;
 
   const _InstrumentHeaderCard({
     required this.instrumentCount,
     required this.onAddInstrument,
+    this.dense = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: EdgeInsets.all(dense ? 14 : 18),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
         borderRadius: BorderRadius.circular(20),
@@ -324,49 +357,81 @@ class _InstrumentHeaderCard extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Lab Instruments',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            instrumentCount == 0
-                ? 'Track balances, pumps, chillers, and other shared lab assets here.'
-                : '$instrumentCount ${instrumentCount == 1 ? 'instrument' : 'instruments'} recorded for this lab.',
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 13,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ElevatedButton.icon(
-              onPressed: onAddInstrument,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF14B8A6),
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
+      child: dense
+          ? Row(
+              children: [
+                Expanded(child: _InstrumentHeaderCopy(instrumentCount)),
+                const SizedBox(width: 16),
+                _InstrumentAddButton(onAddInstrument: onAddInstrument),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _InstrumentHeaderCopy(instrumentCount),
+                const SizedBox(height: 14),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _InstrumentAddButton(onAddInstrument: onAddInstrument),
                 ),
-              ),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text(
-                'Add Instrument',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
+              ],
             ),
+    );
+  }
+}
+
+class _InstrumentHeaderCopy extends StatelessWidget {
+  final int instrumentCount;
+
+  const _InstrumentHeaderCopy(this.instrumentCount);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Lab Instruments',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w800,
           ),
-        ],
+        ),
+        const SizedBox(height: 6),
+        Text(
+          instrumentCount == 0
+              ? 'Track balances, pumps, chillers, and other shared lab assets here.'
+              : '$instrumentCount ${instrumentCount == 1 ? 'instrument' : 'instruments'} recorded for this lab.',
+          style: const TextStyle(
+            color: Colors.white60,
+            fontSize: 13,
+            height: 1.35,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InstrumentAddButton extends StatelessWidget {
+  final VoidCallback onAddInstrument;
+
+  const _InstrumentAddButton({required this.onAddInstrument});
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton.icon(
+      onPressed: onAddInstrument,
+      style: ElevatedButton.styleFrom(
+        backgroundColor: const Color(0xFF14B8A6),
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      icon: const Icon(Icons.add_rounded),
+      label: const Text(
+        'Add Instrument',
+        style: TextStyle(fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -440,48 +505,53 @@ class _InstrumentFilteredEmptyState extends StatelessWidget {
 class _InstrumentCategoryTile extends StatelessWidget {
   final _InstrumentCategoryGroup group;
   final VoidCallback onTap;
+  final bool dense;
 
   const _InstrumentCategoryTile({
     required this.group,
     required this.onTap,
+    this.dense = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return Material(
       color: const Color(0xFF1E293B),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(dense ? 16 : 20),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(dense ? 16 : 20),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+          padding: EdgeInsets.symmetric(
+            horizontal: dense ? 9 : 10,
+            vertical: dense ? 8 : 12,
+          ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               _InstrumentPreviewBox(
                 photoReference: group.previewPhoto,
                 fallbackIcon: _iconForCategory(group.category),
-                size: 48,
+                size: dense ? 34 : 48,
               ),
-              const SizedBox(height: 10),
+              SizedBox(height: dense ? 6 : 10),
               Text(
                 group.category,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   color: Colors.white,
-                  fontSize: 11.8,
+                  fontSize: dense ? 11.0 : 11.8,
                   fontWeight: FontWeight.w700,
                   height: 1.2,
                 ),
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: dense ? 5 : 8),
               Container(
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 5,
+                  horizontal: 7,
+                  vertical: 4,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white.withOpacity(0.06),
@@ -522,36 +592,51 @@ class _InstrumentCategoryScreen extends StatelessWidget {
         title: Text(category, style: const TextStyle(color: Colors.white)),
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withOpacity(0.06)),
-              ),
-              child: Text(
-                '${instruments.length} ${instruments.length == 1 ? 'instrument' : 'instruments'} in this category.',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                  height: 1.4,
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            if (instruments.isEmpty)
-              _CategoryEmptyState(hasActiveFilters: hasActiveFilters)
-            else
-              ...instruments.map((instrument) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: _InstrumentCard(instrument: instrument),
-                );
-              }),
-          ],
+        child: ResponsivePageContainer(
+          maxWidth: 1120,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isDesktop = constraints.maxWidth >= 900;
+
+              return ListView(
+                padding: EdgeInsets.all(isDesktop ? 12 : 14),
+                children: [
+                  Container(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isDesktop ? 14 : 16,
+                      vertical: isDesktop ? 12 : 16,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1E293B),
+                      borderRadius: BorderRadius.circular(isDesktop ? 16 : 18),
+                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                    ),
+                    child: Text(
+                      '${instruments.length} ${instruments.length == 1 ? 'instrument' : 'instruments'} in this category.',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: isDesktop ? 10 : 14),
+                  if (instruments.isEmpty)
+                    _CategoryEmptyState(hasActiveFilters: hasActiveFilters)
+                  else
+                    ...instruments.map((instrument) {
+                      return Padding(
+                        padding: EdgeInsets.only(bottom: isDesktop ? 8 : 12),
+                        child: _InstrumentCard(
+                          instrument: instrument,
+                          dense: isDesktop,
+                        ),
+                      );
+                    }),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -588,8 +673,12 @@ class _CategoryEmptyState extends StatelessWidget {
 
 class _InstrumentCard extends StatelessWidget {
   final InstrumentModel instrument;
+  final bool dense;
 
-  const _InstrumentCard({required this.instrument});
+  const _InstrumentCard({
+    required this.instrument,
+    this.dense = false,
+  });
 
   String _formatDate(Timestamp? value) {
     if (value == null) {
@@ -603,8 +692,115 @@ class _InstrumentCard extends StatelessWidget {
     return '$day/$month/$year';
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _desktopMeta(String label, String value, {int flex = 1}) {
+    final displayValue = value.trim().isEmpty ? 'Not set' : value.trim();
+
+    return Expanded(
+      flex: flex,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white38,
+              fontSize: 10.8,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 5),
+          Text(
+            displayValue,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 12.2,
+              height: 1.25,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildDesktopCard(BuildContext context) {
+    final incharge = instrument.instrumentIncharge.trim();
+    final details = [
+      instrument.serialNo.trim(),
+      instrument.catalogNumber.trim(),
+      instrument.specification.trim(),
+    ].firstWhere((value) => value.isNotEmpty, orElse: () => '');
+
+    return Material(
+      color: const Color(0xFF1E293B),
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => InstrumentDetailScreen(instrument: instrument),
+            ),
+          );
+        },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              _InstrumentPreviewBox(
+                photoReference: instrument.previewPhoto,
+                fallbackIcon: _iconForCategory(instrument.normalizedCategory),
+                size: 56,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 3,
+                child: Text(
+                  instrument.normalizedName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14.2,
+                    fontWeight: FontWeight.w800,
+                    height: 1.22,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              _desktopMeta('Category', instrument.normalizedCategory, flex: 2),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: _InstrumentStatusBadge(
+                    status: instrument.normalizedStatus,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              _desktopMeta(
+                'In-charge',
+                incharge.isEmpty ? 'Not assigned' : incharge,
+                flex: 2,
+              ),
+              const SizedBox(width: 12),
+              _desktopMeta('Details', details, flex: 2),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMobileCard(BuildContext context) {
     final brand = instrument.brand.trim();
     final incharge = instrument.instrumentIncharge.trim();
     final arrivedOn = _formatDate(instrument.arrivedOn);
@@ -686,6 +882,11 @@ class _InstrumentCard extends StatelessWidget {
       ),
     );
   }
+
+  @override
+  Widget build(BuildContext context) {
+    return dense ? _buildDesktopCard(context) : _buildMobileCard(context);
+  }
 }
 
 class _InstrumentStatusBadge extends StatelessWidget {
@@ -730,6 +931,8 @@ class _InstrumentStatusBadge extends StatelessWidget {
       ),
       child: Text(
         status,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: _textColor(),
           fontSize: 11.8,
@@ -758,8 +961,7 @@ class _InstrumentPreviewBox extends StatelessWidget {
     }
 
     final uri = Uri.tryParse(cleanReference);
-    if (uri != null &&
-        (uri.scheme == 'http' || uri.scheme == 'https')) {
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
       return NetworkImage(cleanReference);
     }
 
@@ -817,7 +1019,6 @@ class _InstrumentPreviewBox extends StatelessWidget {
     );
   }
 }
-
 class _InstrumentCategoryGroup {
   final String category;
   final List<InstrumentModel> instruments;
