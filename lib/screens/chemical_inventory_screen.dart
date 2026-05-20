@@ -612,9 +612,12 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     );
   }
 
- Widget buildGroupedChemicalCard(List<ChemicalModel> bottles) {
+  Widget buildGroupedChemicalCard(List<ChemicalModel> bottles) {
   final main = bottles.first;
   final int total = bottles.length;
+  final isDesktop = MediaQuery.sizeOf(context).width >= 900;
+  final cardRadius = isDesktop ? 14.0 : 18.0;
+  final cardPadding = isDesktop ? 10.0 : 14.0;
 
   final locations = bottles
       .map((b) => b.location.trim())
@@ -656,28 +659,31 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
 
   Widget chip(String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      padding: EdgeInsets.symmetric(
+        horizontal: isDesktop ? 8 : 10,
+        vertical: isDesktop ? 4 : 5,
+      ),
       decoration: BoxDecoration(
         color: Colors.white.withOpacity(0.06),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         text,
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.white70,
-          fontSize: 12.2,
+          fontSize: isDesktop ? 11.6 : 12.2,
         ),
       ),
     );
   }
 
   return Container(
-    margin: const EdgeInsets.only(bottom: 14),
+    margin: EdgeInsets.only(bottom: isDesktop ? 8 : 14),
     child: Material(
       color: const Color(0xFF1B2435),
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(cardRadius),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(cardRadius),
         onTap: () async {
           final selectedGroup = await Navigator.push(
             context,
@@ -702,14 +708,14 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                 decoration: BoxDecoration(
                   color: statusColor,
                   borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(18),
-                    bottomLeft: Radius.circular(18),
+                    topLeft: Radius.circular(14),
+                    bottomLeft: Radius.circular(14),
                   ),
                 ),
               ),
               Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(14),
+                  padding: EdgeInsets.all(cardPadding),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -733,7 +739,21 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                               ),
                             ),
                           ),
-                          const Spacer(),
+                          SizedBox(width: isDesktop ? 12 : 8),
+                          Expanded(
+                            child: Text(
+                              main.chemicalName,
+                              maxLines: isDesktop ? 1 : 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: isDesktop ? 14.2 : 15.5,
+                                fontWeight: FontWeight.bold,
+                                height: 1.25,
+                              ),
+                            ),
+                          ),
+                          SizedBox(width: isDesktop ? 12 : 6),
                           Text(
                             summaryStatus,
                             style: TextStyle(
@@ -750,27 +770,17 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        main.chemicalName,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.bold,
-                          height: 1.25,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
+                      SizedBox(height: isDesktop ? 8 : 10),
                       Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                        spacing: isDesktop ? 6 : 8,
+                        runSpacing: isDesktop ? 6 : 8,
                         children: [
                           chip('CAS: ${main.cas.isEmpty ? "-" : main.cas}'),
                           chip('Loc: $locationSummary'),
                           chip('Bottles: $total'),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      SizedBox(height: isDesktop ? 8 : 12),
                       Row(
                         children: [
                           Expanded(
@@ -810,8 +820,10 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   );
 }
 
-  Widget buildSortDropdown() {
-    return Container(
+  Widget buildSortDropdown({bool dense = false}) {
+    return SizedBox(
+      height: dense ? 42 : null,
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
@@ -840,10 +852,11 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
           },
         ),
       ),
+      ),
     );
   }
 
-  Widget buildAvailabilityChips() {
+  Widget buildAvailabilityChips({bool dense = false}) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -860,7 +873,15 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                 backgroundColor: const Color(0xFF1E293B),
                 labelStyle: TextStyle(
                   color: isSelected ? Colors.white : Colors.white70,
+                  fontSize: dense ? 12 : null,
+                  fontWeight: FontWeight.w700,
                 ),
+                visualDensity: dense
+                    ? const VisualDensity(horizontal: -2, vertical: -2)
+                    : null,
+                materialTapTargetSize: dense
+                    ? MaterialTapTargetSize.shrinkWrap
+                    : null,
                 onSelected: (_) {
                   setState(() {
                     selectedAvailabilityFilter = filter;
@@ -874,8 +895,10 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     );
   }
 
-  Widget buildLocationDropdown() {
-    return Container(
+  Widget buildLocationDropdown({bool dense = false}) {
+    return SizedBox(
+      height: dense ? 42 : null,
+      child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF1E293B),
@@ -916,16 +939,28 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
           },
         ),
       ),
+      ),
     );
   }
 
-  Widget buildResetButton() {
+  Widget buildResetButton({bool dense = false}) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: ActionChip(
-        label: const Text('Reset Filters'),
+      child: SizedBox(
+        height: dense ? 42 : null,
+        child: ActionChip(
+        avatar: dense
+            ? const Icon(Icons.restart_alt_rounded, size: 17, color: Colors.white)
+            : null,
+        label: Text(dense ? 'Reset' : 'Reset Filters'),
         backgroundColor: Colors.redAccent,
         labelStyle: const TextStyle(color: Colors.white),
+        visualDensity: dense
+            ? const VisualDensity(horizontal: -2, vertical: -2)
+            : null,
+        materialTapTargetSize: dense
+            ? MaterialTapTargetSize.shrinkWrap
+            : null,
         onPressed: () {
           setState(() {
             searchQuery = '';
@@ -935,6 +970,32 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
             sortOption = InventorySortOption.nameAZ;
           });
         },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopToolbar(Widget searchField) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withOpacity(0.06)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(width: 260, child: searchField),
+          const SizedBox(width: 12),
+          Expanded(child: buildAvailabilityChips(dense: true)),
+          const SizedBox(width: 12),
+          SizedBox(width: 150, child: buildSortDropdown(dense: true)),
+          const SizedBox(width: 10),
+          SizedBox(width: 160, child: buildLocationDropdown(dense: true)),
+          const SizedBox(width: 10),
+          buildResetButton(dense: true),
+        ],
       ),
     );
   }
@@ -993,21 +1054,26 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   Widget build(BuildContext context) {
     return SafeArea(
       child: ResponsivePageContainer(
-        child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Container(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isDesktop = constraints.maxWidth >= 900;
+            final pagePadding = isDesktop ? 12.0 : 16.0;
+            final searchField = Container(
+              constraints: BoxConstraints(
+                maxWidth: isDesktop ? double.infinity : double.infinity,
+              ),
               decoration: BoxDecoration(
                 color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(18),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Colors.black26,
-                    blurRadius: 8,
-                    offset: Offset(0, 3),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(isDesktop ? 14 : 18),
+                boxShadow: isDesktop
+                    ? null
+                    : const [
+                        BoxShadow(
+                          color: Colors.black26,
+                          blurRadius: 8,
+                          offset: Offset(0, 3),
+                        ),
+                      ],
               ),
               child: TextField(
                 controller: _searchController,
@@ -1031,26 +1097,40 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                   ),
                   filled: true,
                   fillColor: const Color(0xFF1E293B),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: isDesktop ? 10 : 14,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            buildAvailabilityChips(),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(child: buildSortDropdown()),
-                const SizedBox(width: 10),
-                Expanded(child: buildLocationDropdown()),
-              ],
-            ),
-            const SizedBox(height: 12),
-            buildResetButton(),
-            const SizedBox(height: 14),
-            Expanded(
-              child: StreamBuilder<List<ChemicalModel>>(
-                stream: inventoryService.getChemicals(),
-                builder: (context, snapshot) {
+            );
+
+            return Padding(
+              padding: EdgeInsets.all(pagePadding),
+              child: Column(
+                children: [
+                  if (isDesktop)
+                    _buildDesktopToolbar(searchField)
+                  else ...[
+                    searchField,
+                    const SizedBox(height: 12),
+                    buildAvailabilityChips(),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: buildSortDropdown()),
+                        const SizedBox(width: 10),
+                        Expanded(child: buildLocationDropdown()),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    buildResetButton(),
+                  ],
+                  SizedBox(height: isDesktop ? 12 : 14),
+                  Expanded(
+                    child: StreamBuilder<List<ChemicalModel>>(
+                      stream: inventoryService.getChemicals(),
+                      builder: (context, snapshot) {
                   if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
                     return const Center(
                       child: Padding(
@@ -1105,20 +1185,22 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                     );
                   }
 
-                  return ListView.builder(
-                    itemCount: groupedChemicals.length,
-                    itemBuilder: (context, index) {
-                      return buildGroupedChemicalCard(
-                        groupedChemicals[index],
-                      );
-                    },
-                  );
-                },
+                        return ListView.builder(
+                          itemCount: groupedChemicals.length,
+                          itemBuilder: (context, index) {
+                            return buildGroupedChemicalCard(
+                              groupedChemicals[index],
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+            );
+          },
         ),
-      ),
       ),
     );
   }
