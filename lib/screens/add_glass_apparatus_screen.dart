@@ -18,6 +18,8 @@ class AddGlassApparatusScreen extends StatefulWidget {
 }
 
 class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
+  static const String _customCategoryOption = 'Add custom category...';
+
   final _formKey = GlobalKey<FormState>();
   final GlassApparatusService _apparatusService = GlassApparatusService();
 
@@ -27,12 +29,25 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
   late final TextEditingController _locationController;
   late final TextEditingController _inchargeController;
   late final TextEditingController _notesController;
+  late final TextEditingController _customCategoryController;
 
   String _selectedCategory = GlassApparatusModel.categories.first;
   String _selectedCondition = GlassApparatusModel.conditionOptions.first;
   bool _isSaving = false;
 
   bool get _isEditMode => widget.existingApparatus != null;
+
+  bool get _isCustomCategorySelected {
+    return _selectedCategory == _customCategoryOption;
+  }
+
+  String get _resolvedCategory {
+    if (_isCustomCategorySelected) {
+      return _customCategoryController.text.trim();
+    }
+
+    return _selectedCategory.trim();
+  }
 
   @override
   void initState() {
@@ -47,9 +62,16 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     _locationController = TextEditingController(text: existing?.location ?? '');
     _inchargeController = TextEditingController(text: existing?.incharge ?? '');
     _notesController = TextEditingController(text: existing?.notes ?? '');
+    _customCategoryController = TextEditingController();
 
     if (existing != null) {
-      _selectedCategory = existing.normalizedCategory;
+      final existingCategory = existing.category.trim();
+      if (GlassApparatusModel.categories.contains(existingCategory)) {
+        _selectedCategory = existingCategory;
+      } else if (existingCategory.isNotEmpty) {
+        _selectedCategory = _customCategoryOption;
+        _customCategoryController.text = existingCategory;
+      }
       _selectedCondition = existing.normalizedCondition;
     }
   }
@@ -62,6 +84,7 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     _locationController.dispose();
     _inchargeController.dispose();
     _notesController.dispose();
+    _customCategoryController.dispose();
     super.dispose();
   }
 
@@ -172,6 +195,65 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     return SizedBox(width: double.infinity, child: child);
   }
 
+  List<DropdownMenuItem<String>> _categoryItems() {
+    return [
+      ...GlassApparatusModel.categories.map((category) {
+        return DropdownMenuItem<String>(
+          value: category,
+          child: Text(category),
+        );
+      }),
+      const DropdownMenuItem<String>(
+        value: _customCategoryOption,
+        child: Text(_customCategoryOption),
+      ),
+    ];
+  }
+
+  Widget _buildCategoryDropdown() {
+    return DropdownButtonFormField<String>(
+      initialValue: _selectedCategory,
+      dropdownColor: const Color(0xFF111827),
+      style: const TextStyle(color: Colors.white),
+      decoration: _inputDecoration('Category'),
+      items: _categoryItems(),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Select category';
+        }
+        return null;
+      },
+      onChanged: _isSaving
+          ? null
+          : (value) {
+              if (value == null) return;
+              setState(() {
+                _selectedCategory = value;
+              });
+            },
+    );
+  }
+
+  Widget _buildCustomCategoryField() {
+    return TextFormField(
+      controller: _customCategoryController,
+      style: const TextStyle(color: Colors.white),
+      decoration: _inputDecoration('Custom category'),
+      textCapitalization: TextCapitalization.words,
+      validator: (value) {
+        if (!_isCustomCategorySelected) {
+          return null;
+        }
+
+        if (value == null || value.trim().isEmpty) {
+          return 'Enter custom category';
+        }
+
+        return null;
+      },
+    );
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -194,6 +276,12 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
       return;
     }
 
+    final category = _resolvedCategory;
+    if (category.isEmpty) {
+      _showMessage('Enter a category.');
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
@@ -209,7 +297,7 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
         id: apparatusId,
         labId: labId,
         name: _nameController.text.trim(),
-        category: _selectedCategory,
+        category: category,
         size: _sizeController.text.trim(),
         quantity: quantity,
         condition: _selectedCondition,
@@ -290,27 +378,9 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
                                 return null;
                               },
                             ),
-                            DropdownButtonFormField<String>(
-                              initialValue: _selectedCategory,
-                              dropdownColor: const Color(0xFF111827),
-                              style: const TextStyle(color: Colors.white),
-                              decoration: _inputDecoration('Category'),
-                              items:
-                                  GlassApparatusModel.categories.map((category) {
-                                return DropdownMenuItem<String>(
-                                  value: category,
-                                  child: Text(category),
-                                );
-                              }).toList(),
-                              onChanged: _isSaving
-                                  ? null
-                                  : (value) {
-                                      if (value == null) return;
-                                      setState(() {
-                                        _selectedCategory = value;
-                                      });
-                                    },
-                            ),
+                            _buildCategoryDropdown(),
+                            if (_isCustomCategorySelected)
+                              _buildCustomCategoryField(),
                             TextFormField(
                               controller: _sizeController,
                               style: const TextStyle(color: Colors.white),

@@ -1,4 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../services/activity_service.dart';
@@ -6,9 +11,15 @@ import '../services/consumables_inventory_service.dart';
 import '../services/firestore_access_guard.dart';
 import '../widgets/responsive_page_container.dart';
 
-class ConsumablesInventoryScreen extends StatelessWidget {
+class ConsumablesInventoryScreen extends StatefulWidget {
   const ConsumablesInventoryScreen({super.key});
 
+  @override
+  State<ConsumablesInventoryScreen> createState() =>
+      _ConsumablesInventoryScreenState();
+}
+
+class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen> {
   Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _inventoryStream() {
     return ConsumablesInventoryService().getConsumablesInventoryDocs();
   }
@@ -34,6 +45,25 @@ class ConsumablesInventoryScreen extends StatelessWidget {
   bool _isLowStock(String quantity) {
     final numericQuantity = _readQuantityNumber(quantity);
     return numericQuantity != null && numericQuantity <= 2;
+  }
+
+  String _readAvailability(Map<String, dynamic> data) {
+    final availability = _readText(data, 'availability');
+    if (availability.isNotEmpty) return availability;
+    return _readText(data, 'status');
+  }
+
+  String _availabilityLabel(String availability) {
+    final normalized = availability.trim().toLowerCase();
+    if (normalized == 'low') return 'Low Stock';
+    if (normalized == 'finished') return 'Finished';
+    return '';
+  }
+
+  Color _availabilityColor(String availability) {
+    final normalized = availability.trim().toLowerCase();
+    if (normalized == 'finished') return Colors.redAccent;
+    return const Color(0xFFFB7185);
   }
 
   String _formatQuantityNumber(double quantity) {
@@ -731,10 +761,19 @@ class ConsumablesInventoryScreen extends StatelessWidget {
         builder: (_) => _ConsumableCategoryDetailScreen(
           categoryGroup: categoryGroup,
           formatQuantityNumber: _formatQuantityNumber,
-          variantCardBuilder: (screenContext, variantItem) {
+          variantCardBuilder: (
+            screenContext,
+            variantItem,
+            showSelection,
+            isSelected,
+            onSelectionChanged,
+          ) {
             return _buildVariantCard(
               context: screenContext,
               variantItem: variantItem,
+              showSelection: showSelection,
+              isSelected: isSelected,
+              onSelectionChanged: onSelectionChanged,
             );
           },
         ),
@@ -817,8 +856,12 @@ class ConsumablesInventoryScreen extends StatelessWidget {
   Widget _buildVariantCard({
     required BuildContext context,
     required _ConsumableVariantItem variantItem,
+    bool showSelection = false,
+    bool isSelected = false,
+    ValueChanged<bool?>? onSelectionChanged,
   }) {
     final item = variantItem.item;
+    final showSelectedState = showSelection && isSelected;
     final data = item.primaryDoc.data();
     final quantity = item.quantityText;
     final brand = item.brandLabel;
@@ -827,7 +870,14 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     final receivedBy = _readText(data, 'receivedBy');
     final modeOfPurchase = _readText(data, 'modeOfPurchase');
     final deliveredAt = _readTimestamp(data, 'deliveredAt');
-    final isLowStock = _isLowStock(quantity);
+    final availability = _readAvailability(data);
+    final availabilityLabel = _availabilityLabel(availability);
+    final isLowStock = availabilityLabel.isNotEmpty || _isLowStock(quantity);
+    final stockBadgeLabel =
+        availabilityLabel.isNotEmpty ? availabilityLabel : 'Low Stock';
+    final stockBadgeColor = availabilityLabel.isNotEmpty
+        ? _availabilityColor(availability)
+        : const Color(0xFFFB7185);
     final brandStatus = brand.isEmpty ? 'Brand not set' : brand;
     final canQuickAdjust = item.numericQuantity != null || quantity.trim().isEmpty;
     final canQuickDecrease =
@@ -835,7 +885,9 @@ class ConsumablesInventoryScreen extends StatelessWidget {
     final quickQuantityLabel = quantity.isEmpty ? '0' : quantity;
 
     return Material(
-      color: const Color(0xFF1E293B),
+      color: showSelectedState
+          ? const Color(0xFF1B3142)
+          : const Color(0xFF1E293B),
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
@@ -846,13 +898,29 @@ class ConsumablesInventoryScreen extends StatelessWidget {
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: Colors.white.withOpacity(0.06)),
           ),
-          child: Column(
+          child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
+              if (showSelection)
+                Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: Checkbox(
+                    value: isSelected,
+                    onChanged: onSelectionChanged,
+                    activeColor: const Color(0xFF38BDF8),
+                    checkColor: Colors.white,
+                    side: const BorderSide(color: Colors.white54),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -876,142 +944,146 @@ class ConsumablesInventoryScreen extends StatelessWidget {
                         ],
                       ],
                     ),
-                  ),
-                  if (isLowStock)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0x22FB7185),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Text(
-                        'Low Stock',
+                        ),
+                        if (isLowStock)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: stockBadgeColor.withOpacity(0.14),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              stockBadgeLabel,
+                              style: TextStyle(
+                                color: stockBadgeColor,
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            quantity.isEmpty ? 'Quantity not set' : quantity,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        _QuickStockControls(
+                          quantityLabel: quickQuantityLabel,
+                          onDecrease: canQuickAdjust && canQuickDecrease
+                              ? () => _applyQuickStockChange(
+                                  context: context,
+                                  item: item,
+                                  action: 'used',
+                                )
+                              : null,
+                          onIncrease: canQuickAdjust
+                              ? () => _applyQuickStockChange(
+                                  context: context,
+                                  item: item,
+                                  action: 'added',
+                                )
+                              : null,
+                        ),
+                      ],
+                    ),
+                    if (!canQuickAdjust) ...[
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Quick +/- needs a numeric quantity.',
                         style: TextStyle(
-                          color: Color(0xFFFB7185),
+                          color: Colors.white38,
                           fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
                         ),
                       ),
+                    ],
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _InfoChip(label: 'Brand: $brandStatus'),
+                        if (vendor.isNotEmpty)
+                          _InfoChip(label: 'Vendor: $vendor'),
+                        if (modeOfPurchase.isNotEmpty)
+                          _InfoChip(label: 'Mode: $modeOfPurchase'),
+                      ],
                     ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      quantity.isEmpty ? 'Quantity not set' : quantity,
+                    const SizedBox(height: 12),
+                    Text(
+                      'Ordered by: ${orderedBy.isEmpty ? '-' : orderedBy}',
                       style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
+                        color: Colors.white60,
+                        fontSize: 12.5,
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  _QuickStockControls(
-                    quantityLabel: quickQuantityLabel,
-                    onDecrease: canQuickAdjust && canQuickDecrease
-                        ? () => _applyQuickStockChange(
+                    const SizedBox(height: 4),
+                    Text(
+                      'Received by: ${receivedBy.isEmpty ? '-' : receivedBy}',
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Delivered on: ${_formatDate(deliveredAt)}',
+                      style: const TextStyle(
+                        color: Colors.white60,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _StockActionButton(
+                          label: 'Use Stock',
+                          icon: Icons.remove_circle_outline_rounded,
+                          color: const Color(0xFFF59E0B),
+                          onTap: () => _openStockSheet(
                             context: context,
-                            item: item,
+                            doc: item.primaryDoc,
                             action: 'used',
-                          )
-                        : null,
-                    onIncrease: canQuickAdjust
-                        ? () => _applyQuickStockChange(
+                            currentQuantityOverride: item.numericQuantity,
+                          ),
+                        ),
+                        _StockActionButton(
+                          label: 'Add Stock',
+                          icon: Icons.add_circle_outline_rounded,
+                          color: const Color(0xFF34D399),
+                          onTap: () => _openStockSheet(
+                            context: context,
+                            doc: item.primaryDoc,
+                            action: 'added',
+                            currentQuantityOverride: item.numericQuantity,
+                          ),
+                        ),
+                        _StockActionButton(
+                          label: 'View History',
+                          icon: Icons.history_rounded,
+                          color: const Color(0xFF38BDF8),
+                          onTap: () => _showItemHistory(
                             context: context,
                             item: item,
-                            action: 'added',
-                          )
-                        : null,
-                  ),
-                ],
-              ),
-              if (!canQuickAdjust) ...[
-                const SizedBox(height: 6),
-                const Text(
-                  'Quick +/- needs a numeric quantity.',
-                  style: TextStyle(
-                    color: Colors.white38,
-                    fontSize: 11.5,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _InfoChip(label: 'Brand: $brandStatus'),
-                  if (vendor.isNotEmpty) _InfoChip(label: 'Vendor: $vendor'),
-                  if (modeOfPurchase.isNotEmpty)
-                    _InfoChip(label: 'Mode: $modeOfPurchase'),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Ordered by: ${orderedBy.isEmpty ? '-' : orderedBy}',
-                style: const TextStyle(
-                  color: Colors.white60,
-                  fontSize: 12.5,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Received by: ${receivedBy.isEmpty ? '-' : receivedBy}',
-                style: const TextStyle(
-                  color: Colors.white60,
-                  fontSize: 12.5,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Delivered on: ${_formatDate(deliveredAt)}',
-                style: const TextStyle(
-                  color: Colors.white60,
-                  fontSize: 12.5,
-                ),
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _StockActionButton(
-                    label: 'Use Stock',
-                    icon: Icons.remove_circle_outline_rounded,
-                    color: const Color(0xFFF59E0B),
-                    onTap: () => _openStockSheet(
-                      context: context,
-                      doc: item.primaryDoc,
-                      action: 'used',
-                      currentQuantityOverride: item.numericQuantity,
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  _StockActionButton(
-                    label: 'Add Stock',
-                    icon: Icons.add_circle_outline_rounded,
-                    color: const Color(0xFF34D399),
-                    onTap: () => _openStockSheet(
-                      context: context,
-                      doc: item.primaryDoc,
-                      action: 'added',
-                      currentQuantityOverride: item.numericQuantity,
-                    ),
-                  ),
-                  _StockActionButton(
-                    label: 'View History',
-                    icon: Icons.history_rounded,
-                    color: const Color(0xFF38BDF8),
-                    onTap: () => _showItemHistory(
-                      context: context,
-                      item: item,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ],
           ),
@@ -1170,10 +1242,16 @@ class _ConsumableCategoryGroup {
   });
 }
 
-class _ConsumableCategoryDetailScreen extends StatelessWidget {
+class _ConsumableCategoryDetailScreen extends StatefulWidget {
   final _ConsumableCategoryGroup categoryGroup;
   final String Function(double) formatQuantityNumber;
-  final Widget Function(BuildContext, _ConsumableVariantItem) variantCardBuilder;
+  final Widget Function(
+    BuildContext,
+    _ConsumableVariantItem,
+    bool,
+    bool,
+    ValueChanged<bool?>?,
+  ) variantCardBuilder;
 
   const _ConsumableCategoryDetailScreen({
     required this.categoryGroup,
@@ -1182,15 +1260,649 @@ class _ConsumableCategoryDetailScreen extends StatelessWidget {
   });
 
   @override
+  State<_ConsumableCategoryDetailScreen> createState() =>
+      _ConsumableCategoryDetailScreenState();
+}
+
+class _ConsumableCategoryDetailScreenState
+    extends State<_ConsumableCategoryDetailScreen> {
+  final Set<String> selectedConsumableIds = <String>{};
+  final ConsumablesInventoryService _consumablesInventoryService =
+      ConsumablesInventoryService();
+  bool isExportingSelectedCsv = false;
+  bool showSelectedOnly = false;
+
+  static const List<String> _locationOptions = [
+    'Store Room',
+    'Shelf',
+    'Drawer',
+    'Bench',
+    'Refrigerator',
+    'Freezer',
+    'Desiccator',
+    'Other',
+  ];
+
+  String _consumableId(_ConsumableVariantItem variantItem) {
+    return variantItem.item.primaryDoc.id;
+  }
+
+  List<String> _visibleConsumableIds(
+    List<_ConsumableVariantItem> variants,
+  ) {
+    return variants
+        .map(_consumableId)
+        .where((id) => id.trim().isNotEmpty)
+        .toList();
+  }
+
+  int _selectedVisibleCount(List<_ConsumableVariantItem> variants) {
+    final visibleIds = _visibleConsumableIds(variants).toSet();
+    return selectedConsumableIds.where(visibleIds.contains).length;
+  }
+
+  void _toggleConsumableSelection(String consumableId, bool? selected) {
+    if (consumableId.trim().isEmpty) return;
+
+    setState(() {
+      if (selected == true) {
+        selectedConsumableIds.add(consumableId);
+      } else {
+        selectedConsumableIds.remove(consumableId);
+        if (selectedConsumableIds.isEmpty) {
+          showSelectedOnly = false;
+        }
+      }
+    });
+  }
+
+  void _selectAllVisibleConsumables(List<_ConsumableVariantItem> variants) {
+    final visibleIds = _visibleConsumableIds(variants);
+    if (visibleIds.isEmpty) return;
+
+    setState(() {
+      selectedConsumableIds.addAll(visibleIds);
+    });
+  }
+
+  void _clearConsumableSelection() {
+    setState(() {
+      selectedConsumableIds.clear();
+      showSelectedOnly = false;
+    });
+  }
+
+  void _showBulkActionComingNext(String action) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$action bulk action is coming next.')),
+    );
+  }
+
+  List<String> _selectedVisibleConsumableIds(
+    List<_ConsumableVariantItem> variants,
+  ) {
+    final visibleIds = _visibleConsumableIds(variants).toSet();
+    return selectedConsumableIds
+        .where((id) => visibleIds.contains(id))
+        .toSet()
+        .toList();
+  }
+
+  List<_ConsumableVariantItem> _selectedVisibleConsumables(
+    List<_ConsumableVariantItem> variants,
+  ) {
+    final selectedIds = _selectedVisibleConsumableIds(variants).toSet();
+    return variants.where((variant) {
+      return selectedIds.contains(_consumableId(variant));
+    }).toList();
+  }
+
+  String _readExportText(Map<String, dynamic> data, String key) {
+    return (data[key] ?? '').toString().trim();
+  }
+
+  Timestamp? _readExportTimestamp(Map<String, dynamic> data, String key) {
+    final value = data[key];
+    return value is Timestamp ? value : null;
+  }
+
+  String _availabilityForExport(_ConsumableVariantItem variant) {
+    final data = variant.item.primaryDoc.data();
+    final availability = _readExportText(data, 'availability');
+    if (availability.isNotEmpty) return availability;
+
+    final status = _readExportText(data, 'status');
+    if (status.isNotEmpty) return status;
+
+    final quantity = variant.item.numericQuantity;
+    if (quantity != null && quantity <= 2) return 'Low';
+    return 'Available';
+  }
+
+  String _unitForExport(_ConsumableVariantItem variant) {
+    final data = variant.item.primaryDoc.data();
+    final unit = _readExportText(data, 'unit');
+    if (unit.isNotEmpty) return unit;
+
+    final quantity = variant.item.quantityText.trim();
+    final match = RegExp(r'[-+]?\d*\.?\d+\s*(.*)$').firstMatch(quantity);
+    return (match?.group(1) ?? '').trim();
+  }
+
+  String _lastUpdatedForExport(_ConsumableVariantItem variant) {
+    final data = variant.item.primaryDoc.data();
+    final timestamp =
+        _readExportTimestamp(data, 'updatedAt') ??
+        _readExportTimestamp(data, 'deliveredAt') ??
+        _readExportTimestamp(data, 'createdAt');
+
+    return timestamp?.toDate().toIso8601String() ?? '';
+  }
+
+  Future<void> _exportSelectedVisibleCsv(
+    List<_ConsumableVariantItem> visibleVariants,
+  ) async {
+    final selectedVariants = _selectedVisibleConsumables(visibleVariants);
+
+    if (selectedVariants.isEmpty) {
+      _showBulkActionComingNext('Export CSV');
+      return;
+    }
+
+    setState(() {
+      isExportingSelectedCsv = true;
+    });
+
+    try {
+      final rows = <List<String>>[
+        const [
+          'Name',
+          'Category',
+          'Specification/Size',
+          'Brand',
+          'Quantity',
+          'Unit',
+          'Location',
+          'Availability',
+          'Last Updated',
+        ],
+        ...selectedVariants.map((variant) {
+          final data = variant.item.primaryDoc.data();
+          final name = variant.consumableType.trim().isEmpty
+              ? variant.variant
+              : variant.consumableType;
+
+          return [
+            name,
+            widget.categoryGroup.category,
+            variant.variant,
+            variant.item.brandLabel,
+            variant.item.quantityText,
+            _unitForExport(variant),
+            _readExportText(data, 'location'),
+            _availabilityForExport(variant),
+            _lastUpdatedForExport(variant),
+          ];
+        }),
+      ];
+
+      final csv = const ListToCsvConverter().convert(rows);
+      final fileName = _selectedCsvFileName();
+      final savedPath = await FilePicker.saveFile(
+        dialogTitle: 'Save selected consumables inventory',
+        fileName: fileName,
+        bytes: Uint8List.fromList(utf8.encode(csv)),
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            savedPath == null
+                ? 'Export cancelled.'
+                : 'Exported ${selectedVariants.length} selected item(s).',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not export selected consumables: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isExportingSelectedCsv = false;
+        });
+      }
+    }
+  }
+
+  String _selectedCsvFileName() {
+    final now = DateTime.now();
+    final date =
+        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    final time =
+        '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+
+    return 'labmate_consumables_inventory_selected_${date}_$time.csv';
+  }
+
+  Future<void> _openBulkChangeLocationDialog(
+    List<_ConsumableVariantItem> visibleVariants,
+  ) async {
+    final targetIds = _selectedVisibleConsumableIds(visibleVariants);
+
+    if (targetIds.isEmpty) {
+      _showBulkActionComingNext('Change location');
+      return;
+    }
+
+    final selectedLocation = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        String? location;
+        bool showValidationError = false;
+
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF111827),
+              title: const Text(
+                'Change location',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${targetIds.length} selected',
+                      style: const TextStyle(
+                        color: Color(0xFF7DD3FC),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: location,
+                      dropdownColor: const Color(0xFF1E293B),
+                      decoration: InputDecoration(
+                        labelText: 'Location',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        errorText: showValidationError
+                            ? 'Select a location before applying.'
+                            : null,
+                        filled: true,
+                        fillColor: const Color(0xFF1E293B),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.white.withOpacity(0.08),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF38BDF8),
+                          ),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Colors.redAccent,
+                          ),
+                        ),
+                      ),
+                      iconEnabledColor: Colors.white70,
+                      style: const TextStyle(color: Colors.white),
+                      items: _locationOptions.map((locationOption) {
+                        return DropdownMenuItem<String>(
+                          value: locationOption,
+                          child: Text(locationOption),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          location = value;
+                          showValidationError = false;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (location == null || location!.trim().isEmpty) {
+                      setDialogState(() {
+                        showValidationError = true;
+                      });
+                      return;
+                    }
+
+                    Navigator.of(dialogContext).pop(location);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF38BDF8),
+                    foregroundColor: const Color(0xFF0F172A),
+                  ),
+                  child: const Text('Apply'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (selectedLocation == null || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _consumablesInventoryService.updateLocationsByIds(
+        docIds: targetIds,
+        location: selectedLocation,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        selectedConsumableIds.clear();
+        showSelectedOnly = false;
+      });
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Location updated for ${targetIds.length} item(s).'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmBulkAvailabilityUpdate({
+    required List<_ConsumableVariantItem> visibleVariants,
+    required String availability,
+    required String title,
+    required String confirmLabel,
+    required String successLabel,
+  }) async {
+    final targetIds = _selectedVisibleConsumableIds(visibleVariants);
+
+    if (targetIds.isEmpty) {
+      _showBulkActionComingNext(confirmLabel);
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF111827),
+          title: Text(
+            title,
+            style: const TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: 360,
+            child: Text(
+              '${targetIds.length} selected',
+              style: const TextStyle(
+                color: Color(0xFF7DD3FC),
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF38BDF8),
+                foregroundColor: const Color(0xFF0F172A),
+              ),
+              child: Text(confirmLabel),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await _consumablesInventoryService.updateAvailabilityByIds(
+        docIds: targetIds,
+        availability: availability,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        selectedConsumableIds.clear();
+        showSelectedOnly = false;
+      });
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Marked ${targetIds.length} item(s) as $successLabel.'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
+  Widget _buildBulkSelectionButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      height: 36,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 16),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white70,
+          disabledForegroundColor: Colors.white30,
+          side: BorderSide(color: Colors.white.withOpacity(0.12)),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          textStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectedOnlyToggle() {
+    return SizedBox(
+      height: 36,
+      child: FilterChip(
+        selected: showSelectedOnly,
+        onSelected: (selected) {
+          setState(() {
+            showSelectedOnly = selected;
+          });
+        },
+        avatar: Icon(
+          showSelectedOnly
+              ? Icons.filter_alt_rounded
+              : Icons.filter_alt_outlined,
+          size: 16,
+          color: showSelectedOnly ? Colors.white : Colors.white70,
+        ),
+        label: const Text('Selected only'),
+        selectedColor: const Color(0xFF38BDF8),
+        backgroundColor: Colors.white.withOpacity(0.04),
+        labelStyle: TextStyle(
+          color: showSelectedOnly ? const Color(0xFF0F172A) : Colors.white70,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+        side: BorderSide(color: Colors.white.withOpacity(0.12)),
+        visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildConsumableBulkToolbar(
+    List<_ConsumableVariantItem> visibleVariants,
+  ) {
+    final selectedCount = selectedConsumableIds.length;
+    final selectedVisibleCount = _selectedVisibleCount(visibleVariants);
+    final visibleCount = visibleVariants.length;
+    final selectionSummary = selectedVisibleCount == selectedCount
+        ? '$selectedCount selected from $visibleCount visible'
+        : '$selectedCount selected, $visibleCount visible';
+
+    if (selectedCount == 0) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: _buildBulkSelectionButton(
+            label: 'Select all visible',
+            icon: Icons.select_all_rounded,
+            onPressed: () => _selectAllVisibleConsumables(visibleVariants),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.08)),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              decoration: BoxDecoration(
+                color: const Color(0x2238BDF8),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                selectionSummary,
+                style: const TextStyle(
+                  color: Color(0xFF7DD3FC),
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            _buildSelectedOnlyToggle(),
+            const SizedBox(width: 8),
+            _buildBulkSelectionButton(
+              label: 'Select all visible',
+              icon: Icons.select_all_rounded,
+              onPressed: () => _selectAllVisibleConsumables(visibleVariants),
+            ),
+            const SizedBox(width: 8),
+            _buildBulkSelectionButton(
+              label: 'Clear',
+              icon: Icons.close_rounded,
+              onPressed: _clearConsumableSelection,
+            ),
+            const SizedBox(width: 14),
+            _buildBulkSelectionButton(
+              label: 'Change location',
+              icon: Icons.place_outlined,
+              onPressed: () => _openBulkChangeLocationDialog(visibleVariants),
+            ),
+            const SizedBox(width: 8),
+            _buildBulkSelectionButton(
+              label: 'Mark low',
+              icon: Icons.warning_amber_rounded,
+              onPressed: () => _confirmBulkAvailabilityUpdate(
+                visibleVariants: visibleVariants,
+                availability: 'low',
+                title: 'Mark selected as low?',
+                confirmLabel: 'Mark Low',
+                successLabel: 'low',
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildBulkSelectionButton(
+              label: 'Mark finished',
+              icon: Icons.cancel_outlined,
+              onPressed: () => _confirmBulkAvailabilityUpdate(
+                visibleVariants: visibleVariants,
+                availability: 'finished',
+                title: 'Mark selected as finished?',
+                confirmLabel: 'Mark Finished',
+                successLabel: 'finished',
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildBulkSelectionButton(
+              label: isExportingSelectedCsv ? 'Exporting...' : 'Export CSV',
+              icon: Icons.file_download_outlined,
+              onPressed: isExportingSelectedCsv
+                  ? null
+                  : () => _exportSelectedVisibleCsv(visibleVariants),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final totalQuantityLabel = categoryGroup.totalQuantity == null
+    final totalQuantityLabel = widget.categoryGroup.totalQuantity == null
         ? 'Mixed'
-        : formatQuantityNumber(categoryGroup.totalQuantity!);
+        : widget.formatQuantityNumber(widget.categoryGroup.totalQuantity!);
+    final isDesktop = MediaQuery.sizeOf(context).width >= 900;
+    final visibleVariants = widget.categoryGroup.variants;
+    final displayedVariants =
+        isDesktop && showSelectedOnly
+            ? _selectedVisibleConsumables(visibleVariants)
+            : visibleVariants;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(
-          categoryGroup.category,
+          widget.categoryGroup.category,
           style: const TextStyle(color: Colors.white),
         ),
       ),
@@ -1211,20 +1923,48 @@ class _ConsumableCategoryDetailScreen extends StatelessWidget {
                 children: [
                   _InfoChip(
                     label:
-                        '${categoryGroup.variants.length} ${categoryGroup.variants.length == 1 ? 'variant' : 'variants'}',
+                        '${widget.categoryGroup.variants.length} ${widget.categoryGroup.variants.length == 1 ? 'variant' : 'variants'}',
                   ),
                   _InfoChip(label: 'Total: $totalQuantityLabel'),
-                  _InfoChip(label: 'Low stock: ${categoryGroup.lowStockCount}'),
+                  _InfoChip(
+                    label: 'Low stock: ${widget.categoryGroup.lowStockCount}',
+                  ),
                 ],
               ),
             ),
             const SizedBox(height: 14),
-            ...categoryGroup.variants.map((variant) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: variantCardBuilder(context, variant),
-              );
-            }),
+            if (isDesktop)
+              _buildConsumableBulkToolbar(visibleVariants),
+            if (displayedVariants.isEmpty && showSelectedOnly)
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E293B),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                ),
+                child: const Text(
+                  'No selected records are visible.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white70),
+                ),
+              )
+            else
+              ...displayedVariants.map((variant) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: widget.variantCardBuilder(
+                    context,
+                    variant,
+                    isDesktop,
+                    selectedConsumableIds.contains(_consumableId(variant)),
+                    (value) => _toggleConsumableSelection(
+                      _consumableId(variant),
+                      value,
+                    ),
+                  ),
+                );
+              }),
           ],
         ),
       ),

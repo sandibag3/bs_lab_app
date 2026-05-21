@@ -1,3 +1,8 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
+import 'package:csv/csv.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/chemical_model.dart';
@@ -32,6 +37,13 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
 
   String selectedAvailabilityFilter = 'All';
   String? selectedLocationFilter;
+  final ValueNotifier<Set<String>> selectedInventoryIdsNotifier =
+      ValueNotifier<Set<String>>(<String>{});
+  bool selectionMode = false;
+  bool isExportingSelectedCsv = false;
+  bool showSelectedOnly = false;
+
+  Set<String> get selectedInventoryIds => selectedInventoryIdsNotifier.value;
 
   final List<String> availabilityFilters = [
     'All',
@@ -64,6 +76,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   @override
   void dispose() {
     _searchController.dispose();
+    selectedInventoryIdsNotifier.dispose();
     super.dispose();
   }
 
@@ -199,6 +212,448 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
       case InventorySortOption.availabilityFirst:
         return 'Availability';
     }
+  }
+
+  void _clearSelectionState() {
+    selectedInventoryIdsNotifier.value = <String>{};
+    showSelectedOnly = false;
+  }
+
+  void _enterSelectionMode() {
+    if (selectionMode) return;
+
+    setState(() {
+      selectionMode = true;
+    });
+  }
+
+  void _exitSelectionModeState() {
+    selectionMode = false;
+    _clearSelectionState();
+  }
+
+  void _exitSelectionMode() {
+    setState(_exitSelectionModeState);
+  }
+
+  void _toggleInventorySelection(String inventoryId, bool? selected) {
+    if (inventoryId.trim().isEmpty) return;
+
+    final nextSelection = <String>{...selectedInventoryIdsNotifier.value};
+
+    if (selected == true) {
+      nextSelection.add(inventoryId);
+    } else {
+      nextSelection.remove(inventoryId);
+    }
+
+    selectedInventoryIdsNotifier.value = nextSelection;
+
+    if (showSelectedOnly) {
+      setState(() {
+        showSelectedOnly = nextSelection.isNotEmpty;
+      });
+    }
+  }
+
+  String _representativeInventoryId(List<ChemicalModel> bottles) {
+    // TODO: Expand desktop bulk actions to all bottle IDs in grouped CAS rows.
+    return bottles.first.id;
+  }
+
+  List<String> _visibleRepresentativeInventoryIds(
+    List<List<ChemicalModel>> groupedChemicals,
+  ) {
+    return groupedChemicals
+        .map(_representativeInventoryId)
+        .where((id) => id.trim().isNotEmpty)
+        .toList();
+  }
+
+  List<String> _selectedVisibleInventoryIds(
+    List<List<ChemicalModel>> groupedChemicals,
+  ) {
+    final visibleIds = _visibleRepresentativeInventoryIds(
+      groupedChemicals,
+    ).toSet();
+
+    return selectedInventoryIds
+        .where((id) => visibleIds.contains(id))
+        .toSet()
+        .toList();
+  }
+
+  List<ChemicalModel> _selectedVisibleChemicals(
+    List<List<ChemicalModel>> groupedChemicals,
+  ) {
+    final selectedIds = _selectedVisibleInventoryIds(groupedChemicals).toSet();
+
+    return groupedChemicals
+        .map((bottles) => bottles.first)
+        .where((chemical) => selectedIds.contains(chemical.id))
+        .toList();
+  }
+
+  List<List<ChemicalModel>> _selectedVisibleGroups(
+    List<List<ChemicalModel>> groupedChemicals,
+  ) {
+    final selectedIds = _selectedVisibleInventoryIds(groupedChemicals).toSet();
+
+    return groupedChemicals.where((bottles) {
+      return selectedIds.contains(_representativeInventoryId(bottles));
+    }).toList();
+  }
+
+  void _selectAllVisible(List<List<ChemicalModel>> groupedChemicals) {
+    if (!selectionMode) return;
+
+    final visibleIds = _visibleRepresentativeInventoryIds(groupedChemicals);
+    if (visibleIds.isEmpty) return;
+
+    selectedInventoryIdsNotifier.value = <String>{
+      ...selectedInventoryIdsNotifier.value,
+      ...visibleIds,
+    };
+
+    if (showSelectedOnly) {
+      setState(() {});
+    }
+  }
+
+  Future<void> _openBulkChangeLocationDialog(
+    List<List<ChemicalModel>> groupedChemicals,
+  ) async {
+    final targetIds = _selectedVisibleInventoryIds(groupedChemicals);
+
+    if (targetIds.isEmpty) {
+      _showQuickActionMessage(
+        'No selected inventory items are visible with current filters.',
+      );
+      return;
+    }
+
+    // TODO: Future improvement: offer an option to update all bottles under
+    // selected CAS groups instead of only the visible representative document.
+    final selectedLocation = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        String? location;
+        bool showValidationError = false;
+
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF111827),
+              title: const Text(
+                'Change location',
+                style: TextStyle(color: Colors.white),
+              ),
+              content: SizedBox(
+                width: 360,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${targetIds.length} selected',
+                      style: const TextStyle(
+                        color: Color(0xFF5EEAD4),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      value: location,
+                      dropdownColor: const Color(0xFF1E293B),
+                      decoration: InputDecoration(
+                        labelText: 'Location',
+                        labelStyle: const TextStyle(color: Colors.white70),
+                        errorText: showValidationError
+                            ? 'Select a location before applying.'
+                            : null,
+                        filled: true,
+                        fillColor: const Color(0xFF1E293B),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: Colors.white.withOpacity(0.08),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Color(0xFF14B8A6),
+                          ),
+                        ),
+                        errorBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: Colors.redAccent,
+                          ),
+                        ),
+                      ),
+                      iconEnabledColor: Colors.white70,
+                      style: const TextStyle(color: Colors.white),
+                      items: locationFilters.map((locationOption) {
+                        return DropdownMenuItem<String>(
+                          value: locationOption,
+                          child: Text(locationOption),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setDialogState(() {
+                          location = value;
+                          showValidationError = false;
+                        });
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    if (location == null || location!.trim().isEmpty) {
+                      setDialogState(() {
+                        showValidationError = true;
+                      });
+                      return;
+                    }
+
+                    Navigator.of(dialogContext).pop(location);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF14B8A6),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Apply'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (selectedLocation == null || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await inventoryService.updateLocationsByIds(
+        docIds: targetIds,
+        location: selectedLocation,
+      );
+
+      if (!mounted) return;
+      setState(_exitSelectionModeState);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Location updated for ${targetIds.length} item(s).'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _confirmBulkAvailabilityUpdate({
+    required List<List<ChemicalModel>> groupedChemicals,
+    required String availability,
+    required String title,
+    required String confirmLabel,
+    required String successLabel,
+  }) async {
+    final targetIds = _selectedVisibleInventoryIds(groupedChemicals);
+
+    if (targetIds.isEmpty) {
+      _showQuickActionMessage(
+        'No selected inventory items are visible with current filters.',
+      );
+      return;
+    }
+
+    // TODO: Future improvement: offer an option to update all bottles under
+    // selected CAS groups instead of only the visible representative document.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFF111827),
+          title: Text(
+            title,
+            style: const TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: 360,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${targetIds.length} selected',
+                  style: const TextStyle(
+                    color: Color(0xFF5EEAD4),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Only selected visible inventory records will be updated.',
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF14B8A6),
+                foregroundColor: Colors.white,
+              ),
+              child: Text(confirmLabel),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await inventoryService.updateAvailabilityByIds(
+        docIds: targetIds,
+        availability: availability,
+      );
+
+      if (!mounted) return;
+      setState(_exitSelectionModeState);
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('Marked ${targetIds.length} item(s) as $successLabel.'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
+  Future<void> _exportSelectedVisibleCsv(
+    List<List<ChemicalModel>> groupedChemicals,
+  ) async {
+    final selectedChemicals = _selectedVisibleChemicals(groupedChemicals);
+
+    if (selectedChemicals.isEmpty) {
+      _showQuickActionMessage(
+        'No selected inventory items are visible with current filters.',
+      );
+      return;
+    }
+
+    setState(() {
+      isExportingSelectedCsv = true;
+    });
+
+    try {
+      final rows = <List<String>>[
+        const [
+          'Label',
+          'Chemical name',
+          'CAS',
+          'Molecular formula',
+          'Molecular weight',
+          'Brand',
+          'Location',
+          'Quantity',
+          'Availability',
+          'Category/type',
+        ],
+        ...selectedChemicals.map((chemical) {
+          return [
+            chemical.label,
+            chemical.chemicalName,
+            chemical.cas,
+            chemical.formula,
+            chemical.molWt,
+            chemical.brand,
+            chemical.location,
+            chemical.quantity,
+            chemical.availability,
+            _categoryOrType(chemical),
+          ];
+        }),
+      ];
+
+      final csv = const ListToCsvConverter().convert(rows);
+      final fileName = _selectedCsvFileName();
+      final savedPath = await FilePicker.saveFile(
+        dialogTitle: 'Save selected chemical inventory',
+        fileName: fileName,
+        bytes: Uint8List.fromList(utf8.encode(csv)),
+      );
+
+      if (!mounted) return;
+
+      _showQuickActionMessage(
+        savedPath == null
+            ? 'Export cancelled.'
+            : 'Exported ${selectedChemicals.length} selected item(s).',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showQuickActionMessage(
+        'Could not export selected inventory: $error',
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isExportingSelectedCsv = false;
+        });
+      }
+    }
+  }
+
+  String _categoryOrType(ChemicalModel chemical) {
+    final category = chemical.sheetTab.trim();
+    if (category.isNotEmpty) return category;
+
+    final type = chemical.texture.trim();
+    return type.isEmpty ? '-' : type;
+  }
+
+  String _selectedCsvFileName() {
+    final now = DateTime.now();
+    final date =
+        '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    final time =
+        '${now.hour.toString().padLeft(2, '0')}${now.minute.toString().padLeft(2, '0')}';
+
+    return 'labmate_chemical_inventory_selected_${date}_$time.csv';
   }
 
   void _showQuickActionMessage(String message) {
@@ -612,213 +1067,251 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     );
   }
 
-  Widget buildGroupedChemicalCard(List<ChemicalModel> bottles) {
-  final main = bottles.first;
-  final int total = bottles.length;
-  final isDesktop = MediaQuery.sizeOf(context).width >= 900;
-  final cardRadius = isDesktop ? 14.0 : 18.0;
-  final cardPadding = isDesktop ? 10.0 : 14.0;
+  Widget buildGroupedChemicalCard(
+    List<ChemicalModel> bottles, {
+    bool showSelection = false,
+  }) {
+    final main = bottles.first;
+    final representativeInventoryId = _representativeInventoryId(bottles);
+    final int total = bottles.length;
+    final isDesktop = MediaQuery.sizeOf(context).width >= 900;
+    final cardRadius = isDesktop ? 14.0 : 18.0;
+    final cardPadding = isDesktop ? 10.0 : 14.0;
 
-  final locations = bottles
-      .map((b) => b.location.trim())
-      .where((l) => l.isNotEmpty)
-      .toSet()
-      .toList();
+    final locations = bottles
+        .map((b) => b.location.trim())
+        .where((l) => l.isNotEmpty)
+        .toSet()
+        .toList();
 
-  String locationSummary;
-  if (locations.isEmpty) {
-    locationSummary = '-';
-  } else if (locations.length == 1) {
-    locationSummary = locations.first;
-  } else {
-    locationSummary = '${locations.first} + ${locations.length - 1} more';
-  }
+    String locationSummary;
+    if (locations.isEmpty) {
+      locationSummary = '-';
+    } else if (locations.length == 1) {
+      locationSummary = locations.first;
+    } else {
+      locationSummary = '${locations.first} + ${locations.length - 1} more';
+    }
 
-  final bool hasAvailable = bottles.any(
-    (b) => b.availability.toLowerCase().trim() == 'available',
-  );
+    final bool hasAvailable = bottles.any(
+      (b) => b.availability.toLowerCase().trim() == 'available',
+    );
 
-  final bool hasLow = bottles.any((b) {
-    final v = b.availability.toLowerCase().trim();
-    return v == 'low' || v.contains('about');
-  });
+    final bool hasLow = bottles.any((b) {
+      final v = b.availability.toLowerCase().trim();
+      return v == 'low' || v.contains('about');
+    });
 
-  String summaryStatus;
-  Color statusColor;
+    String summaryStatus;
+    Color statusColor;
 
-  if (hasAvailable) {
-    summaryStatus = 'Available';
-    statusColor = const Color(0xFF14B8A6);
-  } else if (hasLow) {
-    summaryStatus = 'Low';
-    statusColor = Colors.orangeAccent;
-  } else {
-    summaryStatus = 'Finished';
-    statusColor = Colors.redAccent;
-  }
+    if (hasAvailable) {
+      summaryStatus = 'Available';
+      statusColor = const Color(0xFF14B8A6);
+    } else if (hasLow) {
+      summaryStatus = 'Low';
+      statusColor = Colors.orangeAccent;
+    } else {
+      summaryStatus = 'Finished';
+      statusColor = Colors.redAccent;
+    }
 
-  Widget chip(String text) {
+    Widget chip(String text) {
+      return Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: isDesktop ? 8 : 10,
+          vertical: isDesktop ? 4 : 5,
+        ),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.06),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: isDesktop ? 11.6 : 12.2,
+          ),
+        ),
+      );
+    }
+
     return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: isDesktop ? 8 : 10,
-        vertical: isDesktop ? 4 : 5,
-      ),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: Colors.white70,
-          fontSize: isDesktop ? 11.6 : 12.2,
+      key: ValueKey(representativeInventoryId),
+      margin: EdgeInsets.only(bottom: isDesktop ? 8 : 14),
+      child: Material(
+        color: const Color(0xFF1B2435),
+        borderRadius: BorderRadius.circular(cardRadius),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(cardRadius),
+          onTap: () async {
+            final selectedGroup = await Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => ChemicalDetailScreen(chemical: main),
+              ),
+            );
+
+            if (selectedGroup != null && selectedGroup is String) {
+              setState(() {
+                searchQuery = selectedGroup;
+                _searchController.text = selectedGroup;
+              });
+            }
+          },
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  width: 5,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(14),
+                      bottomLeft: Radius.circular(14),
+                    ),
+                  ),
+                ),
+                if (showSelection)
+                  SizedBox(
+                    width: 42,
+                    child: Center(
+                      child: ValueListenableBuilder<Set<String>>(
+                        valueListenable: selectedInventoryIdsNotifier,
+                        builder: (context, selectedIds, _) {
+                          final isSelected = selectedIds.contains(
+                            representativeInventoryId,
+                          );
+
+                          return GestureDetector(
+                            behavior: HitTestBehavior.opaque,
+                            onTap: () => _toggleInventorySelection(
+                              representativeInventoryId,
+                              !isSelected,
+                            ),
+                            child: AbsorbPointer(
+                              child: Checkbox(
+                                value: isSelected,
+                                onChanged: (_) {},
+                                activeColor: const Color(0xFF14B8A6),
+                                checkColor: Colors.white,
+                                side: const BorderSide(color: Colors.white54),
+                                materialTapTargetSize:
+                                    MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.all(cardPadding),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0x2214B8A6),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                main.label,
+                                style: const TextStyle(
+                                  color: Color(0xFF14B8A6),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: isDesktop ? 12 : 8),
+                            Expanded(
+                              child: Text(
+                                main.chemicalName,
+                                maxLines: isDesktop ? 1 : 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: isDesktop ? 14.2 : 15.5,
+                                  fontWeight: FontWeight.bold,
+                                  height: 1.25,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: isDesktop ? 12 : 6),
+                            Text(
+                              summaryStatus,
+                              style: TextStyle(
+                                color: statusColor,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12.5,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                            const Icon(
+                              Icons.chevron_right_rounded,
+                              color: Colors.white38,
+                              size: 18,
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: isDesktop ? 8 : 10),
+                        Wrap(
+                          spacing: isDesktop ? 6 : 8,
+                          runSpacing: isDesktop ? 6 : 8,
+                          children: [
+                            chip('CAS: ${main.cas.isEmpty ? "-" : main.cas}'),
+                            chip('Loc: $locationSummary'),
+                            chip('Bottles: $total'),
+                          ],
+                        ),
+                        SizedBox(height: isDesktop ? 8 : 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildQuickActionButton(
+                                label: 'Finished',
+                                icon: Icons.cancel_outlined,
+                                color: Colors.white70,
+                                onTap: () => _markOneBottleFinished(main),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _buildQuickActionButton(
+                                label: 'Low',
+                                icon: Icons.warning_amber_rounded,
+                                color: const Color(0xFFFB7185),
+                                onTap: () => _markOneBottleLow(main),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            _buildQuickActionButton(
+                              icon: Icons.add_circle_outline,
+                              color: const Color(0xFF14B8A6),
+                              onTap: () => _startManualEntry(main),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
   }
-
-  return Container(
-    margin: EdgeInsets.only(bottom: isDesktop ? 8 : 14),
-    child: Material(
-      color: const Color(0xFF1B2435),
-      borderRadius: BorderRadius.circular(cardRadius),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(cardRadius),
-        onTap: () async {
-          final selectedGroup = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ChemicalDetailScreen(chemical: main),
-            ),
-          );
-
-          if (selectedGroup != null && selectedGroup is String) {
-            setState(() {
-              searchQuery = selectedGroup;
-              _searchController.text = selectedGroup;
-            });
-          }
-        },
-        child: IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                width: 5,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(14),
-                    bottomLeft: Radius.circular(14),
-                  ),
-                ),
-              ),
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.all(cardPadding),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0x2214B8A6),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              main.label,
-                              style: const TextStyle(
-                                color: Color(0xFF14B8A6),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: isDesktop ? 12 : 8),
-                          Expanded(
-                            child: Text(
-                              main.chemicalName,
-                              maxLines: isDesktop ? 1 : 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: isDesktop ? 14.2 : 15.5,
-                                fontWeight: FontWeight.bold,
-                                height: 1.25,
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: isDesktop ? 12 : 6),
-                          Text(
-                            summaryStatus,
-                            style: TextStyle(
-                              color: statusColor,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 12.5,
-                            ),
-                          ),
-                          const SizedBox(width: 6),
-                          const Icon(
-                            Icons.chevron_right_rounded,
-                            color: Colors.white38,
-                            size: 18,
-                          ),
-                        ],
-                      ),
-                      SizedBox(height: isDesktop ? 8 : 10),
-                      Wrap(
-                        spacing: isDesktop ? 6 : 8,
-                        runSpacing: isDesktop ? 6 : 8,
-                        children: [
-                          chip('CAS: ${main.cas.isEmpty ? "-" : main.cas}'),
-                          chip('Loc: $locationSummary'),
-                          chip('Bottles: $total'),
-                        ],
-                      ),
-                      SizedBox(height: isDesktop ? 8 : 12),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _buildQuickActionButton(
-                              label: 'Finished',
-                              icon: Icons.cancel_outlined,
-                              color: Colors.white70,
-                              onTap: () => _markOneBottleFinished(main),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: _buildQuickActionButton(
-                              label: 'Low',
-                              icon: Icons.warning_amber_rounded,
-                              color: const Color(0xFFFB7185),
-                              onTap: () => _markOneBottleLow(main),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildQuickActionButton(
-                            icon: Icons.add_circle_outline,
-                            color: const Color(0xFF14B8A6),
-                            onTap: () => _startManualEntry(main),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    ),
-  );
-}
 
   Widget buildSortDropdown({bool dense = false}) {
     return SizedBox(
@@ -1000,6 +1493,196 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     );
   }
 
+  Widget _buildSelectionButton({
+    required String label,
+    required IconData icon,
+    required VoidCallback? onPressed,
+  }) {
+    return SizedBox(
+      height: 36,
+      child: OutlinedButton.icon(
+        onPressed: onPressed,
+        icon: Icon(icon, size: 16),
+        label: Text(label),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: Colors.white70,
+          disabledForegroundColor: Colors.white30,
+          side: BorderSide(color: Colors.white.withOpacity(0.12)),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          textStyle: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSelectedOnlyToggle() {
+    return SizedBox(
+      height: 36,
+      child: FilterChip(
+        selected: showSelectedOnly,
+        onSelected: (selected) {
+          setState(() {
+            showSelectedOnly = selected;
+          });
+        },
+        avatar: Icon(
+          showSelectedOnly
+              ? Icons.filter_alt_rounded
+              : Icons.filter_alt_outlined,
+          size: 16,
+          color: showSelectedOnly ? Colors.white : Colors.white70,
+        ),
+        label: const Text('Selected only'),
+        selectedColor: const Color(0xFF14B8A6),
+        backgroundColor: Colors.white.withOpacity(0.04),
+        labelStyle: TextStyle(
+          color: showSelectedOnly ? Colors.white : Colors.white70,
+          fontSize: 12,
+          fontWeight: FontWeight.w800,
+        ),
+        side: BorderSide(color: Colors.white.withOpacity(0.12)),
+        visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDesktopSelectionControls(
+    List<List<ChemicalModel>> groupedChemicals,
+  ) {
+    if (!selectionMode) {
+      return Align(
+        alignment: Alignment.centerRight,
+        child: _buildSelectionButton(
+          label: 'Select',
+          icon: Icons.check_box_outlined,
+          onPressed: _enterSelectionMode,
+        ),
+      );
+    }
+
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: selectedInventoryIdsNotifier,
+      builder: (context, selectedIds, _) {
+        final selectedCount = selectedIds.length;
+        final visibleCount = groupedChemicals.length;
+        final visibleIds = _visibleRepresentativeInventoryIds(
+          groupedChemicals,
+        ).toSet();
+        final selectedVisibleCount =
+            selectedIds.where((id) => visibleIds.contains(id)).length;
+        final selectionSummary = selectedVisibleCount == selectedCount
+            ? '$selectedCount selected from $visibleCount visible'
+            : '$selectedCount selected, $visibleCount visible';
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF111827),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.08)),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: selectedCount == 0
+                        ? Colors.white.withOpacity(0.04)
+                        : const Color(0x2214B8A6),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    selectedCount == 0
+                        ? 'Select items to bulk edit'
+                        : selectionSummary,
+                    style: TextStyle(
+                      color: selectedCount == 0
+                          ? Colors.white70
+                          : const Color(0xFF5EEAD4),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                if (selectedCount > 0) ...[
+                  _buildSelectedOnlyToggle(),
+                  const SizedBox(width: 8),
+                ],
+                _buildSelectionButton(
+                  label: 'Select all visible',
+                  icon: Icons.select_all_rounded,
+                  onPressed: () => _selectAllVisible(groupedChemicals),
+                ),
+                const SizedBox(width: 8),
+                _buildSelectionButton(
+                  label: selectedCount == 0 ? 'Cancel' : 'Clear',
+                  icon: Icons.close_rounded,
+                  onPressed: _exitSelectionMode,
+                ),
+                if (selectedCount > 0) ...[
+                  const SizedBox(width: 14),
+                  _buildSelectionButton(
+                    label:
+                        isExportingSelectedCsv ? 'Exporting...' : 'Export CSV',
+                    icon: Icons.file_download_outlined,
+                    onPressed: isExportingSelectedCsv
+                        ? null
+                        : () => _exportSelectedVisibleCsv(groupedChemicals),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSelectionButton(
+                    label: 'Change location',
+                    icon: Icons.place_outlined,
+                    onPressed: () =>
+                        _openBulkChangeLocationDialog(groupedChemicals),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSelectionButton(
+                    label: 'Mark low',
+                    icon: Icons.warning_amber_rounded,
+                    onPressed: () => _confirmBulkAvailabilityUpdate(
+                      groupedChemicals: groupedChemicals,
+                      availability: 'low',
+                      title: 'Mark selected as low?',
+                      confirmLabel: 'Mark Low',
+                      successLabel: 'low',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildSelectionButton(
+                    label: 'Mark finished',
+                    icon: Icons.cancel_outlined,
+                    onPressed: () => _confirmBulkAvailabilityUpdate(
+                      groupedChemicals: groupedChemicals,
+                      availability: 'finished',
+                      title: 'Mark selected as finished?',
+                      confirmLabel: 'Mark Finished',
+                      successLabel: 'finished',
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildEmptyState({
     required String title,
     required String message,
@@ -1169,7 +1852,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                   final raw = snapshot.data ?? [];
                   final groupedChemicals = processChemicals(raw);
 
-                  if (raw.isEmpty) {
+                  if (raw.isEmpty && !selectionMode) {
                     return _buildEmptyState(
                       title: 'No chemicals added yet',
                       message:
@@ -1177,7 +1860,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                     );
                   }
 
-                  if (groupedChemicals.isEmpty) {
+                  if (groupedChemicals.isEmpty && !selectionMode) {
                     return _buildEmptyState(
                       title: 'No chemicals match current filters',
                       message:
@@ -1185,14 +1868,41 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                     );
                   }
 
-                        return ListView.builder(
-                          itemCount: groupedChemicals.length,
-                          itemBuilder: (context, index) {
-                            return buildGroupedChemicalCard(
-                              groupedChemicals[index],
-                            );
-                          },
-                        );
+                  final displayedChemicals =
+                      isDesktop && selectionMode && showSelectedOnly
+                          ? _selectedVisibleGroups(groupedChemicals)
+                          : groupedChemicals;
+
+                  return Column(
+                    children: [
+                      if (isDesktop) ...[
+                        _buildDesktopSelectionControls(
+                          groupedChemicals,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                      Expanded(
+                        child: displayedChemicals.isEmpty
+                            ? _buildEmptyState(
+                                title: showSelectedOnly
+                                    ? 'No selected records visible'
+                                    : 'No chemicals match current filters',
+                                message: showSelectedOnly
+                                    ? 'Selected items are still kept. Adjust filters or turn off Selected only to return to the full list.'
+                                    : 'Try a different search term or reset the current filters.',
+                              )
+                            : ListView.builder(
+                                itemCount: displayedChemicals.length,
+                                itemBuilder: (context, index) {
+                                  return buildGroupedChemicalCard(
+                                    displayedChemicals[index],
+                                    showSelection: isDesktop && selectionMode,
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  );
                       },
                     ),
                   ),

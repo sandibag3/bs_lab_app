@@ -108,7 +108,8 @@ class GlassApparatusModel {
   String get normalizedName => name.isEmpty ? 'Unnamed apparatus' : name;
 
   String get normalizedCategory {
-    return categories.contains(category) ? category : 'Other';
+    final cleanCategory = category.trim();
+    return cleanCategory.isEmpty ? 'Other' : cleanCategory;
   }
 
   String get normalizedCondition {

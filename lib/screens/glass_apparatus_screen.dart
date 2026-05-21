@@ -6,6 +6,16 @@ import '../services/glass_apparatus_service.dart';
 import '../widgets/responsive_page_container.dart';
 import 'add_glass_apparatus_screen.dart';
 
+enum GlassApparatusSortOption {
+  nameAsc,
+  nameDesc,
+  categoryAsc,
+  quantityAsc,
+  quantityDesc,
+  recentlyAdded,
+  lastUpdated,
+}
+
 class GlassApparatusScreen extends StatefulWidget {
   const GlassApparatusScreen({super.key});
 
@@ -24,6 +34,7 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
 
   final TextEditingController _searchController = TextEditingController();
   String _selectedConditionFilter = _conditionFilterOptions.first;
+  GlassApparatusSortOption _sortOption = GlassApparatusSortOption.nameAsc;
 
   @override
   void dispose() {
@@ -68,19 +79,103 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
     }).toList();
   }
 
+  String _sortLabel(GlassApparatusSortOption option) {
+    switch (option) {
+      case GlassApparatusSortOption.nameAsc:
+        return 'Name A-Z';
+      case GlassApparatusSortOption.nameDesc:
+        return 'Name Z-A';
+      case GlassApparatusSortOption.categoryAsc:
+        return 'Category A-Z';
+      case GlassApparatusSortOption.quantityAsc:
+        return 'Quantity Low to High';
+      case GlassApparatusSortOption.quantityDesc:
+        return 'Quantity High to Low';
+      case GlassApparatusSortOption.recentlyAdded:
+        return 'Recently Added';
+      case GlassApparatusSortOption.lastUpdated:
+        return 'Last Updated';
+    }
+  }
+
+  int _compareName(GlassApparatusModel a, GlassApparatusModel b) {
+    return a.normalizedName.toLowerCase().compareTo(
+          b.normalizedName.toLowerCase(),
+        );
+  }
+
+  List<GlassApparatusModel> _sortApparatus(
+    List<GlassApparatusModel> apparatus,
+  ) {
+    final sorted = [...apparatus];
+
+    sorted.sort((a, b) {
+      switch (_sortOption) {
+        case GlassApparatusSortOption.nameAsc:
+          return _compareName(a, b);
+        case GlassApparatusSortOption.nameDesc:
+          return _compareName(b, a);
+        case GlassApparatusSortOption.categoryAsc:
+          final categoryComparison = a.normalizedCategory
+              .toLowerCase()
+              .compareTo(b.normalizedCategory.toLowerCase());
+          if (categoryComparison != 0) {
+            return categoryComparison;
+          }
+          return _compareName(a, b);
+        case GlassApparatusSortOption.quantityAsc:
+          final quantityComparison = a.quantity.compareTo(b.quantity);
+          if (quantityComparison != 0) {
+            return quantityComparison;
+          }
+          return _compareName(a, b);
+        case GlassApparatusSortOption.quantityDesc:
+          final quantityComparison = b.quantity.compareTo(a.quantity);
+          if (quantityComparison != 0) {
+            return quantityComparison;
+          }
+          return _compareName(a, b);
+        case GlassApparatusSortOption.recentlyAdded:
+          final dateComparison = b.createdAt.compareTo(a.createdAt);
+          if (dateComparison != 0) {
+            return dateComparison;
+          }
+          return _compareName(a, b);
+        case GlassApparatusSortOption.lastUpdated:
+          final dateComparison = b.updatedAt.compareTo(a.updatedAt);
+          if (dateComparison != 0) {
+            return dateComparison;
+          }
+          return _compareName(a, b);
+      }
+    });
+
+    return sorted;
+  }
+
   List<_ApparatusCategoryGroup> _buildCategoryGroups(
     List<GlassApparatusModel> apparatus,
   ) {
-    return GlassApparatusModel.categories.map((category) {
+    final customCategories = apparatus
+        .map((item) => item.normalizedCategory)
+        .where((category) => !GlassApparatusModel.categories.contains(category))
+        .toSet()
+        .toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+    final categories = [
+      ...GlassApparatusModel.categories,
+      ...customCategories,
+    ];
+
+    if (_sortOption == GlassApparatusSortOption.categoryAsc) {
+      categories.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    }
+
+    return categories.map((category) {
       final items = apparatus
           .where((item) => item.normalizedCategory == category)
           .toList();
-
-      items.sort((a, b) {
-        return a.normalizedName.toLowerCase().compareTo(
-          b.normalizedName.toLowerCase(),
-        );
-      });
 
       return _ApparatusCategoryGroup(category: category, apparatus: items);
     }).toList();
@@ -159,6 +254,45 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
     );
   }
 
+  Widget _buildSortDropdown({bool dense = false}) {
+    return Container(
+      height: dense ? 46 : null,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF111827),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<GlassApparatusSortOption>(
+          value: _sortOption,
+          isExpanded: true,
+          dropdownColor: const Color(0xFF111827),
+          style: const TextStyle(color: Colors.white),
+          items: GlassApparatusSortOption.values.map((option) {
+            return DropdownMenuItem<GlassApparatusSortOption>(
+              value: option,
+              child: Text(
+                'Sort: ${_sortLabel(option)}',
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: dense ? 12.5 : 13,
+                ),
+              ),
+            );
+          }).toList(),
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() {
+              _sortOption = value;
+            });
+          },
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final apparatusService = GlassApparatusService();
@@ -188,7 +322,8 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
 
           final apparatus = snapshot.data ?? [];
           final filteredApparatus = _applyFilters(apparatus);
-          final categoryGroups = _buildCategoryGroups(filteredApparatus);
+          final sortedApparatus = _sortApparatus(filteredApparatus);
+          final categoryGroups = _buildCategoryGroups(sortedApparatus);
 
           return LayoutBuilder(
             builder: (context, constraints) {
@@ -223,12 +358,19 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
                         flex: 3,
                         child: _buildConditionFilters(dense: true),
                       ),
+                      const SizedBox(width: 12),
+                      SizedBox(
+                        width: 220,
+                        child: _buildSortDropdown(dense: true),
+                      ),
                     ],
                   )
                 else ...[
                   _buildSearchBar(),
                   const SizedBox(height: 12),
                   _buildConditionFilters(),
+                  const SizedBox(height: 12),
+                  _buildSortDropdown(),
                 ],
                 SizedBox(height: sectionGap),
                 if (apparatus.isEmpty) ...[
