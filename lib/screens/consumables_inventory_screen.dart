@@ -764,16 +764,12 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
           variantCardBuilder: (
             screenContext,
             variantItem,
-            showSelection,
-            isSelected,
-            onSelectionChanged,
+            selectionControl,
           ) {
             return _buildVariantCard(
               context: screenContext,
               variantItem: variantItem,
-              showSelection: showSelection,
-              isSelected: isSelected,
-              onSelectionChanged: onSelectionChanged,
+              selectionControl: selectionControl,
             );
           },
         ),
@@ -856,12 +852,9 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
   Widget _buildVariantCard({
     required BuildContext context,
     required _ConsumableVariantItem variantItem,
-    bool showSelection = false,
-    bool isSelected = false,
-    ValueChanged<bool?>? onSelectionChanged,
+    Widget? selectionControl,
   }) {
     final item = variantItem.item;
-    final showSelectedState = showSelection && isSelected;
     final data = item.primaryDoc.data();
     final quantity = item.quantityText;
     final brand = item.brandLabel;
@@ -885,9 +878,7 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
     final quickQuantityLabel = quantity.isEmpty ? '0' : quantity;
 
     return Material(
-      color: showSelectedState
-          ? const Color(0xFF1B3142)
-          : const Color(0xFF1E293B),
+      color: const Color(0xFF1E293B),
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
@@ -901,17 +892,10 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              if (showSelection)
+              if (selectionControl != null)
                 Padding(
                   padding: const EdgeInsets.only(right: 10),
-                  child: Checkbox(
-                    value: isSelected,
-                    onChanged: onSelectionChanged,
-                    activeColor: const Color(0xFF38BDF8),
-                    checkColor: Colors.white,
-                    side: const BorderSide(color: Colors.white54),
-                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
+                  child: selectionControl,
                 ),
               Expanded(
                 child: Column(
@@ -1248,9 +1232,7 @@ class _ConsumableCategoryDetailScreen extends StatefulWidget {
   final Widget Function(
     BuildContext,
     _ConsumableVariantItem,
-    bool,
-    bool,
-    ValueChanged<bool?>?,
+    Widget?,
   ) variantCardBuilder;
 
   const _ConsumableCategoryDetailScreen({
@@ -1266,9 +1248,11 @@ class _ConsumableCategoryDetailScreen extends StatefulWidget {
 
 class _ConsumableCategoryDetailScreenState
     extends State<_ConsumableCategoryDetailScreen> {
-  final Set<String> selectedConsumableIds = <String>{};
+  final ValueNotifier<Set<String>> selectedConsumableIdsNotifier =
+      ValueNotifier<Set<String>>(<String>{});
   final ConsumablesInventoryService _consumablesInventoryService =
       ConsumablesInventoryService();
+  bool selectionMode = false;
   bool isExportingSelectedCsv = false;
   bool showSelectedOnly = false;
 
@@ -1283,6 +1267,14 @@ class _ConsumableCategoryDetailScreenState
     'Other',
   ];
 
+  Set<String> get selectedConsumableIds => selectedConsumableIdsNotifier.value;
+
+  @override
+  void dispose() {
+    selectedConsumableIdsNotifier.dispose();
+    super.dispose();
+  }
+
   String _consumableId(_ConsumableVariantItem variantItem) {
     return variantItem.item.primaryDoc.id;
   }
@@ -1296,40 +1288,58 @@ class _ConsumableCategoryDetailScreenState
         .toList();
   }
 
-  int _selectedVisibleCount(List<_ConsumableVariantItem> variants) {
-    final visibleIds = _visibleConsumableIds(variants).toSet();
-    return selectedConsumableIds.where(visibleIds.contains).length;
-  }
-
   void _toggleConsumableSelection(String consumableId, bool? selected) {
     if (consumableId.trim().isEmpty) return;
 
-    setState(() {
-      if (selected == true) {
-        selectedConsumableIds.add(consumableId);
-      } else {
-        selectedConsumableIds.remove(consumableId);
-        if (selectedConsumableIds.isEmpty) {
-          showSelectedOnly = false;
-        }
-      }
-    });
+    final nextSelection = <String>{...selectedConsumableIdsNotifier.value};
+
+    if (selected == true) {
+      nextSelection.add(consumableId);
+    } else {
+      nextSelection.remove(consumableId);
+    }
+
+    selectedConsumableIdsNotifier.value = nextSelection;
+
+    if (showSelectedOnly) {
+      setState(() {
+        showSelectedOnly = nextSelection.isNotEmpty;
+      });
+    }
   }
 
   void _selectAllVisibleConsumables(List<_ConsumableVariantItem> variants) {
+    if (!selectionMode) return;
+
     final visibleIds = _visibleConsumableIds(variants);
     if (visibleIds.isEmpty) return;
 
+    selectedConsumableIdsNotifier.value = <String>{
+      ...selectedConsumableIdsNotifier.value,
+      ...visibleIds,
+    };
+
+    if (showSelectedOnly) {
+      setState(() {});
+    }
+  }
+
+  void _enterSelectionMode() {
+    if (selectionMode) return;
+
     setState(() {
-      selectedConsumableIds.addAll(visibleIds);
+      selectionMode = true;
     });
   }
 
-  void _clearConsumableSelection() {
-    setState(() {
-      selectedConsumableIds.clear();
-      showSelectedOnly = false;
-    });
+  void _exitSelectionModeState() {
+    selectionMode = false;
+    selectedConsumableIdsNotifier.value = <String>{};
+    showSelectedOnly = false;
+  }
+
+  void _exitSelectionMode() {
+    setState(_exitSelectionModeState);
   }
 
   void _showBulkActionComingNext(String action) {
@@ -1615,10 +1625,7 @@ class _ConsumableCategoryDetailScreenState
       );
 
       if (!mounted) return;
-      setState(() {
-        selectedConsumableIds.clear();
-        showSelectedOnly = false;
-      });
+      setState(_exitSelectionModeState);
       messenger.showSnackBar(
         SnackBar(
           content: Text('Location updated for ${targetIds.length} item(s).'),
@@ -1696,10 +1703,7 @@ class _ConsumableCategoryDetailScreenState
       );
 
       if (!mounted) return;
-      setState(() {
-        selectedConsumableIds.clear();
-        showSelectedOnly = false;
-      });
+      setState(_exitSelectionModeState);
       messenger.showSnackBar(
         SnackBar(
           content: Text('Marked ${targetIds.length} item(s) as $successLabel.'),
@@ -1781,109 +1785,154 @@ class _ConsumableCategoryDetailScreenState
   Widget _buildConsumableBulkToolbar(
     List<_ConsumableVariantItem> visibleVariants,
   ) {
-    final selectedCount = selectedConsumableIds.length;
-    final selectedVisibleCount = _selectedVisibleCount(visibleVariants);
-    final visibleCount = visibleVariants.length;
-    final selectionSummary = selectedVisibleCount == selectedCount
-        ? '$selectedCount selected from $visibleCount visible'
-        : '$selectedCount selected, $visibleCount visible';
-
-    if (selectedCount == 0) {
+    if (!selectionMode) {
       return Align(
         alignment: Alignment.centerRight,
         child: Padding(
           padding: const EdgeInsets.only(bottom: 12),
           child: _buildBulkSelectionButton(
-            label: 'Select all visible',
-            icon: Icons.select_all_rounded,
-            onPressed: () => _selectAllVisibleConsumables(visibleVariants),
+            label: 'Select',
+            icon: Icons.check_box_outlined,
+            onPressed: _enterSelectionMode,
           ),
         ),
       );
     }
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: const Color(0xFF111827),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-              decoration: BoxDecoration(
-                color: const Color(0x2238BDF8),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                selectionSummary,
-                style: const TextStyle(
-                  color: Color(0xFF7DD3FC),
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: selectedConsumableIdsNotifier,
+      builder: (context, selectedIds, _) {
+        final selectedCount = selectedIds.length;
+        final visibleIds = _visibleConsumableIds(visibleVariants).toSet();
+        final selectedVisibleCount =
+            selectedIds.where((id) => visibleIds.contains(id)).length;
+        final visibleCount = visibleVariants.length;
+        final selectionSummary = selectedVisibleCount == selectedCount
+            ? '$selectedCount selected from $visibleCount visible'
+            : '$selectedCount selected, $visibleCount visible';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF111827),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.white.withOpacity(0.08)),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  decoration: BoxDecoration(
+                    color: selectedCount == 0
+                        ? Colors.white.withOpacity(0.04)
+                        : const Color(0x2238BDF8),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    selectedCount == 0
+                        ? 'Select items to bulk edit'
+                        : selectionSummary,
+                    style: TextStyle(
+                      color: selectedCount == 0
+                          ? Colors.white70
+                          : const Color(0xFF7DD3FC),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
-              ),
+                const SizedBox(width: 10),
+                if (selectedCount > 0) ...[
+                  _buildSelectedOnlyToggle(),
+                  const SizedBox(width: 8),
+                ],
+                _buildBulkSelectionButton(
+                  label: 'Select all visible',
+                  icon: Icons.select_all_rounded,
+                  onPressed: () =>
+                      _selectAllVisibleConsumables(visibleVariants),
+                ),
+                const SizedBox(width: 8),
+                _buildBulkSelectionButton(
+                  label: selectedCount == 0 ? 'Cancel' : 'Clear',
+                  icon: Icons.close_rounded,
+                  onPressed: _exitSelectionMode,
+                ),
+                if (selectedCount > 0) ...[
+                  const SizedBox(width: 14),
+                  _buildBulkSelectionButton(
+                    label: 'Change location',
+                    icon: Icons.place_outlined,
+                    onPressed: () =>
+                        _openBulkChangeLocationDialog(visibleVariants),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildBulkSelectionButton(
+                    label: 'Mark low',
+                    icon: Icons.warning_amber_rounded,
+                    onPressed: () => _confirmBulkAvailabilityUpdate(
+                      visibleVariants: visibleVariants,
+                      availability: 'low',
+                      title: 'Mark selected as low?',
+                      confirmLabel: 'Mark Low',
+                      successLabel: 'low',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildBulkSelectionButton(
+                    label: 'Mark finished',
+                    icon: Icons.cancel_outlined,
+                    onPressed: () => _confirmBulkAvailabilityUpdate(
+                      visibleVariants: visibleVariants,
+                      availability: 'finished',
+                      title: 'Mark selected as finished?',
+                      confirmLabel: 'Mark Finished',
+                      successLabel: 'finished',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildBulkSelectionButton(
+                    label:
+                        isExportingSelectedCsv ? 'Exporting...' : 'Export CSV',
+                    icon: Icons.file_download_outlined,
+                    onPressed: isExportingSelectedCsv
+                        ? null
+                        : () => _exportSelectedVisibleCsv(visibleVariants),
+                  ),
+                ],
+              ],
             ),
-            const SizedBox(width: 10),
-            _buildSelectedOnlyToggle(),
-            const SizedBox(width: 8),
-            _buildBulkSelectionButton(
-              label: 'Select all visible',
-              icon: Icons.select_all_rounded,
-              onPressed: () => _selectAllVisibleConsumables(visibleVariants),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildConsumableSelectionCheckbox(String consumableId) {
+    return ValueListenableBuilder<Set<String>>(
+      valueListenable: selectedConsumableIdsNotifier,
+      builder: (context, selectedIds, _) {
+        final isSelected = selectedIds.contains(consumableId);
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () => _toggleConsumableSelection(consumableId, !isSelected),
+          child: AbsorbPointer(
+            child: Checkbox(
+              value: isSelected,
+              onChanged: (_) {},
+              activeColor: const Color(0xFF38BDF8),
+              checkColor: Colors.white,
+              side: const BorderSide(color: Colors.white54),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            const SizedBox(width: 8),
-            _buildBulkSelectionButton(
-              label: 'Clear',
-              icon: Icons.close_rounded,
-              onPressed: _clearConsumableSelection,
-            ),
-            const SizedBox(width: 14),
-            _buildBulkSelectionButton(
-              label: 'Change location',
-              icon: Icons.place_outlined,
-              onPressed: () => _openBulkChangeLocationDialog(visibleVariants),
-            ),
-            const SizedBox(width: 8),
-            _buildBulkSelectionButton(
-              label: 'Mark low',
-              icon: Icons.warning_amber_rounded,
-              onPressed: () => _confirmBulkAvailabilityUpdate(
-                visibleVariants: visibleVariants,
-                availability: 'low',
-                title: 'Mark selected as low?',
-                confirmLabel: 'Mark Low',
-                successLabel: 'low',
-              ),
-            ),
-            const SizedBox(width: 8),
-            _buildBulkSelectionButton(
-              label: 'Mark finished',
-              icon: Icons.cancel_outlined,
-              onPressed: () => _confirmBulkAvailabilityUpdate(
-                visibleVariants: visibleVariants,
-                availability: 'finished',
-                title: 'Mark selected as finished?',
-                confirmLabel: 'Mark Finished',
-                successLabel: 'finished',
-              ),
-            ),
-            const SizedBox(width: 8),
-            _buildBulkSelectionButton(
-              label: isExportingSelectedCsv ? 'Exporting...' : 'Export CSV',
-              icon: Icons.file_download_outlined,
-              onPressed: isExportingSelectedCsv
-                  ? null
-                  : () => _exportSelectedVisibleCsv(visibleVariants),
-            ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -1894,10 +1943,9 @@ class _ConsumableCategoryDetailScreenState
         : widget.formatQuantityNumber(widget.categoryGroup.totalQuantity!);
     final isDesktop = MediaQuery.sizeOf(context).width >= 900;
     final visibleVariants = widget.categoryGroup.variants;
-    final displayedVariants =
-        isDesktop && showSelectedOnly
-            ? _selectedVisibleConsumables(visibleVariants)
-            : visibleVariants;
+    final displayedVariants = isDesktop && selectionMode && showSelectedOnly
+        ? _selectedVisibleConsumables(visibleVariants)
+        : visibleVariants;
 
     return Scaffold(
       appBar: AppBar(
@@ -1951,17 +1999,17 @@ class _ConsumableCategoryDetailScreenState
               )
             else
               ...displayedVariants.map((variant) {
+                final consumableId = _consumableId(variant);
+
                 return Padding(
+                  key: ValueKey(consumableId),
                   padding: const EdgeInsets.only(bottom: 12),
                   child: widget.variantCardBuilder(
                     context,
                     variant,
-                    isDesktop,
-                    selectedConsumableIds.contains(_consumableId(variant)),
-                    (value) => _toggleConsumableSelection(
-                      _consumableId(variant),
-                      value,
-                    ),
+                    isDesktop && selectionMode
+                        ? _buildConsumableSelectionCheckbox(consumableId)
+                        : null,
                   ),
                 );
               }),
