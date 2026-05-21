@@ -139,6 +139,17 @@ class _CartScreenState extends State<CartScreen> {
     return list;
   }
 
+  bool _isVisibleCartRequirement(RequirementModel req) {
+    final status = req.status.trim().toLowerCase();
+    return status == 'pending' || status == 'approved';
+  }
+
+  List<RequirementModel> _visibleCartRequirements(
+    List<RequirementModel> requirements,
+  ) {
+    return requirements.where(_isVisibleCartRequirement).toList();
+  }
+
   Future<void> _updateStatus({
     required RequirementModel req,
     required String status,
@@ -684,7 +695,7 @@ class _CartScreenState extends State<CartScreen> {
               ),
               SizedBox(height: 12),
               Text(
-                'No requirements yet',
+                'No pending cart items.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white,
@@ -694,7 +705,7 @@ class _CartScreenState extends State<CartScreen> {
               ),
               SizedBox(height: 8),
               Text(
-                'Submitted chemical and consumable requirements will appear here for review and ordering.',
+                'Approved items awaiting order placement and pending approvals will appear here.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white70,
@@ -752,7 +763,8 @@ class _CartScreenState extends State<CartScreen> {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final sortedList = _sortRequirements(snapshot.data!);
+          final visibleRequirements = _visibleCartRequirements(snapshot.data!);
+          final sortedList = _sortRequirements(visibleRequirements);
 
           if (sortedList.isEmpty) {
             return _buildEmptyState();
