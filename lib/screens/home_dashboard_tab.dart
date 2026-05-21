@@ -1369,30 +1369,52 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
   Future<void> _loadSavedOrder() async {
     final prefs = await SharedPreferences.getInstance();
     final savedIds = prefs.getStringList(_prefsKey);
+    final normalizedIds = _sanitizeMovableOrderIds(savedIds);
     if (!mounted) {
       return;
     }
 
     setState(() {
-      _savedMovableIds = savedIds;
+      _savedMovableIds = normalizedIds;
     });
+
+    if (savedIds != null && !_sameStringList(savedIds, normalizedIds)) {
+      await prefs.setStringList(_prefsKey, normalizedIds);
+    }
   }
 
   List<_DashboardToolItem> get _movableItems {
     return widget.items.where((item) => !item.isFixed).toList();
   }
 
-  List<_DashboardToolItem> get _fixedItems {
-    return widget.items.where((item) => item.isFixed).toList();
+  bool _isMovableId(String id) {
+    return _movableItems.any((item) => item.id == id);
   }
 
-  List<String> _normalizedMovableOrderIds() {
-    final availableIds = _movableItems.map((item) => item.id).toList();
-    final savedIds = _savedMovableIds ?? availableIds;
+  bool _sameStringList(List<String> a, List<String> b) {
+    if (a.length != b.length) {
+      return false;
+    }
 
-    final orderedIds = savedIds
-        .where((id) => availableIds.contains(id))
-        .toList();
+    for (var index = 0; index < a.length; index++) {
+      if (a[index] != b[index]) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  List<String> _sanitizeMovableOrderIds(List<String>? savedIds) {
+    final availableIds = _movableItems.map((item) => item.id).toList();
+    final sourceIds = savedIds ?? availableIds;
+
+    final orderedIds = <String>[];
+    for (final id in sourceIds) {
+      if (availableIds.contains(id) && !orderedIds.contains(id)) {
+        orderedIds.add(id);
+      }
+    }
 
     for (final id in availableIds) {
       if (!orderedIds.contains(id)) {
@@ -1403,6 +1425,10 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
     return orderedIds;
   }
 
+  List<String> _normalizedMovableOrderIds() {
+    return _sanitizeMovableOrderIds(_savedMovableIds);
+  }
+
   List<_DashboardToolItem> _orderedItems() {
     final itemsById = {for (final item in widget.items) item.id: item};
 
@@ -1411,7 +1437,20 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
         .whereType<_DashboardToolItem>()
         .toList();
 
-    return [...orderedMovableItems, ..._fixedItems];
+    _DashboardToolItem? moreItem;
+    for (final item in widget.items) {
+      if (item.id == 'more' && item.isFixed) {
+        moreItem = item;
+        break;
+      }
+    }
+
+    final orderedItems = List<_DashboardToolItem>.from(orderedMovableItems);
+    if (moreItem != null) {
+      orderedItems.add(moreItem);
+    }
+
+    return orderedItems;
   }
 
   Future<void> _persistMovableOrder(List<String> ids) async {
@@ -1434,12 +1473,16 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
     }
 
     final nextOrder = List<String>.from(movableIds);
-    nextOrder.remove(draggedId);
+    final draggedIndex = nextOrder.indexOf(draggedId);
     final targetIndex = nextOrder.indexOf(targetId);
-    if (targetIndex == -1) {
+    nextOrder.remove(draggedId);
+    final updatedTargetIndex = nextOrder.indexOf(targetId);
+    if (updatedTargetIndex == -1) {
       nextOrder.add(draggedId);
+    } else if (draggedIndex < targetIndex) {
+      nextOrder.insert(updatedTargetIndex + 1, draggedId);
     } else {
-      nextOrder.insert(targetIndex, draggedId);
+      nextOrder.insert(updatedTargetIndex, draggedId);
     }
 
     if (mounted) {
@@ -1521,6 +1564,7 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
               accentColor: item.accentColor,
               onTap: item.onTap,
               badgeCount: item.badgeCount,
+              isFixed: item.isFixed,
             );
 
             if (item.isFixed) {
@@ -1530,8 +1574,7 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
             return DragTarget<String>(
               onWillAcceptWithDetails: (details) {
                 final candidate = details.data;
-                return candidate != item.id &&
-                    !_fixedItems.any((fixedItem) => fixedItem.id == candidate);
+                return candidate != item.id && _isMovableId(candidate);
               },
               onAcceptWithDetails: (details) {
                 _reorderTile(draggedId: details.data, targetId: item.id);
@@ -1548,9 +1591,20 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
                     feedback: SizedBox(
                       width: tileWidth,
                       height: tileHeight,
-                      child: Material(color: Colors.transparent, child: card),
+                      child: Transform.scale(
+                        scale: 1.04,
+                        child: Material(
+                          color: Colors.transparent,
+                          elevation: 10,
+                          borderRadius: BorderRadius.circular(16),
+                          child: card,
+                        ),
+                      ),
                     ),
-                    childWhenDragging: Opacity(opacity: 0.35, child: card),
+                    childWhenDragging: Opacity(
+                      opacity: 0.32,
+                      child: IgnorePointer(child: card),
+                    ),
                     child: card,
                   ),
                 );
@@ -1569,6 +1623,7 @@ class _HomeToolCard extends StatelessWidget {
   final Color accentColor;
   final VoidCallback onTap;
   final int badgeCount;
+  final bool isFixed;
 
   const _HomeToolCard({
     required this.title,
@@ -1576,6 +1631,7 @@ class _HomeToolCard extends StatelessWidget {
     required this.accentColor,
     required this.onTap,
     this.badgeCount = 0,
+    this.isFixed = false,
   });
 
   @override
@@ -1644,6 +1700,27 @@ class _HomeToolCard extends StatelessWidget {
                                 fontSize: 10.5,
                                 fontWeight: FontWeight.w800,
                               ),
+                            ),
+                          ),
+                        ),
+                      if (isFixed)
+                        Positioned(
+                          right: -7,
+                          bottom: -7,
+                          child: Container(
+                            height: 18,
+                            width: 18,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF0F172A),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.12),
+                              ),
+                            ),
+                            child: const Icon(
+                              Icons.lock_rounded,
+                              color: Colors.white54,
+                              size: 11,
                             ),
                           ),
                         ),
