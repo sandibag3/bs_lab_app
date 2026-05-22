@@ -397,7 +397,7 @@ class HomeDashboardTab extends StatelessWidget {
         title: 'More',
         icon: Icons.apps_outlined,
         accentColor: const Color(0xFF94A3B8),
-        onTap: () => _showComingSoonMessage(context, 'More tools coming soon'),
+        onTap: onOpenMore,
         isFixed: true,
       ),
     ];

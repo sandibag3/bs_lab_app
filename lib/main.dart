@@ -32,7 +32,24 @@ class BSLabApp extends StatelessWidget {
         return MaterialApp(
           debugShowCheckedModeBanner: false,
           title: 'Labmate',
+          themeMode: appState.themeMode,
           theme: ThemeData(
+            useMaterial3: true,
+            brightness: Brightness.light,
+            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
+            fontFamily: 'Roboto',
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF0F766E),
+              secondary: Color(0xFF0284C7),
+              surface: Colors.white,
+            ),
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              foregroundColor: Color(0xFF0F172A),
+            ),
+          ),
+          darkTheme: ThemeData(
             useMaterial3: true,
             brightness: Brightness.dark,
             scaffoldBackgroundColor: const Color(0xFF0F172A),

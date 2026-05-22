@@ -7,6 +7,7 @@ import '../widgets/responsive_page_container.dart';
 import 'add_event_screen.dart';
 import 'add_new_chemical_screen.dart';
 import 'add_requirement_screen.dart';
+import 'app_settings_screen.dart';
 import 'calculator_screen.dart';
 import 'cart_screen.dart';
 import 'chemical_inventory_screen.dart';
@@ -19,6 +20,7 @@ import 'home_dashboard_tab.dart';
 import 'import_inventory_screen.dart';
 import 'instruments_screen.dart';
 import 'latest_articles_screen.dart';
+import 'more_screen.dart';
 import 'native_chemdraw_screen.dart';
 import 'orders_screen.dart';
 
@@ -101,6 +103,24 @@ class _HomeScreenState extends State<HomeScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => const NativeChemDrawScreen()),
+    );
+  }
+
+  void openSettings() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AppSettingsScreen(appState: widget.appState),
+      ),
+    );
+  }
+
+  void openMore() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MoreScreen(appState: widget.appState),
+      ),
     );
   }
 
@@ -223,7 +243,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onOpenCart: () => openOverlay('cart'),
           onOpenLabManual: () => openOverlay('lab_manual'),
           onOpenChemDraw: openMoleculeDraw,
-          onOpenMore: () {},
+          onOpenMore: openMore,
         ),
         const EventsScreen(),
         const LatestArticlesScreen(),
@@ -318,6 +338,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       hasActiveOverlay: activeHomeOverlay != null,
                       onSelectTab: changeTab,
                       onAdd: openAddSheet,
+                      onOpenSettings: openSettings,
                     ),
                     Expanded(
                       child: ResponsivePageContainer(
@@ -358,12 +379,14 @@ class _DesktopHomeSidebar extends StatelessWidget {
   final bool hasActiveOverlay;
   final ValueChanged<int> onSelectTab;
   final VoidCallback onAdd;
+  final VoidCallback onOpenSettings;
 
   const _DesktopHomeSidebar({
     required this.selectedIndex,
     required this.hasActiveOverlay,
     required this.onSelectTab,
     required this.onAdd,
+    required this.onOpenSettings,
   });
 
   @override
@@ -417,6 +440,12 @@ class _DesktopHomeSidebar extends StatelessWidget {
                 label: 'Profile',
                 isSelected: !hasActiveOverlay && selectedIndex == 3,
                 onTap: () => onSelectTab(3),
+              ),
+              _DesktopSidebarItem(
+                icon: Icons.settings_rounded,
+                label: 'Settings',
+                isSelected: false,
+                onTap: onOpenSettings,
               ),
               const SizedBox(height: 12),
               SizedBox(

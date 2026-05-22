@@ -28,6 +28,8 @@ class AppState extends ChangeNotifier {
   static const String _selectedLabNameKey = 'selected_lab_name';
   static const String _selectedLabLocalRoleKey = 'selected_lab_local_role';
   static const String _selectedLabUserIdKey = 'selected_lab_user_id';
+  static const String _themeModeKey = 'app_theme_mode';
+  static const String _compactDesktopModeKey = 'compact_desktop_mode';
 
   static const String demoLabId = 'labmate-demo-lab';
   static const String demoLabName = 'Labmate Demo Lab';
@@ -44,6 +46,8 @@ class AppState extends ChangeNotifier {
   String _selectedLabLocalRole = '';
   String _selectedLabUserId = '';
   String _selectedLabMembershipRole = '';
+  ThemeMode _themeMode = ThemeMode.dark;
+  bool _compactDesktopMode = false;
   bool _isRefreshingSelectedLabRole = false;
   bool _hasAttemptedSelectedLabMembershipLoad = false;
 
@@ -68,6 +72,8 @@ class AppState extends ChangeNotifier {
   String get selectedLabLocalRole => _selectedLabLocalRole;
   String get selectedLabUserId => _selectedLabUserId;
   String get selectedLabMembershipRole => _selectedLabMembershipRole;
+  ThemeMode get themeMode => _themeMode;
+  bool get compactDesktopMode => _compactDesktopMode;
   bool get hasResolvedLabMembership =>
       _selectedLabMembershipRole.trim().isNotEmpty;
   bool get isRefreshingSelectedLabRole => _isRefreshingSelectedLabRole;
@@ -133,6 +139,40 @@ class AppState extends ChangeNotifier {
 
   String get authenticatedUserEmail {
     return FirebaseAuth.instance.currentUser?.email?.trim() ?? '';
+  }
+
+  String get themeModeLabel {
+    switch (_themeMode) {
+      case ThemeMode.system:
+        return 'System default';
+      case ThemeMode.light:
+        return 'Light mode';
+      case ThemeMode.dark:
+        return 'Dark mode';
+    }
+  }
+
+  ThemeMode _themeModeFromName(String value) {
+    switch (value.trim().toLowerCase()) {
+      case 'system':
+        return ThemeMode.system;
+      case 'light':
+        return ThemeMode.light;
+      case 'dark':
+      default:
+        return ThemeMode.dark;
+    }
+  }
+
+  String _themeModeName(ThemeMode themeMode) {
+    switch (themeMode) {
+      case ThemeMode.system:
+        return 'system';
+      case ThemeMode.light:
+        return 'light';
+      case ThemeMode.dark:
+        return 'dark';
+    }
   }
 
   String roleLabelFor(String roleName) {
@@ -227,11 +267,31 @@ class AppState extends ChangeNotifier {
     _selectedLabName = prefs.getString(_selectedLabNameKey) ?? '';
     _selectedLabLocalRole = prefs.getString(_selectedLabLocalRoleKey) ?? '';
     _selectedLabUserId = prefs.getString(_selectedLabUserIdKey) ?? '';
+    _themeMode = _themeModeFromName(
+      prefs.getString(_themeModeKey) ?? 'dark',
+    );
+    _compactDesktopMode = prefs.getBool(_compactDesktopModeKey) ?? false;
     _hasAttemptedSelectedLabMembershipLoad = false;
 
     await _loadSelectedLabRole();
 
     _isLoaded = true;
+    notifyListeners();
+  }
+
+  Future<void> saveThemeMode(ThemeMode themeMode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeModeKey, _themeModeName(themeMode));
+
+    _themeMode = themeMode;
+    notifyListeners();
+  }
+
+  Future<void> saveCompactDesktopMode(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_compactDesktopModeKey, enabled);
+
+    _compactDesktopMode = enabled;
     notifyListeners();
   }
 

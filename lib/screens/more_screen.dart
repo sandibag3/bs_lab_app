@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import 'app_settings_screen.dart';
 import 'edit_profile_screen.dart';
 import 'import_inventory_screen.dart';
 
@@ -165,6 +166,15 @@ class MoreScreen extends StatelessWidget {
     );
   }
 
+  void _openSettings(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AppSettingsScreen(appState: appState),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -202,8 +212,7 @@ class MoreScreen extends StatelessWidget {
               icon: Icons.settings_rounded,
               title: 'Settings',
               subtitle: 'Theme, app behavior, and preferences.',
-              showChevron: false,
-              onTap: () => _showComingSoon(context, 'Settings'),
+              onTap: () => _openSettings(context),
             ),
             buildOptionCard(
               context: context,
