@@ -5,6 +5,7 @@ import '../theme/labmate_theme.dart';
 import 'app_settings_screen.dart';
 import 'edit_profile_screen.dart';
 import 'import_inventory_screen.dart';
+import 'inventory_analytics_screen.dart';
 
 class MoreScreen extends StatelessWidget {
   final AppState appState;
@@ -24,10 +25,7 @@ class MoreScreen extends StatelessWidget {
       builder: (context) {
         return Padding(
           padding: const EdgeInsets.only(bottom: 12, top: 4),
-          child: Text(
-            title,
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
+          child: Text(title, style: Theme.of(context).textTheme.titleMedium),
         );
       },
     );
@@ -154,11 +152,7 @@ class MoreScreen extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text(
-                'Personal Information',
-              ),
-            ),
+            appBar: AppBar(title: const Text('Personal Information')),
             body: EditProfileScreen(appState: appState),
           );
         },
@@ -169,9 +163,7 @@ class MoreScreen extends StatelessWidget {
   void _openSettings(BuildContext context) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => AppSettingsScreen(appState: appState),
-      ),
+      MaterialPageRoute(builder: (_) => AppSettingsScreen(appState: appState)),
     );
   }
 
@@ -183,6 +175,29 @@ class MoreScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            buildSectionTitle('Inventory'),
+            buildOptionCard(
+              context: context,
+              icon: Icons.insights_rounded,
+              title: 'Inventory Analytics',
+              subtitle:
+                  'Read-only snapshot of chemical and consumables inventory health.',
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) {
+                      return Scaffold(
+                        appBar: AppBar(
+                          title: const Text('Inventory Analytics'),
+                        ),
+                        body: const InventoryAnalyticsScreen(),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
             buildSectionTitle('Import'),
             buildOptionCard(
               context: context,

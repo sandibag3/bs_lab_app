@@ -64,6 +64,8 @@ class _AddNotebookProjectScreenState extends State<AddNotebookProjectScreen> {
     }
 
     final labId = widget.appState.resolveWriteLabId();
+    final ownerUid = widget.appState.authenticatedUserId.trim();
+    final ownerEmail = widget.appState.authenticatedUserEmail.trim();
     if (labId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -82,8 +84,10 @@ class _AddNotebookProjectScreenState extends State<AddNotebookProjectScreen> {
         id: '',
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
+        ownerUid: ownerUid,
+        ownerEmail: ownerEmail,
         createdBy: _createdByValue(),
-        userEmail: widget.appState.authenticatedUserEmail,
+        userEmail: ownerEmail,
         createdAt: Timestamp.now(),
         labId: labId,
       );
@@ -159,6 +163,50 @@ class _AddNotebookProjectScreenState extends State<AddNotebookProjectScreen> {
     );
   }
 
+  Widget _buildAuthRequiredState() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: palette.panel,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.lock_outline_rounded,
+            color: Color(0xFFFBBF24),
+            size: 30,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Sign in to create a private notebook project',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Notebook projects now belong to an individual member account. Sign in first, then return to create your project.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _titleController.dispose();
@@ -171,6 +219,9 @@ class _AddNotebookProjectScreenState extends State<AddNotebookProjectScreen> {
     final canSave = FirestoreAccessGuard.shouldQueryLabScopedData(
       appState: widget.appState,
     );
+    final hasAuthenticatedOwner = widget.appState.authenticatedUserId
+        .trim()
+        .isNotEmpty;
     final selectedLabName = widget.appState.selectedLabName.trim();
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
@@ -218,6 +269,8 @@ class _AddNotebookProjectScreenState extends State<AddNotebookProjectScreen> {
               const SizedBox(height: 16),
               if (!canSave)
                 _buildBlockedState()
+              else if (!hasAuthenticatedOwner)
+                _buildAuthRequiredState()
               else
                 Form(
                   key: _formKey,

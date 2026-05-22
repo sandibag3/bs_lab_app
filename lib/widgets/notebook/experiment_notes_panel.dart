@@ -14,6 +14,8 @@ class ExperimentNotesPanel extends StatelessWidget {
   final bool expandList;
   final bool compact;
   final bool docked;
+  final bool canAddNote;
+  final String? readOnlyMessage;
 
   const ExperimentNotesPanel({
     super.key,
@@ -25,6 +27,8 @@ class ExperimentNotesPanel extends StatelessWidget {
     this.expandList = false,
     this.compact = false,
     this.docked = false,
+    this.canAddNote = true,
+    this.readOnlyMessage,
   });
 
   @override
@@ -38,30 +42,36 @@ class ExperimentNotesPanel extends StatelessWidget {
       compact: compact,
     );
 
-    final composer = LayoutBuilder(
-      builder: (context, constraints) {
-        final useRowComposer = constraints.maxWidth >= 300 && docked;
+    final composer = canAddNote
+        ? LayoutBuilder(
+            builder: (context, constraints) {
+              final useRowComposer = constraints.maxWidth >= 300 && docked;
 
-        if (useRowComposer) {
-          return Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(child: _buildInputField()),
-              const SizedBox(width: 8),
-              SizedBox(width: 112, child: _buildAddButton(padded: false)),
-            ],
+              if (useRowComposer) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _buildInputField()),
+                    const SizedBox(width: 8),
+                    SizedBox(width: 112, child: _buildAddButton(padded: false)),
+                  ],
+                );
+              }
+
+              return Column(
+                children: [
+                  _buildInputField(),
+                  const SizedBox(height: 8),
+                  _buildAddButton(padded: true),
+                ],
+              );
+            },
+          )
+        : _ReadOnlyBanner(
+            message:
+                readOnlyMessage ??
+                'Read-only view: you are viewing another member\'s notebook.',
           );
-        }
-
-        return Column(
-          children: [
-            _buildInputField(),
-            const SizedBox(height: 8),
-            _buildAddButton(padded: true),
-          ],
-        );
-      },
-    );
 
     return Container(
       width: double.infinity,
@@ -180,6 +190,50 @@ class ExperimentNotesPanel extends StatelessWidget {
               )
             : const Icon(Icons.note_add_rounded, size: 16),
         label: const Text('Add Note'),
+      ),
+    );
+  }
+}
+
+class _ReadOnlyBanner extends StatelessWidget {
+  final String message;
+
+  const _ReadOnlyBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBBF24).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFFFBBF24).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.visibility_outlined,
+            size: 16,
+            color: Color(0xFFFBBF24),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: palette.mutedText,
+                fontSize: 12.0,
+                height: 1.38,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -361,11 +415,7 @@ class _MessageCard extends StatelessWidget {
       ),
       child: Text(
         message,
-        style: TextStyle(
-          color: palette.mutedText,
-          fontSize: 12.2,
-          height: 1.4,
-        ),
+        style: TextStyle(color: palette.mutedText, fontSize: 12.2, height: 1.4),
       ),
     );
   }

@@ -18,12 +18,18 @@ class ExperimentDetailScreen extends StatefulWidget {
   final AppState appState;
   final NotebookProjectModel project;
   final String experimentId;
+  final String notebookOwnerUid;
+  final String notebookOwnerLabel;
+  final bool isReadOnly;
 
   const ExperimentDetailScreen({
     super.key,
     required this.appState,
     required this.project,
     required this.experimentId,
+    required this.notebookOwnerUid,
+    required this.notebookOwnerLabel,
+    required this.isReadOnly,
   });
 
   @override
@@ -38,6 +44,9 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
   bool _isUpdatingStatus = false;
 
   String get _labId => widget.appState.resolveWriteLabId(widget.project.labId);
+  bool get _canEditNotebook =>
+      !widget.isReadOnly &&
+      widget.appState.authenticatedUserId.trim().isNotEmpty;
 
   String _formatDate(Timestamp timestamp) {
     final date = timestamp.toDate();
@@ -89,7 +98,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
   }
 
   Future<void> _updateStatus(String status) async {
-    if (_isUpdatingStatus) {
+    if (_isUpdatingStatus || !_canEditNotebook) {
       return;
     }
 
@@ -103,6 +112,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
         projectId: widget.project.id,
         experimentId: widget.experimentId,
         status: status,
+        notebookOwnerUid: widget.notebookOwnerUid,
       );
 
       if (!mounted) {
@@ -130,7 +140,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
   }
 
   Future<void> _addNote() async {
-    if (_isSavingNote) {
+    if (_isSavingNote || !_canEditNotebook) {
       return;
     }
 
@@ -159,6 +169,8 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
       final note = ExperimentNoteModel(
         id: '',
         note: noteText,
+        ownerUid: widget.notebookOwnerUid,
+        ownerEmail: widget.project.ownerEmail,
         createdBy: _createdByValue(),
         userEmail: widget.appState.authenticatedUserEmail,
         createdAt: Timestamp.now(),
@@ -169,6 +181,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
         projectId: widget.project.id,
         experimentId: widget.experimentId,
         note: note,
+        notebookOwnerUid: widget.notebookOwnerUid,
       );
 
       _noteController.clear();
@@ -202,6 +215,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
       labId: _labId,
       projectId: widget.project.id,
       experimentId: widget.experimentId,
+      notebookOwnerUid: widget.notebookOwnerUid,
     );
   }
 
@@ -249,6 +263,13 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                 label: labLabel.trim(),
                 icon: Icons.apartment_rounded,
               ),
+            _HeaderBadge(
+              label: widget.notebookOwnerLabel,
+              icon: widget.isReadOnly
+                  ? Icons.visibility_outlined
+                  : Icons.person_outline_rounded,
+              accent: widget.isReadOnly ? const Color(0xFFFBBF24) : null,
+            ),
           ],
         ),
         const SizedBox(height: 8),
@@ -357,7 +378,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
               ),
             );
           }).toList(),
-          onChanged: _isUpdatingStatus
+          onChanged: _isUpdatingStatus || !_canEditNotebook
               ? null
               : (value) {
                   if (value == null || value == experiment.status) {
@@ -427,6 +448,9 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
       expandList: true,
       compact: true,
       docked: true,
+      canAddNote: _canEditNotebook,
+      readOnlyMessage:
+          'Read-only view: you are viewing another member\'s notebook.',
     );
 
     final leftRailWidth = width >= 1320 ? 258.0 : 232.0;
@@ -534,6 +558,9 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                   formatDateTime: _formatDateTime,
                   expandList: true,
                   compact: true,
+                  canAddNote: _canEditNotebook,
+                  readOnlyMessage:
+                      'Read-only view: you are viewing another member\'s notebook.',
                 ),
               ],
             ),
@@ -566,6 +593,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                   labId: _labId,
                   projectId: widget.project.id,
                   experimentId: widget.experimentId,
+                  notebookOwnerUid: widget.notebookOwnerUid,
                 ),
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
@@ -599,7 +627,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                     );
                   }
 
-                  return LayoutBuilder(
+                  final content = LayoutBuilder(
                     builder: (context, constraints) {
                       final isWide = constraints.maxWidth >= 900;
 
@@ -613,6 +641,23 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                             : _buildMobileWorkspace(experiment),
                       );
                     },
+                  );
+
+                  if (!widget.isReadOnly) {
+                    return content;
+                  }
+
+                  return Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                        child: _ReadOnlyBanner(
+                          message:
+                              'Read-only view: you are viewing another member\'s notebook.',
+                        ),
+                      ),
+                      Expanded(child: content),
+                    ],
                   );
                 },
               )
@@ -708,6 +753,49 @@ class _HeaderMetric extends StatelessWidget {
               color: colorScheme.onSurface,
               fontSize: 12.2,
               fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReadOnlyBanner extends StatelessWidget {
+  final String message;
+
+  const _ReadOnlyBanner({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBBF24).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFFBBF24).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.visibility_outlined,
+            color: Color(0xFFFBBF24),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: context.labmate.mutedText,
+                fontSize: 12.4,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],

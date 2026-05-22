@@ -4,6 +4,8 @@ class NotebookProjectModel {
   final String id;
   final String title;
   final String description;
+  final String ownerUid;
+  final String ownerEmail;
   final String createdBy;
   final String userEmail;
   final Timestamp createdAt;
@@ -13,6 +15,8 @@ class NotebookProjectModel {
     required this.id,
     required this.title,
     required this.description,
+    required this.ownerUid,
+    required this.ownerEmail,
     required this.createdBy,
     required this.userEmail,
     required this.createdAt,
@@ -33,6 +37,8 @@ class NotebookProjectModel {
       id: id,
       title: (data['title'] ?? '').toString(),
       description: (data['description'] ?? '').toString(),
+      ownerUid: (data['ownerUid'] ?? '').toString(),
+      ownerEmail: (data['ownerEmail'] ?? '').toString(),
       createdBy: (data['createdBy'] ?? '').toString(),
       userEmail: (data['userEmail'] ?? '').toString(),
       createdAt: data['createdAt'] is Timestamp
@@ -52,10 +58,26 @@ class NotebookProjectModel {
     return cleanCreatedBy.isEmpty ? 'Unknown user' : cleanCreatedBy;
   }
 
+  String get ownerLabel {
+    final cleanOwnerEmail = ownerEmail.trim();
+    if (cleanOwnerEmail.isNotEmpty) {
+      return cleanOwnerEmail;
+    }
+
+    final cleanOwnerUid = ownerUid.trim();
+    if (cleanOwnerUid.isNotEmpty) {
+      return cleanOwnerUid;
+    }
+
+    return creatorLabel;
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'title': title,
       'description': description,
+      'ownerUid': ownerUid,
+      'ownerEmail': ownerEmail,
       'createdBy': createdBy,
       'userEmail': userEmail,
       'createdAt': createdAt,

@@ -41,6 +41,7 @@ class HomeDashboardTab extends StatelessWidget {
   final VoidCallback onOpenCart;
   final VoidCallback onOpenLabManual;
   final VoidCallback onOpenChemDraw;
+  final VoidCallback onOpenInventoryAnalytics;
   final VoidCallback onOpenMore;
 
   const HomeDashboardTab({
@@ -57,6 +58,7 @@ class HomeDashboardTab extends StatelessWidget {
     required this.onOpenCart,
     required this.onOpenLabManual,
     required this.onOpenChemDraw,
+    required this.onOpenInventoryAnalytics,
     required this.onOpenMore,
   });
 
@@ -337,6 +339,13 @@ class HomeDashboardTab extends StatelessWidget {
         icon: Icons.inventory_rounded,
         accentColor: const Color(0xFF60A5FA),
         onTap: () => _openConsumablesInventory(context),
+      ),
+      _DashboardToolItem(
+        id: 'inventory_analytics',
+        title: 'Inventory Analytics',
+        icon: Icons.insights_rounded,
+        accentColor: const Color(0xFF0891B2),
+        onTap: onOpenInventoryAnalytics,
       ),
       _DashboardToolItem(
         id: 'cart',

@@ -14,12 +14,18 @@ import 'experiment_detail_screen.dart';
 class NotebookProjectDetailScreen extends StatelessWidget {
   final AppState appState;
   final NotebookProjectModel project;
+  final String notebookOwnerUid;
+  final String notebookOwnerLabel;
+  final bool isReadOnly;
   final LabNotebookService _labNotebookService = LabNotebookService();
 
   NotebookProjectDetailScreen({
     super.key,
     required this.appState,
     required this.project,
+    required this.notebookOwnerUid,
+    required this.notebookOwnerLabel,
+    required this.isReadOnly,
   });
 
   String _formatDate(Timestamp timestamp) {
@@ -54,6 +60,42 @@ class NotebookProjectDetailScreen extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) =>
             AddExperimentScreen(appState: appState, project: project),
+      ),
+    );
+  }
+
+  Widget _buildReadOnlyBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFBBF24).withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFFFBBF24).withValues(alpha: 0.3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.visibility_outlined,
+            color: Color(0xFFFBBF24),
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Read-only view: you are viewing another member\'s notebook.',
+              style: TextStyle(
+                color: context.labmate.mutedText,
+                fontSize: 12.4,
+                height: 1.4,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -103,7 +145,7 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Project Workspace',
+                      isReadOnly ? 'Project Viewer' : 'Project Workspace',
                       style: TextStyle(
                         color: colorScheme.onSurface,
                         fontSize: 15.0,
@@ -112,7 +154,9 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Experiments and reaction log',
+                      isReadOnly
+                          ? 'Read-only experiment list'
+                          : 'Experiments and reaction log',
                       style: TextStyle(
                         color: palette.subtleText,
                         fontSize: 11.4,
@@ -133,6 +177,14 @@ class NotebookProjectDetailScreen extends StatelessWidget {
               fontSize: 16.2,
               fontWeight: FontWeight.w700,
             ),
+          ),
+          const SizedBox(height: 8),
+          _ProjectBadge(
+            icon: Icons.person_outline_rounded,
+            label: notebookOwnerLabel,
+            accent: isReadOnly
+                ? const Color(0xFFFBBF24)
+                : const Color(0xFF5EEAD4),
           ),
           const SizedBox(height: 8),
           _ProjectBadge(
@@ -174,8 +226,8 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: _ProjectMetric(
-                    label: 'Created',
-                    value: _formatDate(project.createdAt),
+                    label: 'Mode',
+                    value: isReadOnly ? 'Read-only' : 'Owner',
                   ),
                 ),
               ],
@@ -196,15 +248,15 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                 ),
                 _ProjectBadge(
                   icon: Icons.person_outline_rounded,
-                  label: project.creatorLabel,
+                  label: project.ownerLabel,
                 ),
               ],
             ),
           if (isWide) ...[
             const SizedBox(height: 8),
             _ProjectBadge(
-              icon: Icons.person_outline_rounded,
-              label: project.creatorLabel,
+              icon: Icons.schedule_rounded,
+              label: _formatDate(project.createdAt),
             ),
           ],
           if (canCreate) ...[
@@ -253,6 +305,9 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                 appState: appState,
                 project: project,
                 experimentId: experiment.id,
+                notebookOwnerUid: notebookOwnerUid,
+                notebookOwnerLabel: notebookOwnerLabel,
+                isReadOnly: isReadOnly,
               ),
             ),
           );
@@ -413,13 +468,14 @@ class NotebookProjectDetailScreen extends StatelessWidget {
 
         Widget body;
         if (experiments.isEmpty) {
-          body = const Center(
+          body = Center(
             child: _ProjectNotice(
               icon: Icons.science_outlined,
               title: 'No experiments in this project yet',
-              message:
-                  'Add the first experiment to start documenting reaction setup, results, and daily updates.',
-              accent: Color(0xFF38BDF8),
+              message: isReadOnly
+                  ? '$notebookOwnerLabel has not added any experiments to this project yet.'
+                  : 'Add the first experiment to start documenting reaction setup, results, and daily updates.',
+              accent: const Color(0xFF38BDF8),
             ),
           );
         } else if (columns == 1) {
@@ -479,7 +535,9 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Reaction records inside this project',
+                          isReadOnly
+                              ? 'Read-only experiment list'
+                              : 'Reaction records inside this project',
                           style: TextStyle(
                             color: context.labmate.subtleText,
                             fontSize: 11.4,
@@ -511,6 +569,7 @@ class NotebookProjectDetailScreen extends StatelessWidget {
       stream: _labNotebookService.getExperiments(
         labId: labId,
         projectId: project.id,
+        notebookOwnerUid: notebookOwnerUid,
       ),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
@@ -537,28 +596,38 @@ class NotebookProjectDetailScreen extends StatelessWidget {
             final isWide = constraints.maxWidth >= 980;
             final rail = _buildProjectRail(
               context: context,
-              canCreate: true,
+              canCreate:
+                  !isReadOnly && appState.authenticatedUserId.trim().isNotEmpty,
               experimentCount: experiments.length,
               isWide: isWide,
             );
             final panel = _buildExperimentsPanel(context, experiments);
+            final content = isWide
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(width: 292, child: rail),
+                      const SizedBox(width: 10),
+                      Expanded(child: panel),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      rail,
+                      const SizedBox(height: 10),
+                      Expanded(child: panel),
+                    ],
+                  );
 
-            if (isWide) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(width: 292, child: rail),
-                  const SizedBox(width: 10),
-                  Expanded(child: panel),
-                ],
-              );
+            if (!isReadOnly) {
+              return content;
             }
 
             return Column(
               children: [
-                rail,
+                _buildReadOnlyBanner(context),
                 const SizedBox(height: 10),
-                Expanded(child: panel),
+                Expanded(child: content),
               ],
             );
           },
@@ -572,12 +641,13 @@ class NotebookProjectDetailScreen extends StatelessWidget {
     final canQuery = FirestoreAccessGuard.shouldQueryLabScopedData(
       appState: appState,
     );
+    final canCreate =
+        appState.authenticatedUserId.trim().isNotEmpty && !isReadOnly;
     final isMobileWidth = MediaQuery.sizeOf(context).width < 900;
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(title: const Text('Notebook Project')),
-      floatingActionButton: canQuery && isMobileWidth
+      floatingActionButton: canQuery && isMobileWidth && canCreate
           ? FloatingActionButton.extended(
               onPressed: () => _openAddExperiment(context),
               backgroundColor: const Color(0xFF14B8A6),

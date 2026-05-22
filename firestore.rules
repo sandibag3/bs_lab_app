@@ -1,0 +1,130 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // NOTE:
+    // This repo did not previously contain a checked-in Firestore rules file.
+    // Merge these notebook rules into your existing deployed Firestore rules
+    // before rollout so unrelated lab flows keep their current access model.
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function membershipDocId(labId, userId) {
+      return labId + "_" + userId;
+    }
+
+    function currentMembership(labId) {
+      return get(
+        /databases/$(database)/documents/memberships/$(membershipDocId(labId, request.auth.uid))
+      ).data;
+    }
+
+    function hasActiveMembership(labId) {
+      return isSignedIn() &&
+          exists(
+            /databases/$(database)/documents/memberships/$(membershipDocId(labId, request.auth.uid))
+          ) &&
+          (
+            currentMembership(labId).status == null ||
+            currentMembership(labId).status == '' ||
+            currentMembership(labId).status == 'active'
+          );
+    }
+
+    function isPiAdminMember(labId) {
+      return hasActiveMembership(labId) &&
+          currentMembership(labId).role == 'piAdmin';
+    }
+
+    function canReadNotebook(labId, ownerUid) {
+      return hasActiveMembership(labId) &&
+          (
+            request.auth.uid == ownerUid ||
+            isPiAdminMember(labId)
+          );
+    }
+
+    function canWriteNotebook(labId, ownerUid) {
+      return hasActiveMembership(labId) &&
+          request.auth.uid == ownerUid;
+    }
+
+    function validProjectShape(labId, ownerUid) {
+      return request.resource.data.labId == labId &&
+          request.resource.data.ownerUid == ownerUid &&
+          request.resource.data.ownerEmail is string &&
+          request.resource.data.createdBy is string &&
+          request.resource.data.userEmail is string &&
+          request.resource.data.title is string &&
+          request.resource.data.description is string &&
+          request.resource.data.createdAt is timestamp;
+    }
+
+    function validExperimentShape(labId, ownerUid, projectId) {
+      return request.resource.data.labId == labId &&
+          request.resource.data.projectId == projectId &&
+          request.resource.data.ownerUid == ownerUid &&
+          request.resource.data.ownerEmail is string &&
+          request.resource.data.createdBy is string &&
+          request.resource.data.userEmail is string &&
+          request.resource.data.experimentCode is string &&
+          request.resource.data.title is string &&
+          request.resource.data.status is string &&
+          request.resource.data.date is timestamp &&
+          request.resource.data.createdAt is timestamp &&
+          request.resource.data.updatedAt is timestamp;
+    }
+
+    function validNoteShape(ownerUid) {
+      return request.resource.data.ownerUid == ownerUid &&
+          request.resource.data.ownerEmail is string &&
+          request.resource.data.createdBy is string &&
+          request.resource.data.userEmail is string &&
+          request.resource.data.note is string &&
+          request.resource.data.createdAt is timestamp;
+    }
+
+    match /labs/{labId}/userNotebooks/{ownerUid}/projects/{projectId} {
+      allow read: if canReadNotebook(labId, ownerUid);
+
+      allow create: if canWriteNotebook(labId, ownerUid) &&
+          validProjectShape(labId, ownerUid);
+
+      allow update: if canWriteNotebook(labId, ownerUid) &&
+          resource.data.labId == labId &&
+          resource.data.ownerUid == ownerUid &&
+          validProjectShape(labId, ownerUid);
+
+      allow delete: if canWriteNotebook(labId, ownerUid);
+
+      match /experiments/{experimentId} {
+        allow read: if canReadNotebook(labId, ownerUid);
+
+        allow create: if canWriteNotebook(labId, ownerUid) &&
+            validExperimentShape(labId, ownerUid, projectId);
+
+        allow update: if canWriteNotebook(labId, ownerUid) &&
+            resource.data.labId == labId &&
+            resource.data.projectId == projectId &&
+            resource.data.ownerUid == ownerUid &&
+            validExperimentShape(labId, ownerUid, projectId);
+
+        allow delete: if canWriteNotebook(labId, ownerUid);
+
+        match /notes/{noteId} {
+          allow read: if canReadNotebook(labId, ownerUid);
+
+          allow create: if canWriteNotebook(labId, ownerUid) &&
+              validNoteShape(ownerUid);
+
+          allow update: if canWriteNotebook(labId, ownerUid) &&
+              resource.data.ownerUid == ownerUid &&
+              validNoteShape(ownerUid);
+
+          allow delete: if canWriteNotebook(labId, ownerUid);
+        }
+      }
+    }
+  }
+}

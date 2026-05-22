@@ -252,6 +252,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     }
 
     final labId = widget.appState.resolveWriteLabId(widget.project.labId);
+    final ownerUid = widget.appState.authenticatedUserId.trim();
+    final ownerEmail = widget.appState.authenticatedUserEmail.trim();
     if (labId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -291,8 +293,10 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
         characterization: _characterizationController.text.trim(),
         conclusion: _conclusionController.text.trim(),
         status: _selectedStatus,
+        ownerUid: ownerUid,
+        ownerEmail: ownerEmail,
         createdBy: _createdByValue(),
-        userEmail: widget.appState.authenticatedUserEmail,
+        userEmail: ownerEmail,
         createdAt: now,
         updatedAt: now,
         labId: labId,
@@ -333,6 +337,18 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
         title: 'No lab selected',
         message: 'Choose an active lab before adding notebook experiments.',
         accent: Color(0xFF38BDF8),
+      ),
+    );
+  }
+
+  Widget _buildAuthRequiredState() {
+    return const Center(
+      child: _DraftNotice(
+        icon: Icons.lock_outline_rounded,
+        title: 'Sign in to create a private experiment record',
+        message:
+            'Notebook experiments now belong to an individual member account. Sign in first, then return to add this experiment.',
+        accent: Color(0xFFFBBF24),
       ),
     );
   }
@@ -971,6 +987,9 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     final canSave = FirestoreAccessGuard.shouldQueryLabScopedData(
       appState: widget.appState,
     );
+    final hasAuthenticatedOwner = widget.appState.authenticatedUserId
+        .trim()
+        .isNotEmpty;
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -979,25 +998,27 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
         maxWidth: 1500,
         child: SafeArea(
           child: canSave
-              ? Form(
-                  key: _formKey,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final isWide = constraints.maxWidth >= 1040;
+              ? hasAuthenticatedOwner
+                    ? Form(
+                        key: _formKey,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isWide = constraints.maxWidth >= 1040;
 
-                      return SingleChildScrollView(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          children: [
-                            _buildHeaderBar(isWide: isWide),
-                            const SizedBox(height: 10),
-                            _buildFormWorkspace(isWide),
-                          ],
+                            return SingleChildScrollView(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                children: [
+                                  _buildHeaderBar(isWide: isWide),
+                                  const SizedBox(height: 10),
+                                  _buildFormWorkspace(isWide),
+                                ],
+                              ),
+                            );
+                          },
                         ),
-                      );
-                    },
-                  ),
-                )
+                      )
+                    : _buildAuthRequiredState()
               : _buildBlockedState(),
         ),
       ),

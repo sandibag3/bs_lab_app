@@ -19,6 +19,7 @@ import 'export_reports_screen.dart';
 import 'glass_apparatus_screen.dart';
 import 'home_dashboard_tab.dart';
 import 'import_inventory_screen.dart';
+import 'inventory_analytics_screen.dart';
 import 'instruments_screen.dart';
 import 'latest_articles_screen.dart';
 import 'more_screen.dart';
@@ -187,6 +188,8 @@ class _HomeScreenState extends State<HomeScreen> {
         return 'Cart';
       case 'lab_manual':
         return 'Electronic Lab Manual';
+      case 'inventory_analytics':
+        return 'Inventory Analytics';
     }
 
     switch (selectedIndex) {
@@ -223,6 +226,9 @@ class _HomeScreenState extends State<HomeScreen> {
     if (activeHomeOverlay == 'lab_manual') {
       return const ElectronicLabManualScreen();
     }
+    if (activeHomeOverlay == 'inventory_analytics') {
+      return const InventoryAnalyticsScreen();
+    }
     return IndexedStack(
       index: selectedIndex,
       children: [
@@ -239,6 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
           onOpenCart: () => openOverlay('cart'),
           onOpenLabManual: () => openOverlay('lab_manual'),
           onOpenChemDraw: openMoleculeDraw,
+          onOpenInventoryAnalytics: () => openOverlay('inventory_analytics'),
           onOpenMore: openMore,
         ),
         const EventsScreen(),
@@ -332,9 +339,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     _DesktopHomeSidebar(
                       selectedIndex: selectedIndex,
-                      hasActiveOverlay: activeHomeOverlay != null,
+                      activeOverlay: activeHomeOverlay,
                       onSelectTab: changeTab,
                       onAdd: openAddSheet,
+                      onOpenInventoryAnalytics: () {
+                        openOverlay('inventory_analytics');
+                      },
                       onOpenSettings: openSettings,
                     ),
                     Expanded(
@@ -370,16 +380,18 @@ enum _HomeOverflowAction { importInventory, exportReports, signOut }
 
 class _DesktopHomeSidebar extends StatelessWidget {
   final int selectedIndex;
-  final bool hasActiveOverlay;
+  final String? activeOverlay;
   final ValueChanged<int> onSelectTab;
   final VoidCallback onAdd;
+  final VoidCallback onOpenInventoryAnalytics;
   final VoidCallback onOpenSettings;
 
   const _DesktopHomeSidebar({
     required this.selectedIndex,
-    required this.hasActiveOverlay,
+    required this.activeOverlay,
     required this.onSelectTab,
     required this.onAdd,
+    required this.onOpenInventoryAnalytics,
     required this.onOpenSettings,
   });
 
@@ -412,25 +424,33 @@ class _DesktopHomeSidebar extends StatelessWidget {
               _DesktopSidebarItem(
                 icon: Icons.home_rounded,
                 label: 'Home',
-                isSelected: selectedIndex == 0 || hasActiveOverlay,
+                isSelected:
+                    selectedIndex == 0 &&
+                    activeOverlay != 'inventory_analytics',
                 onTap: () => onSelectTab(0),
+              ),
+              _DesktopSidebarItem(
+                icon: Icons.insights_rounded,
+                label: 'Inventory Analytics',
+                isSelected: activeOverlay == 'inventory_analytics',
+                onTap: onOpenInventoryAnalytics,
               ),
               _DesktopSidebarItem(
                 icon: Icons.event_rounded,
                 label: 'Events',
-                isSelected: !hasActiveOverlay && selectedIndex == 1,
+                isSelected: activeOverlay == null && selectedIndex == 1,
                 onTap: () => onSelectTab(1),
               ),
               _DesktopSidebarItem(
                 icon: Icons.article_rounded,
                 label: 'Articles',
-                isSelected: !hasActiveOverlay && selectedIndex == 2,
+                isSelected: activeOverlay == null && selectedIndex == 2,
                 onTap: () => onSelectTab(2),
               ),
               _DesktopSidebarItem(
                 icon: Icons.person_rounded,
                 label: 'Profile',
-                isSelected: !hasActiveOverlay && selectedIndex == 3,
+                isSelected: activeOverlay == null && selectedIndex == 3,
                 onTap: () => onSelectTab(3),
               ),
               _DesktopSidebarItem(
