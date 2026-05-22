@@ -22,6 +22,7 @@ import '../widgets/newly_arrived_section.dart';
 import '../widgets/search_bar_widget.dart';
 import 'attendance_screen.dart';
 import 'consumables_inventory_screen.dart';
+import 'lab_notebook_screen.dart';
 import 'lab_members_screen.dart';
 import 'lab_settings_screen.dart';
 import 'recent_activity_screen.dart';
@@ -85,6 +86,13 @@ class HomeDashboardTab extends StatelessWidget {
       MaterialPageRoute(
         builder: (_) => RecentActivityScreen(appState: appState),
       ),
+    );
+  }
+
+  void _openLabNotebook(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => LabNotebookScreen(appState: appState)),
     );
   }
 
@@ -379,11 +387,10 @@ class HomeDashboardTab extends StatelessWidget {
       ),
       _DashboardToolItem(
         id: 'lab_notebook',
-        title: 'Lab notebook',
+        title: 'Lab Notebook',
         icon: Icons.edit_note_outlined,
         accentColor: const Color(0xFF38BDF8),
-        onTap: () =>
-            _showComingSoonMessage(context, 'Lab notebook coming soon'),
+        onTap: () => _openLabNotebook(context),
       ),
       _DashboardToolItem(
         id: 'more',
@@ -555,10 +562,7 @@ class HomeDashboardTab extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Expanded(
-                          flex: 3,
-                          child: NewlyArrivedSection(),
-                        ),
+                        const Expanded(flex: 3, child: NewlyArrivedSection()),
                         const SizedBox(width: 14),
                         Expanded(
                           flex: 2,
@@ -741,11 +745,7 @@ class _DesktopDashboardSearchBar extends StatelessWidget {
           ),
           child: const Row(
             children: [
-              Icon(
-                Icons.search_rounded,
-                color: Color(0xFF5EEAD4),
-                size: 19,
-              ),
+              Icon(Icons.search_rounded, color: Color(0xFF5EEAD4), size: 19),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
@@ -1541,8 +1541,7 @@ class _ReorderableWorkflowGridState extends State<_ReorderableWorkflowGrid> {
         );
         final tileExtent = _tileExtentForWidth(width);
         final tileWidth =
-            (width - ((crossAxisCount - 1) * _spacing)) /
-            crossAxisCount;
+            (width - ((crossAxisCount - 1) * _spacing)) / crossAxisCount;
         final tileHeight = tileExtent ?? tileWidth / childAspectRatio;
 
         return GridView.builder(
