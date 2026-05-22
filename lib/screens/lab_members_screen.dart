@@ -4,6 +4,7 @@ import '../models/lab_membership_model.dart';
 import '../models/user_profile.dart';
 import '../services/lab_membership_service.dart';
 import '../services/user_profile_service.dart';
+import '../theme/labmate_theme.dart';
 
 class LabMembersScreen extends StatefulWidget {
   final AppState appState;
@@ -128,29 +129,31 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final palette = context.labmate;
+            final colorScheme = context.colorScheme;
             return AlertDialog(
-              backgroundColor: const Color(0xFF1E293B),
-              title: const Text(
+              backgroundColor: palette.panel,
+              title: Text(
                 'Edit Member Role',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   DropdownButtonFormField<String>(
                     initialValue: selectedRole,
-                    dropdownColor: const Color(0xFF1E293B),
+                    dropdownColor: palette.panel,
                     decoration: InputDecoration(
                       labelText: 'Role',
-                      labelStyle: const TextStyle(color: Colors.white70),
+                      labelStyle: TextStyle(color: palette.subtleText),
                       filled: true,
-                      fillColor: const Color(0xFF0F172A),
+                      fillColor: palette.panelAlt,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide.none,
                       ),
                     ),
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: colorScheme.onSurface),
                     items: _editableRoles.entries.map((entry) {
                       return DropdownMenuItem<String>(
                         value: entry.key,
@@ -169,16 +172,16 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text(
+                  child: Text(
                     'Cancel',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: palette.mutedText),
                   ),
                 ),
                 TextButton(
                   onPressed: () => Navigator.pop(context, selectedRole),
-                  child: const Text(
+                  child: Text(
                     'Save',
-                    style: TextStyle(color: Color(0xFF14B8A6)),
+                    style: TextStyle(color: colorScheme.primary),
                   ),
                 ),
               ],
@@ -281,21 +284,24 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
 
   Widget _buildHeaderCard(String helperText) {
     final selectedLabName = widget.appState.selectedLabName.trim();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Current Lab',
             style: TextStyle(
-              color: Colors.white70,
+              color: palette.mutedText,
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
             ),
@@ -303,8 +309,8 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
           const SizedBox(height: 6),
           Text(
             selectedLabName.isEmpty ? 'No lab selected' : selectedLabName,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
@@ -313,7 +319,7 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
           Text(
             helperText,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.72),
+              color: palette.mutedText,
               fontSize: 13,
               height: 1.4,
             ),
@@ -350,16 +356,18 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
   }
 
   Widget _buildEmptyMembersCard() {
+    final palette = context.labmate;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
       ),
-      child: const Text(
+      child: Text(
         'No membership records were found for this lab yet.',
-        style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+        style: TextStyle(color: palette.mutedText, fontSize: 13, height: 1.4),
       ),
     );
   }
@@ -369,9 +377,7 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
     final selectedLabId = widget.appState.selectedLabId.trim();
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Lab Members', style: TextStyle(color: Colors.white)),
-      ),
+      appBar: AppBar(title: const Text('Lab Members')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -502,28 +508,33 @@ class _MemberTile extends StatelessWidget {
     required this.onEditRole,
   });
 
-  Widget _buildDetail(String label, String value) {
+  Widget _buildDetail(BuildContext context, String label, String value) {
     if (value.trim().isEmpty) {
       return const SizedBox.shrink();
     }
 
+    final palette = context.labmate;
     return Padding(
       padding: const EdgeInsets.only(top: 6),
       child: Text(
         '$label: $value',
-        style: const TextStyle(color: Colors.white60, fontSize: 12.5),
+        style: TextStyle(color: palette.subtleText, fontSize: 12.5),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -532,10 +543,10 @@ class _MemberTile extends StatelessWidget {
             height: 44,
             width: 44,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.08),
+              color: palette.panelAlt,
               borderRadius: BorderRadius.circular(14),
             ),
-            child: const Icon(Icons.person_rounded, color: Colors.white),
+            child: Icon(Icons.person_rounded, color: colorScheme.primary),
           ),
           const SizedBox(width: 14),
           Expanded(
@@ -544,15 +555,15 @@ class _MemberTile extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontSize: 15,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                _buildDetail('Email', email),
-                _buildDetail('Profile role', profileRole),
-                _buildDetail('Contact', contactNumber),
+                _buildDetail(context, 'Email', email),
+                _buildDetail(context, 'Profile role', profileRole),
+                _buildDetail(context, 'Contact', contactNumber),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 8,
@@ -565,8 +576,8 @@ class _MemberTile extends StatelessWidget {
                           ? 'Profile Complete'
                           : 'Profile Incomplete',
                       accentColor: profileCompleted
-                          ? const Color(0xFF14B8A6)
-                          : Colors.white24,
+                          ? colorScheme.primary
+                          : null,
                     ),
                     if (isCurrentUser)
                       const _MemberBadge(
@@ -601,22 +612,26 @@ class _MemberTile extends StatelessWidget {
 
 class _MemberBadge extends StatelessWidget {
   final String label;
-  final Color accentColor;
+  final Color? accentColor;
 
-  const _MemberBadge({required this.label, this.accentColor = Colors.white24});
+  const _MemberBadge({required this.label, this.accentColor});
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final color = accentColor;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: accentColor,
+        color: color ?? palette.panelAlt,
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color ?? palette.border),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: color == null ? palette.mutedText : Colors.white,
           fontSize: 11.5,
           fontWeight: FontWeight.w700,
         ),

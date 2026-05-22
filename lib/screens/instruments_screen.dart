@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import '../services/firestore_access_guard.dart';
 import '../models/instrument_model.dart';
 import '../services/instrument_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 import 'add_instrument_screen.dart';
 import 'instrument_detail_screen.dart';
@@ -95,16 +96,19 @@ class _InstrumentsScreenState extends State<InstrumentsScreen> {
   }
 
   Widget _buildSearchBar({bool dense = false}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return TextField(
       controller: _searchController,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: colorScheme.onSurface),
       onChanged: (_) {
         setState(() {});
       },
       decoration: InputDecoration(
         hintText: 'Search by name, brand, category, serial no, or in-charge',
-        hintStyle: const TextStyle(color: Colors.white54),
-        prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70),
+        hintStyle: TextStyle(color: palette.subtleText),
+        prefixIcon: Icon(Icons.search_rounded, color: palette.mutedText),
         suffixIcon: _searchController.text.trim().isEmpty
             ? null
             : IconButton(
@@ -112,26 +116,26 @@ class _InstrumentsScreenState extends State<InstrumentsScreen> {
                   _searchController.clear();
                   setState(() {});
                 },
-                icon: const Icon(
-                  Icons.close_rounded,
-                  color: Colors.white54,
-                ),
+                icon: Icon(Icons.close_rounded, color: palette.subtleText),
               ),
         filled: true,
-        fillColor: const Color(0xFF111827),
+        fillColor: palette.panel,
         contentPadding: EdgeInsets.symmetric(
           horizontal: 16,
           vertical: dense ? 11 : 14,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: palette.border),
         ),
       ),
     );
   }
 
   Widget _buildStatusFilters({bool dense = false}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -148,16 +152,14 @@ class _InstrumentsScreenState extends State<InstrumentsScreen> {
                 });
               },
               labelStyle: TextStyle(
-                color: isSelected ? Colors.white : Colors.white70,
+                color: isSelected ? Colors.white : palette.mutedText,
                 fontSize: dense ? 12.0 : 12.5,
                 fontWeight: FontWeight.w700,
               ),
-              backgroundColor: const Color(0xFF111827),
-              selectedColor: const Color(0xFF14B8A6),
+              backgroundColor: palette.panel,
+              selectedColor: colorScheme.primary,
               side: BorderSide(
-                color: isSelected
-                    ? const Color(0xFF14B8A6)
-                    : Colors.white.withOpacity(0.08),
+                color: isSelected ? colorScheme.primary : palette.border,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(999),
@@ -177,129 +179,132 @@ class _InstrumentsScreenState extends State<InstrumentsScreen> {
     return SafeArea(
       child: ResponsivePageContainer(
         child: StreamBuilder<List<InstrumentModel>>(
-        stream: instrumentService.getInstruments(),
-        builder: (context, snapshot) {
-          if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
-            return _InstrumentAccessState(
-              title: FirestoreAccessGuard.userMessage,
-            );
-          }
+          stream: instrumentService.getInstruments(),
+          builder: (context, snapshot) {
+            if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+              return _InstrumentAccessState(
+                title: FirestoreAccessGuard.userMessage,
+              );
+            }
 
-          if (snapshot.hasError) {
-            return _InstrumentAccessState(
-              title: FirestoreAccessGuard.messageFor(snapshot.error),
-            );
-          }
+            if (snapshot.hasError) {
+              return _InstrumentAccessState(
+                title: FirestoreAccessGuard.messageFor(snapshot.error),
+              );
+            }
 
-          if (!snapshot.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF14B8A6)),
-            );
-          }
+            if (!snapshot.hasData) {
+              return const Center(
+                child: CircularProgressIndicator(color: Color(0xFF14B8A6)),
+              );
+            }
 
-          final instruments = snapshot.data ?? [];
-          final filteredInstruments = _applyFilters(instruments);
-          final categoryGroups = _buildCategoryGroups(filteredInstruments);
+            final instruments = snapshot.data ?? [];
+            final filteredInstruments = _applyFilters(instruments);
+            final categoryGroups = _buildCategoryGroups(filteredInstruments);
 
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final isDesktop = constraints.maxWidth >= 900;
-              final pagePadding = isDesktop ? 12.0 : 16.0;
-              final sectionGap = isDesktop ? 10.0 : 14.0;
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isDesktop = constraints.maxWidth >= 900;
+                final pagePadding = isDesktop ? 12.0 : 16.0;
+                final sectionGap = isDesktop ? 10.0 : 14.0;
 
-              return Padding(
-                padding: EdgeInsets.all(pagePadding),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                _InstrumentHeaderCard(
-                  instrumentCount: instruments.length,
-                  onAddInstrument: () => _openAddInstrument(context),
-                  dense: isDesktop,
-                ),
-                SizedBox(height: sectionGap),
-                if (isDesktop)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                return Padding(
+                  padding: EdgeInsets.all(pagePadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        flex: 2,
-                        child: _buildSearchBar(dense: true),
+                      _InstrumentHeaderCard(
+                        instrumentCount: instruments.length,
+                        onAddInstrument: () => _openAddInstrument(context),
+                        dense: isDesktop,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(height: sectionGap),
+                      if (isDesktop)
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: _buildSearchBar(dense: true),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 3,
+                              child: _buildStatusFilters(dense: true),
+                            ),
+                          ],
+                        )
+                      else ...[
+                        _buildSearchBar(),
+                        const SizedBox(height: 12),
+                        _buildStatusFilters(),
+                      ],
+                      SizedBox(height: sectionGap),
+                      if (instruments.isEmpty) ...[
+                        const _InstrumentEmptyState(),
+                        SizedBox(height: sectionGap),
+                      ] else if (filteredInstruments.isEmpty) ...[
+                        const _InstrumentFilteredEmptyState(),
+                        SizedBox(height: sectionGap),
+                      ],
                       Expanded(
-                        flex: 3,
-                        child: _buildStatusFilters(dense: true),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            final crossAxisCount = constraints.maxWidth >= 1120
+                                ? 6
+                                : constraints.maxWidth >= 900
+                                ? 5
+                                : constraints.maxWidth >= 720
+                                ? 4
+                                : 3;
+                            final childAspectRatio = constraints.maxWidth >= 900
+                                ? 1.72
+                                : constraints.maxWidth >= 720
+                                ? 1.08
+                                : 0.84;
+
+                            return GridView.builder(
+                              itemCount: categoryGroups.length,
+                              gridDelegate:
+                                  SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: crossAxisCount,
+                                    mainAxisSpacing: isDesktop ? 10 : 12,
+                                    crossAxisSpacing: isDesktop ? 10 : 12,
+                                    childAspectRatio: childAspectRatio,
+                                  ),
+                              itemBuilder: (context, index) {
+                                final group = categoryGroups[index];
+                                return _InstrumentCategoryTile(
+                                  group: group,
+                                  dense: isDesktop,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            _InstrumentCategoryScreen(
+                                              category: group.category,
+                                              instruments: group.instruments,
+                                              hasActiveFilters:
+                                                  _hasActiveFilters,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
                       ),
                     ],
-                  )
-                else ...[
-                  _buildSearchBar(),
-                  const SizedBox(height: 12),
-                  _buildStatusFilters(),
-                ],
-                SizedBox(height: sectionGap),
-                if (instruments.isEmpty) ...[
-                  const _InstrumentEmptyState(),
-                  SizedBox(height: sectionGap),
-                ] else if (filteredInstruments.isEmpty) ...[
-                  const _InstrumentFilteredEmptyState(),
-                  SizedBox(height: sectionGap),
-                ],
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final crossAxisCount = constraints.maxWidth >= 1120
-                          ? 6
-                          : constraints.maxWidth >= 900
-                          ? 5
-                          : constraints.maxWidth >= 720
-                          ? 4
-                          : 3;
-                      final childAspectRatio = constraints.maxWidth >= 900
-                          ? 1.72
-                          : constraints.maxWidth >= 720
-                          ? 1.08
-                          : 0.84;
-
-                      return GridView.builder(
-                        itemCount: categoryGroups.length,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: crossAxisCount,
-                          mainAxisSpacing: isDesktop ? 10 : 12,
-                          crossAxisSpacing: isDesktop ? 10 : 12,
-                          childAspectRatio: childAspectRatio,
-                        ),
-                        itemBuilder: (context, index) {
-                          final group = categoryGroups[index];
-                          return _InstrumentCategoryTile(
-                            group: group,
-                            dense: isDesktop,
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => _InstrumentCategoryScreen(
-                                    category: group.category,
-                                    instruments: group.instruments,
-                                    hasActiveFilters: _hasActiveFilters,
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      );
-                    },
                   ),
-                ),
-              ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -312,14 +317,16 @@ class _InstrumentAccessState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
           title,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.white70,
+          style: TextStyle(
+            color: palette.mutedText,
             fontSize: 14,
             height: 1.45,
           ),
@@ -342,20 +349,15 @@ class _InstrumentHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(dense ? 14 : 18),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 8,
-            offset: Offset(0, 3),
-          ),
-        ],
+        border: Border.all(color: palette.border),
       ),
       child: dense
           ? Row(
@@ -387,13 +389,16 @@ class _InstrumentHeaderCopy extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.colorScheme;
+    final palette = context.labmate;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Lab Instruments',
           style: TextStyle(
-            color: Colors.white,
+            color: colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w800,
           ),
@@ -403,8 +408,8 @@ class _InstrumentHeaderCopy extends StatelessWidget {
           instrumentCount == 0
               ? 'Track balances, pumps, chillers, and other shared lab assets here.'
               : '$instrumentCount ${instrumentCount == 1 ? 'instrument' : 'instruments'} recorded for this lab.',
-          style: const TextStyle(
-            color: Colors.white60,
+          style: TextStyle(
+            color: palette.subtleText,
             fontSize: 13,
             height: 1.35,
           ),
@@ -442,21 +447,24 @@ class _InstrumentEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             'No instruments added yet.',
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onSurface,
               fontSize: 15.5,
               fontWeight: FontWeight.w700,
             ),
@@ -465,7 +473,7 @@ class _InstrumentEmptyState extends StatelessWidget {
           Text(
             'Add your first instrument to start organizing lab assets by category.',
             style: TextStyle(
-              color: Colors.white60,
+              color: palette.subtleText,
               fontSize: 12.8,
               height: 1.4,
             ),
@@ -481,18 +489,20 @@ class _InstrumentFilteredEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
-      child: const Text(
+      child: Text(
         'No instruments match current filters.',
         style: TextStyle(
-          color: Colors.white70,
+          color: palette.mutedText,
           fontSize: 13.2,
           fontWeight: FontWeight.w600,
           height: 1.4,
@@ -515,8 +525,11 @@ class _InstrumentCategoryTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Material(
-      color: const Color(0xFF1E293B),
+      color: palette.panel,
       borderRadius: BorderRadius.circular(dense ? 16 : 20),
       child: InkWell(
         borderRadius: BorderRadius.circular(dense ? 16 : 20),
@@ -541,7 +554,7 @@ class _InstrumentCategoryTile extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: colorScheme.onSurface,
                   fontSize: dense ? 11.0 : 11.8,
                   fontWeight: FontWeight.w700,
                   height: 1.2,
@@ -549,18 +562,16 @@ class _InstrumentCategoryTile extends StatelessWidget {
               ),
               SizedBox(height: dense ? 5 : 8),
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 7,
-                  vertical: 4,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
+                  color: palette.panelAlt,
                   borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: palette.border),
                 ),
                 child: Text(
                   '${group.count} ${group.count == 1 ? 'item' : 'items'}',
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: palette.mutedText,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
                   ),
@@ -587,10 +598,10 @@ class _InstrumentCategoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(category, style: const TextStyle(color: Colors.white)),
-      ),
+      appBar: AppBar(title: Text(category)),
       body: SafeArea(
         child: ResponsivePageContainer(
           maxWidth: 1120,
@@ -607,14 +618,14 @@ class _InstrumentCategoryScreen extends StatelessWidget {
                       vertical: isDesktop ? 12 : 16,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: palette.panel,
                       borderRadius: BorderRadius.circular(isDesktop ? 16 : 18),
-                      border: Border.all(color: Colors.white.withOpacity(0.06)),
+                      border: Border.all(color: palette.border),
                     ),
                     child: Text(
                       '${instruments.length} ${instruments.length == 1 ? 'instrument' : 'instruments'} in this category.',
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: palette.mutedText,
                         fontSize: 13,
                         height: 1.4,
                       ),
@@ -650,22 +661,20 @@ class _CategoryEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Text(
         hasActiveFilters
             ? 'No instruments match current filters.'
             : 'No instruments added in this category yet.',
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 13,
-          height: 1.4,
-        ),
+        style: TextStyle(color: palette.mutedText, fontSize: 13, height: 1.4),
       ),
     );
   }
@@ -675,10 +684,7 @@ class _InstrumentCard extends StatelessWidget {
   final InstrumentModel instrument;
   final bool dense;
 
-  const _InstrumentCard({
-    required this.instrument,
-    this.dense = false,
-  });
+  const _InstrumentCard({required this.instrument, this.dense = false});
 
   String _formatDate(Timestamp? value) {
     if (value == null) {
@@ -692,8 +698,15 @@ class _InstrumentCard extends StatelessWidget {
     return '$day/$month/$year';
   }
 
-  Widget _desktopMeta(String label, String value, {int flex = 1}) {
+  Widget _desktopMeta(
+    BuildContext context,
+    String label,
+    String value, {
+    int flex = 1,
+  }) {
     final displayValue = value.trim().isEmpty ? 'Not set' : value.trim();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Expanded(
       flex: flex,
@@ -705,8 +718,8 @@ class _InstrumentCard extends StatelessWidget {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white38,
+            style: TextStyle(
+              color: palette.subtleText,
               fontSize: 10.8,
               fontWeight: FontWeight.w700,
             ),
@@ -716,8 +729,8 @@ class _InstrumentCard extends StatelessWidget {
             displayValue,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 12.2,
               height: 1.25,
               fontWeight: FontWeight.w600,
@@ -730,6 +743,8 @@ class _InstrumentCard extends StatelessWidget {
 
   Widget _buildDesktopCard(BuildContext context) {
     final incharge = instrument.instrumentIncharge.trim();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     final details = [
       instrument.serialNo.trim(),
       instrument.catalogNumber.trim(),
@@ -737,7 +752,7 @@ class _InstrumentCard extends StatelessWidget {
     ].firstWhere((value) => value.isNotEmpty, orElse: () => '');
 
     return Material(
-      color: const Color(0xFF1E293B),
+      color: palette.panel,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -765,8 +780,8 @@ class _InstrumentCard extends StatelessWidget {
                   instrument.normalizedName,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontSize: 14.2,
                     fontWeight: FontWeight.w800,
                     height: 1.22,
@@ -774,7 +789,12 @@ class _InstrumentCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              _desktopMeta('Category', instrument.normalizedCategory, flex: 2),
+              _desktopMeta(
+                context,
+                'Category',
+                instrument.normalizedCategory,
+                flex: 2,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 flex: 2,
@@ -787,12 +807,13 @@ class _InstrumentCard extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               _desktopMeta(
+                context,
                 'In-charge',
                 incharge.isEmpty ? 'Not assigned' : incharge,
                 flex: 2,
               ),
               const SizedBox(width: 12),
-              _desktopMeta('Details', details, flex: 2),
+              _desktopMeta(context, 'Details', details, flex: 2),
             ],
           ),
         ),
@@ -804,9 +825,11 @@ class _InstrumentCard extends StatelessWidget {
     final brand = instrument.brand.trim();
     final incharge = instrument.instrumentIncharge.trim();
     final arrivedOn = _formatDate(instrument.arrivedOn);
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Material(
-      color: const Color(0xFF1E293B),
+      color: palette.panel,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
@@ -835,8 +858,8 @@ class _InstrumentCard extends StatelessWidget {
                   children: [
                     Text(
                       instrument.normalizedName,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
                         fontSize: 15.2,
                         fontWeight: FontWeight.w700,
                         height: 1.25,
@@ -848,8 +871,8 @@ class _InstrumentCard extends StatelessWidget {
                       const SizedBox(height: 8),
                       Text(
                         'Brand: $brand',
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: palette.mutedText,
                           fontSize: 12.8,
                         ),
                       ),
@@ -857,8 +880,8 @@ class _InstrumentCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       'Instrument in-charge: ${incharge.isEmpty ? 'Not assigned' : incharge}',
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: palette.mutedText,
                         fontSize: 12.8,
                         height: 1.35,
                       ),
@@ -867,8 +890,8 @@ class _InstrumentCard extends StatelessWidget {
                       const SizedBox(height: 6),
                       Text(
                         'Arrived on: $arrivedOn',
-                        style: const TextStyle(
-                          color: Colors.white54,
+                        style: TextStyle(
+                          color: palette.subtleText,
                           fontSize: 12.2,
                         ),
                       ),
@@ -983,14 +1006,15 @@ class _InstrumentPreviewBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageProvider = _resolveImageProvider();
+    final palette = context.labmate;
 
     return Container(
       height: size,
       width: size,
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(18),
@@ -1019,6 +1043,7 @@ class _InstrumentPreviewBox extends StatelessWidget {
     );
   }
 }
+
 class _InstrumentCategoryGroup {
   final String category;
   final List<InstrumentModel> instruments;

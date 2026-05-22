@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/activity_model.dart';
 import '../services/activity_service.dart';
+import '../theme/labmate_theme.dart';
 
 class RecentActivityScreen extends StatelessWidget {
   final AppState appState;
@@ -38,14 +39,11 @@ class RecentActivityScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final labId = appState.selectedLabId.trim();
     final activityService = ActivityService();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Recent Activity',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Recent Activity')),
       body: SafeArea(
         child: StreamBuilder<List<ActivityModel>>(
           stream: activityService.getActivitiesForLab(labId),
@@ -56,10 +54,10 @@ class RecentActivityScreen extends StatelessWidget {
 
             final activities = snapshot.data ?? [];
             if (activities.isEmpty) {
-              return const Center(
+              return Center(
                 child: Text(
                   'No recent activity yet.',
-                  style: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: palette.mutedText),
                 ),
               );
             }
@@ -75,11 +73,9 @@ class RecentActivityScreen extends StatelessWidget {
                 return Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: palette.panel,
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.06),
-                    ),
+                    border: Border.all(color: palette.border),
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -98,8 +94,8 @@ class RecentActivityScreen extends StatelessWidget {
                           children: [
                             Text(
                               activity.message,
-                              style: const TextStyle(
-                                color: Colors.white,
+                              style: TextStyle(
+                                color: colorScheme.onSurface,
                                 fontWeight: FontWeight.w700,
                                 fontSize: 14.5,
                               ),
@@ -109,8 +105,8 @@ class RecentActivityScreen extends StatelessWidget {
                               actor.isEmpty
                                   ? _formatDate(activity)
                                   : '$actor · ${_formatDate(activity)}',
-                              style: const TextStyle(
-                                color: Colors.white60,
+                              style: TextStyle(
+                                color: palette.subtleText,
                                 fontSize: 12.5,
                               ),
                             ),

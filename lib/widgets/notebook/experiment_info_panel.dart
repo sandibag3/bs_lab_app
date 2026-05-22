@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/notebook_experiment_model.dart';
 import '../../models/notebook_project_model.dart';
+import '../../theme/labmate_theme.dart';
 
 class ExperimentInfoPanel extends StatelessWidget {
   final NotebookProjectModel project;
@@ -22,6 +23,7 @@ class ExperimentInfoPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     final projectTitle = project.title.trim().isEmpty
         ? 'Untitled project'
         : project.title.trim();
@@ -32,9 +34,9 @@ class ExperimentInfoPanel extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 12 : 13),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(compact ? 16 : 18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -124,6 +126,8 @@ class _RailHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.colorScheme;
+    final palette = context.labmate;
     return Row(
       children: [
         Container(
@@ -142,8 +146,8 @@ class _RailHeader extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
                   fontSize: 13.6,
                   fontWeight: FontWeight.w700,
                 ),
@@ -151,8 +155,8 @@ class _RailHeader extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  color: Colors.white54,
+                style: TextStyle(
+                  color: palette.subtleText,
                   fontSize: 11.4,
                   fontWeight: FontWeight.w500,
                 ),
@@ -199,11 +203,13 @@ class _MetaPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -212,8 +218,8 @@ class _MetaPill extends StatelessWidget {
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: palette.mutedText,
               fontSize: 11.2,
               fontWeight: FontWeight.w600,
             ),
@@ -233,21 +239,23 @@ class _MiniCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF111C34),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: palette.subtleText,
               fontSize: 11.0,
               fontWeight: FontWeight.w700,
             ),
@@ -256,7 +264,7 @@ class _MiniCard extends StatelessWidget {
           Text(
             value,
             style: TextStyle(
-              color: accent ?? Colors.white,
+              color: accent ?? colorScheme.onSurface,
               fontSize: 12.8,
               fontWeight: FontWeight.w700,
               height: 1.25,
@@ -275,12 +283,14 @@ class _InfoStack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: const Color(0xFF111C34),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         children: rows.asMap().entries.map((entry) {
@@ -295,7 +305,7 @@ class _InfoStack extends StatelessWidget {
                   ? null
                   : Border(
                       bottom: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: palette.border,
                       ),
                     ),
             ),
@@ -306,8 +316,8 @@ class _InfoStack extends StatelessWidget {
                   width: 74,
                   child: Text(
                     row.label,
-                    style: const TextStyle(
-                      color: Colors.white54,
+                    style: TextStyle(
+                      color: palette.subtleText,
                       fontSize: 11.4,
                       fontWeight: FontWeight.w700,
                     ),
@@ -317,8 +327,8 @@ class _InfoStack extends StatelessWidget {
                 Expanded(
                   child: Text(
                     row.value,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
                       fontSize: 12.1,
                       fontWeight: FontWeight.w600,
                       height: 1.3,
@@ -357,22 +367,23 @@ class _SectionBlock extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cleanValue = value.trim();
+    final palette = context.labmate;
 
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 11 : 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF111C34),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: palette.subtleText,
               fontSize: 11.2,
               fontWeight: FontWeight.w700,
             ),
@@ -381,7 +392,7 @@ class _SectionBlock extends StatelessWidget {
           Text(
             cleanValue.isEmpty ? emptyMessage : cleanValue,
             style: TextStyle(
-              color: cleanValue.isEmpty ? Colors.white54 : Colors.white70,
+              color: cleanValue.isEmpty ? palette.subtleText : palette.mutedText,
               fontSize: compact ? 12.0 : 12.4,
               height: 1.38,
             ),

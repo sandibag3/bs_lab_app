@@ -4,6 +4,7 @@ import '../models/order_model.dart';
 import '../services/activity_service.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/order_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 
 enum OrdersViewMode { compact, detailed }
@@ -32,12 +33,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   String get _currentUserName => AppState.instance.authenticatedUserName;
 
-  Color _statusColor(String status) {
+  Color _statusColor(BuildContext context, String status) {
+    final palette = context.labmate;
     switch (status.toLowerCase()) {
       case 'delivered':
-        return Colors.greenAccent;
+        return palette.success;
       default:
-        return const Color(0xFF14B8A6);
+        return context.colorScheme.primary;
     }
   }
 
@@ -108,9 +110,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
           return b.orderedAt.compareTo(a.orderedAt);
 
         case OrdersSortOption.type:
-          final typeComparison = a.typeLabel
-              .toLowerCase()
-              .compareTo(b.typeLabel.toLowerCase());
+          final typeComparison = a.typeLabel.toLowerCase().compareTo(
+            b.typeLabel.toLowerCase(),
+          );
           if (typeComparison != 0) {
             return typeComparison;
           }
@@ -125,12 +127,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
     List<OrderModel> orders,
     String Function(OrderModel order) selector,
   ) {
-    final values = orders
-        .map((order) => selector(order).trim())
-        .where((value) => value.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final values =
+        orders
+            .map((order) => selector(order).trim())
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
     return [_allFilterValue, ...values];
   }
@@ -173,10 +176,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       return _matchesTextFilter(order.brand, _selectedBrand) &&
           _matchesTextFilter(order.vendor, _selectedVendor) &&
           _matchesTextFilter(order.orderedBy, _selectedOrderedBy) &&
-          _matchesTextFilter(
-            order.modeOfPurchase,
-            _selectedModeOfPurchase,
-          ) &&
+          _matchesTextFilter(order.modeOfPurchase, _selectedModeOfPurchase) &&
           _matchesDateRange(order);
     }).toList();
   }
@@ -252,6 +252,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Widget _buildViewToggle() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -259,12 +262,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ChoiceChip(
           label: const Text('Compact'),
           selected: _viewMode == OrdersViewMode.compact,
-          selectedColor: const Color(0xFF14B8A6),
-          backgroundColor: const Color(0xFF1E293B),
+          selectedColor: palette.selected,
+          backgroundColor: palette.panel,
           labelStyle: TextStyle(
             color: _viewMode == OrdersViewMode.compact
-                ? Colors.white
-                : Colors.white70,
+                ? colorScheme.primary
+                : palette.mutedText,
             fontWeight: FontWeight.w600,
           ),
           onSelected: (_) {
@@ -276,12 +279,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
         ChoiceChip(
           label: const Text('Detailed'),
           selected: _viewMode == OrdersViewMode.detailed,
-          selectedColor: const Color(0xFF14B8A6),
-          backgroundColor: const Color(0xFF1E293B),
+          selectedColor: palette.selected,
+          backgroundColor: palette.panel,
           labelStyle: TextStyle(
             color: _viewMode == OrdersViewMode.detailed
-                ? Colors.white
-                : Colors.white70,
+                ? colorScheme.primary
+                : palette.mutedText,
             fontWeight: FontWeight.w600,
           ),
           onSelected: (_) {
@@ -295,24 +298,28 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Widget _buildSortDropdown() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: palette.border),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<OrdersSortOption>(
           value: _sortOption,
-          dropdownColor: const Color(0xFF1E293B),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: palette.panel,
+          style: TextStyle(color: colorScheme.onSurface),
           isExpanded: true,
           items: OrdersSortOption.values.map((option) {
             return DropdownMenuItem<OrdersSortOption>(
               value: option,
               child: Text(
                 'Sort: ${_sortLabel(option)}',
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
               ),
             );
           }).toList(),
@@ -334,20 +341,22 @@ class _OrdersScreenState extends State<OrdersScreen> {
     required ValueChanged<String> onChanged,
   }) {
     final safeValue = options.contains(value) ? value : _allFilterValue;
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       height: 46,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: safeValue,
-          dropdownColor: const Color(0xFF1E293B),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: palette.panel,
+          style: TextStyle(color: colorScheme.onSurface),
           isExpanded: true,
           items: options.map((option) {
             return DropdownMenuItem<String>(
@@ -355,7 +364,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               child: Text(
                 option == _allFilterValue ? '$label: All' : option,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 12.8),
+                style: TextStyle(color: colorScheme.onSurface, fontSize: 12.8),
               ),
             );
           }).toList(),
@@ -373,6 +382,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
     required DateTime? value,
     required VoidCallback onTap,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
@@ -380,9 +392,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
         height: 46,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: palette.panel,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.white.withOpacity(0.06)),
+          border: Border.all(color: palette.border),
         ),
         child: Row(
           children: [
@@ -391,17 +403,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 value == null ? label : '$label: ${_formatShortDate(value)}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Colors.white70,
+                style: TextStyle(
+                  color: palette.mutedText,
                   fontSize: 12.8,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
             const SizedBox(width: 8),
-            const Icon(
+            Icon(
               Icons.calendar_today_rounded,
-              color: Color(0xFF14B8A6),
+              color: colorScheme.primary,
               size: 17,
             ),
           ],
@@ -527,13 +539,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
     required List<OrderModel> allOrders,
     required bool isDesktop,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       margin: EdgeInsets.fromLTRB(12, isDesktop ? 10 : 12, 12, 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -542,8 +557,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
             _hasActiveFilters
                 ? '$filteredCount of $totalCount orders'
                 : '$totalCount ${totalCount == 1 ? 'order' : 'orders'}',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 14.5,
               fontWeight: FontWeight.w700,
             ),
@@ -593,16 +608,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Widget _buildStatusBadge(OrderModel order) {
+    final color = _statusColor(context, order.status);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: _statusColor(order.status).withOpacity(0.14),
+        color: color.withOpacity(0.14),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         _statusText(order),
         style: TextStyle(
-          color: _statusColor(order.status),
+          color: color,
           fontSize: 11.5,
           fontWeight: FontWeight.w700,
         ),
@@ -645,14 +661,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }) {
     final isDelivered = order.status.toLowerCase() == 'delivered';
     final actionArea = _buildDeliveredAction(context: context, order: order);
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -665,8 +683,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   order.displayName,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
                     height: 1.2,
@@ -683,15 +701,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
             runSpacing: 8,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
+                  color: palette.panelAlt,
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: palette.border),
                 ),
                 child: Text(
                   'Qty: ${order.quantity.isEmpty ? "-" : order.quantity}',
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: palette.mutedText,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -699,15 +721,19 @@ class _OrdersScreenState extends State<OrdersScreen> {
               ),
               _buildStatusBadge(order),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
+                  color: palette.panelAlt,
                   borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: palette.border),
                 ),
                 child: Text(
                   'Ordered: ${_formatShortDate(order.orderedAt.toDate())}',
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: palette.mutedText,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -715,10 +741,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               ),
             ],
           ),
-          if (!isDelivered) ...[
-            const SizedBox(height: 12),
-            actionArea,
-          ],
+          if (!isDelivered) ...[const SizedBox(height: 12), actionArea],
         ],
       ),
     );
@@ -729,21 +752,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
     required OrderModel order,
   }) {
     final isDelivered = order.status.toLowerCase() == 'delivered';
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 8,
-            offset: Offset(0, 3),
-          ),
-        ],
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 8,
+                  offset: Offset(0, 3),
+                ),
+              ]
+            : null,
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -754,8 +781,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
               Expanded(
                 child: Text(
                   order.displayName,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
                   ),
@@ -769,76 +796,52 @@ class _OrdersScreenState extends State<OrdersScreen> {
           if (order.isChemical && order.cas.trim().isNotEmpty) ...[
             Text(
               'CAS: ${order.cas}',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: palette.mutedText, fontSize: 13),
             ),
             const SizedBox(height: 4),
           ],
           if (order.packSize.trim().isNotEmpty) ...[
             Text(
               'Pack Size: ${order.packSize}',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: palette.mutedText, fontSize: 13),
             ),
             const SizedBox(height: 4),
           ],
           if (order.brand.trim().isNotEmpty) ...[
             Text(
               'Brand: ${order.brand}',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: palette.mutedText, fontSize: 13),
             ),
             const SizedBox(height: 4),
           ],
           if (order.vendor.trim().isNotEmpty) ...[
             Text(
               'Vendor: ${order.vendor}',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: palette.mutedText, fontSize: 13),
             ),
             const SizedBox(height: 4),
           ],
           Text(
             'Quantity: ${order.quantity.isEmpty ? "-" : order.quantity}',
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: palette.mutedText, fontSize: 13),
           ),
           if (order.modeOfPurchase.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
               'Mode: ${order.modeOfPurchase}',
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 13,
-              ),
+              style: TextStyle(color: palette.mutedText, fontSize: 13),
             ),
           ],
           const SizedBox(height: 8),
           Text(
             _formatOrderedNote(order),
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 12.5,
-            ),
+            style: TextStyle(color: palette.subtleText, fontSize: 12.5),
           ),
           if (isDelivered) ...[
             const SizedBox(height: 6),
             Text(
               _formatDeliveredNote(order),
-              style: const TextStyle(
-                color: Colors.white60,
-                fontSize: 12.5,
-              ),
+              style: TextStyle(color: palette.subtleText, fontSize: 12.5),
             ),
           ],
           const SizedBox(height: 8),
@@ -853,6 +856,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Widget _buildEmptyState() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -860,34 +866,34 @@ class _OrdersScreenState extends State<OrdersScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: palette.panel,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: palette.border),
           ),
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
                 Icons.local_shipping_outlined,
-                color: Color(0xFF14B8A6),
+                color: colorScheme.primary,
                 size: 30,
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Text(
                 'No orders yet',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 'Approved requirements will appear here after they are placed as orders.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: palette.mutedText,
                   fontSize: 13,
                   height: 1.4,
                 ),
@@ -900,6 +906,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Widget _buildFilteredEmptyState() {
+    final palette = context.labmate;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -907,15 +914,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: palette.panel,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: palette.border),
           ),
-          child: const Text(
+          child: Text(
             'No orders match current filters.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white70,
+              color: palette.mutedText,
               fontSize: 13.5,
               height: 1.4,
               fontWeight: FontWeight.w600,
@@ -929,9 +936,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Orders', style: TextStyle(color: Colors.white)),
-      ),
+      appBar: AppBar(title: const Text('Orders')),
       body: ResponsivePageContainer(
         child: LayoutBuilder(
           builder: (context, constraints) {
@@ -941,13 +946,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
               stream: orderService.getOrders(),
               builder: (context, snapshot) {
                 if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
-                  return const Center(
+                  return Center(
                     child: Padding(
-                      padding: EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(24),
                       child: Text(
                         FirestoreAccessGuard.userMessage,
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70, height: 1.4),
+                        style: TextStyle(
+                          color: context.labmate.mutedText,
+                          height: 1.4,
+                        ),
                       ),
                     ),
                   );
@@ -960,8 +968,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                       child: Text(
                         FirestoreAccessGuard.messageFor(snapshot.error),
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: context.labmate.mutedText,
                           height: 1.4,
                         ),
                       ),

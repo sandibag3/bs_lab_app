@@ -9,20 +9,23 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../app_state.dart';
 import '../services/attendance_service.dart';
 import '../services/firestore_access_guard.dart';
+import '../theme/labmate_theme.dart';
 import '../services/wifi_verification_service.dart';
 
 class AttendanceScannerScreen extends StatefulWidget {
   const AttendanceScannerScreen({super.key});
 
   @override
-  State<AttendanceScannerScreen> createState() => _AttendanceScannerScreenState();
+  State<AttendanceScannerScreen> createState() =>
+      _AttendanceScannerScreenState();
 }
 
 class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
   final AttendanceService _attendanceService = AttendanceService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  late final MobileScannerController? _scannerController =
-      _isScannerSupported ? MobileScannerController() : null;
+  late final MobileScannerController? _scannerController = _isScannerSupported
+      ? MobileScannerController()
+      : null;
   final WifiVerificationService _wifiVerificationService =
       WifiVerificationService();
 
@@ -49,18 +52,18 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
     await showDialog<void>(
       context: context,
       builder: (dialogContext) {
+        final palette = dialogContext.labmate;
+        final colorScheme = dialogContext.colorScheme;
+
         return AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
-          title: const Text(
+          backgroundColor: palette.panel,
+          title: Text(
             'Attendance Check-in',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: colorScheme.onSurface),
           ),
           content: Text(
             message,
-            style: const TextStyle(
-              color: Colors.white70,
-              height: 1.4,
-            ),
+            style: TextStyle(color: palette.mutedText, height: 1.4),
           ),
           actions: [
             TextButton(
@@ -156,7 +159,10 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
     }
 
     try {
-      final labDoc = await _firestore.collection('labs').doc(selectedLabId).get();
+      final labDoc = await _firestore
+          .collection('labs')
+          .doc(selectedLabId)
+          .get();
       if (!labDoc.exists) {
         await _showFailureAndResume('Selected lab was not found');
         return;
@@ -164,8 +170,9 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
 
       final labData = labDoc.data() ?? <String, dynamic>{};
       final attendanceEnabled = labData['attendanceEnabled'] == true;
-      final expectedSecret =
-          (labData['attendanceQrSecret'] ?? '').toString().trim();
+      final expectedSecret = (labData['attendanceQrSecret'] ?? '')
+          .toString()
+          .trim();
       final allowedWifiSsids = (labData['allowedWifiSsids'] is Iterable)
           ? (labData['allowedWifiSsids'] as Iterable)
                 .map((item) => item.toString().trim())
@@ -222,6 +229,8 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
   Widget build(BuildContext context) {
     final appState = AppState.instance;
     final currentUser = FirebaseAuth.instance.currentUser;
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return AnimatedBuilder(
       animation: appState,
@@ -231,15 +240,11 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
         final canQueryLabData = FirestoreAccessGuard.shouldQueryLabScopedData(
           appState: appState,
         );
-        final hasAuthenticatedUser =
-            (currentUser?.uid.trim() ?? '').isNotEmpty;
+        final hasAuthenticatedUser = (currentUser?.uid.trim() ?? '').isNotEmpty;
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text(
-              'Scan Lab QR',
-              style: TextStyle(color: Colors.white),
-            ),
+            title: const Text('Scan Lab QR'),
             actions: [
               if (_isScannerSupported)
                 IconButton(
@@ -249,7 +254,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
                     _isTorchEnabled
                         ? Icons.flashlight_on_rounded
                         : Icons.flashlight_off_rounded,
-                    color: Colors.white,
+                    color: colorScheme.onSurface,
                   ),
                 ),
             ],
@@ -282,19 +287,17 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E293B),
+                            color: palette.panel,
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.06),
-                            ),
+                            border: Border.all(color: palette.border),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
+                              Text(
                                 'Attendance QR Scanner',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: colorScheme.onSurface,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -304,16 +307,16 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
                                 selectedLabName.isEmpty
                                     ? selectedLabId
                                     : selectedLabName,
-                                style: const TextStyle(
-                                  color: Colors.white60,
+                                style: TextStyle(
+                                  color: palette.subtleText,
                                   fontSize: 13,
                                 ),
                               ),
                               const SizedBox(height: 10),
-                              const Text(
+                              Text(
                                 'Point your camera at the permanent Labmate attendance QR.',
                                 style: TextStyle(
-                                  color: Colors.white70,
+                                  color: palette.mutedText,
                                   fontSize: 13,
                                   height: 1.4,
                                 ),
@@ -349,9 +352,7 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
                                 ),
                                 Container(
                                   decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: Colors.white.withOpacity(0.08),
-                                    ),
+                                    border: Border.all(color: palette.border),
                                   ),
                                 ),
                                 Center(
@@ -377,7 +378,12 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
                                       vertical: 12,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.48),
+                                      color: palette.panel.withOpacity(
+                                        Theme.of(context).brightness ==
+                                                Brightness.dark
+                                            ? 0.8
+                                            : 0.94,
+                                      ),
                                       borderRadius: BorderRadius.circular(16),
                                     ),
                                     child: Text(
@@ -385,8 +391,8 @@ class _AttendanceScannerScreenState extends State<AttendanceScannerScreen> {
                                           ? 'Validating QR and Wi-Fi...'
                                           : 'Align the QR code inside the frame',
                                       textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        color: Colors.white,
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w600,
                                       ),
@@ -420,6 +426,9 @@ class _AttendanceScannerInfoState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -427,9 +436,9 @@ class _AttendanceScannerInfoState extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: palette.panel,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: palette.border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -439,8 +448,8 @@ class _AttendanceScannerInfoState extends StatelessWidget {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -449,8 +458,8 @@ class _AttendanceScannerInfoState extends StatelessWidget {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white70,
+                style: TextStyle(
+                  color: palette.mutedText,
                   fontSize: 13,
                   height: 1.4,
                 ),

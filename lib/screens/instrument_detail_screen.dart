@@ -6,16 +6,14 @@ import 'package:flutter/material.dart';
 import '../models/instrument_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/instrument_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 import 'add_instrument_screen.dart';
 
 class InstrumentDetailScreen extends StatefulWidget {
   final InstrumentModel instrument;
 
-  const InstrumentDetailScreen({
-    super.key,
-    required this.instrument,
-  });
+  const InstrumentDetailScreen({super.key, required this.instrument});
 
   @override
   State<InstrumentDetailScreen> createState() => _InstrumentDetailScreenState();
@@ -97,7 +95,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
       firstDate: DateTime(2000),
       lastDate: DateTime(now.year + 15),
       builder: (context, child) {
-        return Theme(data: ThemeData.dark(), child: child!);
+        return Theme(data: Theme.of(context), child: child!);
       },
     );
   }
@@ -107,9 +105,9 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _openEdit() async {
@@ -133,23 +131,23 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
+        final palette = dialogContext.labmate;
+        final colorScheme = dialogContext.colorScheme;
+
         return AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
-          title: const Text(
+          backgroundColor: palette.panel,
+          title: Text(
             'Delete this instrument?',
-            style: TextStyle(color: Colors.white),
+            style: TextStyle(color: colorScheme.onSurface),
           ),
           content: Text(
             'Delete "${_instrument.normalizedName}" from this lab?',
-            style: const TextStyle(color: Colors.white70, height: 1.4),
+            style: TextStyle(color: palette.mutedText, height: 1.4),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.white70),
-              ),
+              child: Text('Cancel', style: TextStyle(color: palette.mutedText)),
             ),
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, true),
@@ -182,41 +180,44 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
   }
 
   InputDecoration _sheetInputDecoration(String label) {
+    final palette = context.labmate;
+
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: palette.mutedText),
       filled: true,
-      fillColor: const Color(0xFF111827),
+      fillColor: palette.panelAlt,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(color: palette.border),
       ),
     );
   }
 
   Widget _buildField(String label, String value) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 11.8,
-            ),
+            style: TextStyle(color: palette.subtleText, fontSize: 11.8),
           ),
           const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 13.5,
               height: 1.35,
               fontWeight: FontWeight.w600,
@@ -233,13 +234,16 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
     VoidCallback? onAction,
     required List<Widget> children,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,8 +254,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontSize: 15.5,
                     fontWeight: FontWeight.w700,
                   ),
@@ -260,10 +264,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
               if (actionLabel != null && onAction != null)
                 TextButton.icon(
                   onPressed: onAction,
-                  icon: const Icon(
-                    Icons.add_circle_outline_rounded,
-                    size: 18,
-                  ),
+                  icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
                   label: Text(actionLabel),
                 ),
             ],
@@ -283,6 +284,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
     final display = value == null
         ? 'Select date'
         : '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}/${value.year}';
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return InkWell(
       borderRadius: BorderRadius.circular(16),
@@ -290,8 +293,9 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
       child: Ink(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFF111827),
+          color: palette.panelAlt,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: palette.border),
         ),
         child: Row(
           children: [
@@ -301,16 +305,13 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: palette.mutedText, fontSize: 12),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     display,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -326,20 +327,19 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
   }
 
   Widget _buildHistoryEmptyState(String message) {
+    final palette = context.labmate;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
       ),
       child: Text(
         message,
-        style: const TextStyle(
-          color: Colors.white60,
-          fontSize: 13,
-          height: 1.4,
-        ),
+        style: TextStyle(color: palette.subtleText, fontSize: 13, height: 1.4),
       ),
     );
   }
@@ -364,20 +364,24 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
   }
 
   Widget _buildServiceHistoryCard(InstrumentServiceHistoryRecord record) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             _displayValue(record.serviceIncharge),
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
@@ -385,18 +389,18 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           const SizedBox(height: 8),
           Text(
             'Service date: ${_formatDate(record.serviceDate)}',
-            style: const TextStyle(color: Colors.white70, fontSize: 12.8),
+            style: TextStyle(color: palette.mutedText, fontSize: 12.8),
           ),
           const SizedBox(height: 6),
           Text(
             'Contact: ${_displayValue(record.serviceInchargeContactNo)}',
-            style: const TextStyle(color: Colors.white70, fontSize: 12.8),
+            style: TextStyle(color: palette.mutedText, fontSize: 12.8),
           ),
           const SizedBox(height: 6),
           Text(
             'Details: ${_displayValue(record.serviceDetails)}',
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: palette.mutedText,
               fontSize: 12.8,
               height: 1.4,
             ),
@@ -404,28 +408,34 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           const SizedBox(height: 6),
           Text(
             'Added on: ${_formatDate(record.createdAt)}',
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(color: palette.subtleText, fontSize: 12),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildServiceHistoryPreviewCard(InstrumentServiceHistoryRecord record) {
+  Widget _buildServiceHistoryPreviewCard(
+    InstrumentServiceHistoryRecord record,
+  ) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             _displayValue(record.serviceIncharge),
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
@@ -433,13 +443,13 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           const SizedBox(height: 8),
           Text(
             'Service date: ${_formatDate(record.serviceDate)}',
-            style: const TextStyle(color: Colors.white70, fontSize: 12.8),
+            style: TextStyle(color: palette.mutedText, fontSize: 12.8),
           ),
           const SizedBox(height: 6),
           Text(
             'Details: ${_displayValue(record.serviceDetails)}',
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: palette.mutedText,
               fontSize: 12.8,
               height: 1.4,
             ),
@@ -450,20 +460,24 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
   }
 
   Widget _buildInchargeHistoryCard(InstrumentInchargeHistoryRecord record) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             _displayValue(record.instrumentIncharge),
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
@@ -471,13 +485,13 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           const SizedBox(height: 8),
           Text(
             'Contact: ${_displayValue(record.instrumentInchargeContactNo)}',
-            style: const TextStyle(color: Colors.white70, fontSize: 12.8),
+            style: TextStyle(color: palette.mutedText, fontSize: 12.8),
           ),
           const SizedBox(height: 6),
           Text(
             'Tenure: ${_formatTenure(record.tenureFrom, record.tenureTo)}',
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: palette.mutedText,
               fontSize: 12.8,
               height: 1.4,
             ),
@@ -486,8 +500,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
             const SizedBox(height: 6),
             Text(
               'Notes: ${record.notes.trim()}',
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: palette.mutedText,
                 fontSize: 12.8,
                 height: 1.4,
               ),
@@ -496,7 +510,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           const SizedBox(height: 6),
           Text(
             'Added on: ${_formatDate(record.createdAt)}',
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
+            style: TextStyle(color: palette.subtleText, fontSize: 12),
           ),
         ],
       ),
@@ -506,20 +520,24 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
   Widget _buildInchargeHistoryPreviewCard(
     InstrumentInchargeHistoryRecord record,
   ) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             _displayValue(record.instrumentIncharge),
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 14,
               fontWeight: FontWeight.w700,
             ),
@@ -527,8 +545,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           const SizedBox(height: 8),
           Text(
             'Tenure: ${_formatTenure(record.tenureFrom, record.tenureTo)}',
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: palette.mutedText,
               fontSize: 12.8,
               height: 1.4,
             ),
@@ -536,7 +554,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           const SizedBox(height: 6),
           Text(
             'Contact: ${_displayValue(record.instrumentInchargeContactNo)}',
-            style: const TextStyle(color: Colors.white70, fontSize: 12.8),
+            style: TextStyle(color: palette.mutedText, fontSize: 12.8),
           ),
         ],
       ),
@@ -547,8 +565,9 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: context.labmate.panel,
       builder: (context) {
+        final colorScheme = context.colorScheme;
         final records = _instrument.serviceHistory.reversed.toList();
 
         return SafeArea(
@@ -558,10 +577,10 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Service History',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colorScheme.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -592,8 +611,9 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: context.labmate.panel,
       builder: (context) {
+        final colorScheme = context.colorScheme;
         final records = _instrument.inchargeHistory.reversed.toList();
 
         return SafeArea(
@@ -603,10 +623,10 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'In-charge History',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colorScheme.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.w700,
                   ),
@@ -647,10 +667,12 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
     final record = await showModalBottomSheet<InstrumentServiceHistoryRecord>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: context.labmate.panel,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            final colorScheme = context.colorScheme;
+            final palette = context.labmate;
             return Padding(
               padding: EdgeInsets.only(
                 left: 16,
@@ -666,10 +688,10 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Add service record',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: colorScheme.onSurface,
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
@@ -691,7 +713,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: serviceInchargeController,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: colorScheme.onSurface),
                           decoration: _sheetInputDecoration('Service incharge'),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
@@ -703,7 +725,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: contactController,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: colorScheme.onSurface),
                           keyboardType: TextInputType.phone,
                           decoration: _sheetInputDecoration(
                             'Service incharge contact no',
@@ -712,7 +734,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: detailsController,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: colorScheme.onSurface),
                           maxLines: 3,
                           decoration: _sheetInputDecoration('Service details'),
                           validator: (value) {
@@ -728,9 +750,9 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                             Expanded(
                               child: TextButton(
                                 onPressed: () => Navigator.pop(context),
-                                child: const Text(
+                                child: Text(
                                   'Cancel',
-                                  style: TextStyle(color: Colors.white70),
+                                  style: TextStyle(color: palette.mutedText),
                                 ),
                               ),
                             ),
@@ -747,10 +769,11 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                                       serviceDate: serviceDate == null
                                           ? null
                                           : Timestamp.fromDate(serviceDate!),
-                                      serviceDetails:
-                                          detailsController.text.trim(),
-                                      serviceIncharge:
-                                          serviceInchargeController.text.trim(),
+                                      serviceDetails: detailsController.text
+                                          .trim(),
+                                      serviceIncharge: serviceInchargeController
+                                          .text
+                                          .trim(),
                                       serviceInchargeContactNo:
                                           contactController.text.trim(),
                                       createdAt: Timestamp.now(),
@@ -797,10 +820,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
 
       setState(() {
         _instrument = _instrument.copyWith(
-          serviceHistory: [
-            ..._instrument.serviceHistory,
-            record,
-          ],
+          serviceHistory: [..._instrument.serviceHistory, record],
           updatedAt: Timestamp.now(),
         );
       });
@@ -826,10 +846,12 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
     final record = await showModalBottomSheet<InstrumentInchargeHistoryRecord>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: context.labmate.panel,
       builder: (sheetContext) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            final colorScheme = context.colorScheme;
+            final palette = context.labmate;
             return Padding(
               padding: EdgeInsets.only(
                 left: 16,
@@ -845,10 +867,10 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Add in-charge record',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: colorScheme.onSurface,
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
                           ),
@@ -856,7 +878,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                         const SizedBox(height: 14),
                         TextFormField(
                           controller: inchargeController,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: colorScheme.onSurface),
                           decoration: _sheetInputDecoration(
                             'Instrument in-charge',
                           ),
@@ -870,7 +892,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: contactController,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: colorScheme.onSurface),
                           keyboardType: TextInputType.phone,
                           decoration: _sheetInputDecoration(
                             'Instrument in-charge contact no',
@@ -887,7 +909,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                             }
                             setSheetState(() {
                               tenureFrom = picked;
-                              if (tenureTo != null && tenureTo!.isBefore(picked)) {
+                              if (tenureTo != null &&
+                                  tenureTo!.isBefore(picked)) {
                                 tenureTo = picked;
                               }
                             });
@@ -898,7 +921,9 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                           label: 'Tenure to',
                           value: tenureTo,
                           onTap: () async {
-                            final picked = await _pickDate(tenureTo ?? tenureFrom);
+                            final picked = await _pickDate(
+                              tenureTo ?? tenureFrom,
+                            );
                             if (picked == null) {
                               return;
                             }
@@ -910,7 +935,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: notesController,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: colorScheme.onSurface),
                           maxLines: 3,
                           decoration: _sheetInputDecoration('Notes'),
                         ),
@@ -920,9 +945,9 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                             Expanded(
                               child: TextButton(
                                 onPressed: () => Navigator.pop(context),
-                                child: const Text(
+                                child: Text(
                                   'Cancel',
-                                  style: TextStyle(color: Colors.white70),
+                                  style: TextStyle(color: palette.mutedText),
                                 ),
                               ),
                             ),
@@ -936,8 +961,9 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                                   Navigator.pop(
                                     context,
                                     InstrumentInchargeHistoryRecord(
-                                      instrumentIncharge:
-                                          inchargeController.text.trim(),
+                                      instrumentIncharge: inchargeController
+                                          .text
+                                          .trim(),
                                       instrumentInchargeContactNo:
                                           contactController.text.trim(),
                                       tenureFrom: tenureFrom == null
@@ -991,10 +1017,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
 
       setState(() {
         _instrument = _instrument.copyWith(
-          inchargeHistory: [
-            ..._instrument.inchargeHistory,
-            record,
-          ],
+          inchargeHistory: [..._instrument.inchargeHistory, record],
           updatedAt: Timestamp.now(),
         );
       });
@@ -1005,12 +1028,16 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
   }
 
   Widget _buildDesktopField(String label, String value) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1019,8 +1046,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: palette.subtleText,
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
@@ -1028,8 +1055,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           const SizedBox(height: 5),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 12.8,
               height: 1.3,
               fontWeight: FontWeight.w600,
@@ -1065,13 +1092,16 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
     VoidCallback? onAction,
     required List<Widget> children,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1081,8 +1111,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontSize: 14.4,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1115,9 +1145,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFF7C2D12).withOpacity(0.28),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFF59E0B).withOpacity(0.4),
-        ),
+        border: Border.all(color: const Color(0xFFF59E0B).withOpacity(0.4)),
       ),
       child: Text(
         message,
@@ -1131,13 +1159,16 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
   }
 
   Widget _buildDesktopHeader() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Row(
         children: [
@@ -1154,8 +1185,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                   _instrument.normalizedName,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontSize: 22,
                     fontWeight: FontWeight.w800,
                     height: 1.18,
@@ -1173,13 +1204,14 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                         vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.06),
+                        color: palette.panelAlt,
                         borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: palette.border),
                       ),
                       child: Text(
                         _instrument.normalizedCategory,
-                        style: const TextStyle(
-                          color: Colors.white70,
+                        style: TextStyle(
+                          color: palette.mutedText,
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),
@@ -1195,8 +1227,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                   'In-charge: ${_displayValue(_instrument.instrumentIncharge)}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white60,
+                  style: TextStyle(
+                    color: palette.subtleText,
                     fontSize: 12.8,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1240,27 +1272,24 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                     _buildDesktopSection(
                       title: 'Instrument Details',
                       children: [
-                        _buildDesktopGrid(
-                          [
-                            _buildDesktopField(
-                              'Arrived on',
-                              _formatDate(_instrument.arrivedOn),
-                            ),
-                            _buildDesktopField(
-                              'Brand',
-                              _displayValue(_instrument.brand),
-                            ),
-                            _buildDesktopField(
-                              'Serial no',
-                              _displayValue(_instrument.serialNo),
-                            ),
-                            _buildDesktopField(
-                              'Catalog number',
-                              _displayValue(_instrument.catalogNumber),
-                            ),
-                          ],
-                          columns: 2,
-                        ),
+                        _buildDesktopGrid([
+                          _buildDesktopField(
+                            'Arrived on',
+                            _formatDate(_instrument.arrivedOn),
+                          ),
+                          _buildDesktopField(
+                            'Brand',
+                            _displayValue(_instrument.brand),
+                          ),
+                          _buildDesktopField(
+                            'Serial no',
+                            _displayValue(_instrument.serialNo),
+                          ),
+                          _buildDesktopField(
+                            'Catalog number',
+                            _displayValue(_instrument.catalogNumber),
+                          ),
+                        ], columns: 2),
                         const SizedBox(height: 8),
                         _buildDesktopField(
                           'Specification',
@@ -1272,68 +1301,58 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                     _buildDesktopSection(
                       title: 'Current In-charge',
                       children: [
-                        _buildDesktopGrid(
-                          [
-                            _buildDesktopField(
-                              'Instrument in-charge',
-                              _displayValue(_instrument.instrumentIncharge),
+                        _buildDesktopGrid([
+                          _buildDesktopField(
+                            'Instrument in-charge',
+                            _displayValue(_instrument.instrumentIncharge),
+                          ),
+                          _buildDesktopField(
+                            'Contact no',
+                            _displayValue(
+                              _instrument.instrumentInchargeContactNo,
                             ),
-                            _buildDesktopField(
-                              'Contact no',
-                              _displayValue(
-                                _instrument.instrumentInchargeContactNo,
-                              ),
+                          ),
+                          _buildDesktopField(
+                            'Current tenure',
+                            _formatTenure(
+                              _instrument.instrumentInchargeTenureFrom,
+                              _instrument.instrumentInchargeTenureTo,
                             ),
-                            _buildDesktopField(
-                              'Current tenure',
-                              _formatTenure(
-                                _instrument.instrumentInchargeTenureFrom,
-                                _instrument.instrumentInchargeTenureTo,
-                              ),
-                            ),
-                          ],
-                          columns: 3,
-                        ),
+                          ),
+                        ], columns: 3),
                       ],
                     ),
                     const SizedBox(height: 10),
                     _buildDesktopSection(
                       title: 'Maintenance Status',
                       children: [
-                        _buildDesktopGrid(
-                          [
-                            _buildDesktopField(
-                              'Status',
-                              _instrument.normalizedStatus,
-                            ),
-                            _buildDesktopField(
-                              'Last serviced on',
-                              _formatDate(_instrument.lastServicedOn),
-                            ),
-                            _buildDesktopField(
-                              'Next service due',
-                              _formatDate(_instrument.nextServiceDue),
-                            ),
-                            _buildDesktopField(
-                              'Service date',
-                              _formatDate(_instrument.serviceDate),
-                            ),
-                            _buildDesktopField(
-                              'Service incharge',
-                              _displayValue(_instrument.serviceIncharge),
-                            ),
-                            _buildDesktopField(
-                              'Service contact',
-                              _displayValue(
-                                _instrument.serviceInchargeContactNo,
-                              ),
-                            ),
-                          ],
-                          columns: 3,
-                        ),
-                        if (_serviceTimingMessage(
-                              _instrument.nextServiceDue,
-                            ) !=
+                        _buildDesktopGrid([
+                          _buildDesktopField(
+                            'Status',
+                            _instrument.normalizedStatus,
+                          ),
+                          _buildDesktopField(
+                            'Last serviced on',
+                            _formatDate(_instrument.lastServicedOn),
+                          ),
+                          _buildDesktopField(
+                            'Next service due',
+                            _formatDate(_instrument.nextServiceDue),
+                          ),
+                          _buildDesktopField(
+                            'Service date',
+                            _formatDate(_instrument.serviceDate),
+                          ),
+                          _buildDesktopField(
+                            'Service incharge',
+                            _displayValue(_instrument.serviceIncharge),
+                          ),
+                          _buildDesktopField(
+                            'Service contact',
+                            _displayValue(_instrument.serviceInchargeContactNo),
+                          ),
+                        ], columns: 3),
+                        if (_serviceTimingMessage(_instrument.nextServiceDue) !=
                             null) ...[
                           const SizedBox(height: 8),
                           _buildDesktopServiceAlert(),
@@ -1373,11 +1392,7 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                       actionLabel: 'Add service record',
                       onAction: _addServiceRecord,
                       children: _instrument.serviceHistory.isEmpty
-                          ? [
-                              _buildHistoryEmptyState(
-                                'No service history yet',
-                              ),
-                            ]
+                          ? [_buildHistoryEmptyState('No service history yet')]
                           : [
                               _buildServiceHistoryPreviewCard(
                                 _instrument.serviceHistory.last,
@@ -1423,36 +1438,36 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Instrument Details',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Instrument Details'),
         actions: [
           PopupMenuButton<String>(
             tooltip: 'Instrument options',
-            color: const Color(0xFF1E293B),
+            color: palette.panel,
             onSelected: (value) {
               if (value == 'delete') {
                 _deleteInstrument();
               }
             },
             itemBuilder: (context) {
-              return const [
+              return [
                 PopupMenuItem<String>(
                   value: 'delete',
                   child: Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.delete_outline_rounded,
                         color: Color(0xFFFB7185),
                         size: 20,
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       Text(
                         'Delete',
-                        style: TextStyle(color: Colors.white),
+                        style: TextStyle(color: colorScheme.onSurface),
                       ),
                     ],
                   ),
@@ -1477,178 +1492,188 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
               child: ListView(
                 padding: const EdgeInsets.all(14),
                 children: [
-            _InstrumentDetailHero(
-              instrument: _instrument,
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: _openEdit,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF14B8A6),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                icon: const Icon(Icons.edit_rounded),
-                label: const Text(
-                  'Edit Instrument',
-                  style: TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            _buildSection(
-              title: 'Basic Information',
-              children: [
-                _buildField('Instrument name', _instrument.normalizedName),
-                const SizedBox(height: 10),
-                _buildField('Category', _displayValue(_instrument.category)),
-                const SizedBox(height: 10),
-                _buildField('Arrived on', _formatDate(_instrument.arrivedOn)),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _buildSection(
-              title: 'Instrument Details',
-              children: [
-                _buildField('Brand', _displayValue(_instrument.brand)),
-                const SizedBox(height: 10),
-                _buildField('Serial no', _displayValue(_instrument.serialNo)),
-                const SizedBox(height: 10),
-                _buildField(
-                  'Catalog number',
-                  _displayValue(_instrument.catalogNumber),
-                ),
-                const SizedBox(height: 10),
-                _buildField(
-                  'Specification',
-                  _displayValue(_instrument.specification),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _buildSection(
-              title: 'User Guide',
-              children: [
-                _buildField('User guide', _displayValue(_instrument.userGuide)),
-                const SizedBox(height: 10),
-                _buildField(
-                  'Instrument in-charge',
-                  _displayValue(_instrument.instrumentIncharge),
-                ),
-                const SizedBox(height: 10),
-                _buildField(
-                  'Instrument in-charge contact no',
-                  _displayValue(_instrument.instrumentInchargeContactNo),
-                ),
-                const SizedBox(height: 10),
-                _buildField(
-                  'Current tenure',
-                  _formatTenure(
-                    _instrument.instrumentInchargeTenureFrom,
-                    _instrument.instrumentInchargeTenureTo,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _buildSection(
-              title: 'Current Servicing',
-              children: [
-                _buildField('Status', _instrument.normalizedStatus),
-                const SizedBox(height: 10),
-                _buildField(
-                  'Last serviced on',
-                  _formatDate(_instrument.lastServicedOn),
-                ),
-                const SizedBox(height: 10),
-                _buildField(
-                  'Next service due',
-                  _formatDate(_instrument.nextServiceDue),
-                ),
-                if (_serviceTimingMessage(_instrument.nextServiceDue) != null) ...[
-                  const SizedBox(height: 10),
-                  Container(
+                  _InstrumentDetailHero(instrument: _instrument),
+                  const SizedBox(height: 14),
+                  SizedBox(
                     width: double.infinity,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF7C2D12).withOpacity(0.28),
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(
-                        color: const Color(0xFFF59E0B).withOpacity(0.4),
+                    child: ElevatedButton.icon(
+                      onPressed: _openEdit,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF14B8A6),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
                       ),
-                    ),
-                    child: Text(
-                      _serviceTimingMessage(_instrument.nextServiceDue)!,
-                      style: const TextStyle(
-                        color: Color(0xFFFCD34D),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
+                      icon: const Icon(Icons.edit_rounded),
+                      label: const Text(
+                        'Edit Instrument',
+                        style: TextStyle(fontWeight: FontWeight.w700),
                       ),
                     ),
                   ),
-                ],
-                const SizedBox(height: 10),
-                _buildField(
-                  'Service incharge',
-                  _displayValue(_instrument.serviceIncharge),
-                ),
-                const SizedBox(height: 10),
-                _buildField(
-                  'Service incharge contact no',
-                  _displayValue(_instrument.serviceInchargeContactNo),
-                ),
-                const SizedBox(height: 10),
-                _buildField(
-                  'Maintenance notes',
-                  _displayValue(_instrument.maintenanceNotes),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _buildSection(
-              title: 'Service History',
-              actionLabel: 'Add service record',
-              onAction: _addServiceRecord,
-              children: _instrument.serviceHistory.isEmpty
-                  ? [
-                      _buildHistoryEmptyState('No service history yet'),
-                    ]
-                  : [
-                      _buildServiceHistoryPreviewCard(
-                        _instrument.serviceHistory.last,
+                  const SizedBox(height: 14),
+                  _buildSection(
+                    title: 'Basic Information',
+                    children: [
+                      _buildField(
+                        'Instrument name',
+                        _instrument.normalizedName,
                       ),
-                      const SizedBox(height: 4),
-                      _buildViewAllHistoryButton(
-                        label: 'View all history',
-                        onTap: _showServiceHistorySheet,
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Category',
+                        _displayValue(_instrument.category),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Arrived on',
+                        _formatDate(_instrument.arrivedOn),
                       ),
                     ],
-            ),
-            const SizedBox(height: 14),
-            _buildSection(
-              title: 'In-charge History',
-              actionLabel: 'Add in-charge record',
-              onAction: _addInchargeRecord,
-              children: _instrument.inchargeHistory.isEmpty
-                  ? [
-                      _buildHistoryEmptyState('No in-charge history yet'),
-                    ]
-                  : [
-                      _buildInchargeHistoryPreviewCard(
-                        _instrument.inchargeHistory.last,
+                  ),
+                  const SizedBox(height: 14),
+                  _buildSection(
+                    title: 'Instrument Details',
+                    children: [
+                      _buildField('Brand', _displayValue(_instrument.brand)),
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Serial no',
+                        _displayValue(_instrument.serialNo),
                       ),
-                      const SizedBox(height: 4),
-                      _buildViewAllHistoryButton(
-                        label: 'View all history',
-                        onTap: _showInchargeHistorySheet,
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Catalog number',
+                        _displayValue(_instrument.catalogNumber),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Specification',
+                        _displayValue(_instrument.specification),
                       ),
                     ],
-            ),
+                  ),
+                  const SizedBox(height: 14),
+                  _buildSection(
+                    title: 'User Guide',
+                    children: [
+                      _buildField(
+                        'User guide',
+                        _displayValue(_instrument.userGuide),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Instrument in-charge',
+                        _displayValue(_instrument.instrumentIncharge),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Instrument in-charge contact no',
+                        _displayValue(_instrument.instrumentInchargeContactNo),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Current tenure',
+                        _formatTenure(
+                          _instrument.instrumentInchargeTenureFrom,
+                          _instrument.instrumentInchargeTenureTo,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _buildSection(
+                    title: 'Current Servicing',
+                    children: [
+                      _buildField('Status', _instrument.normalizedStatus),
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Last serviced on',
+                        _formatDate(_instrument.lastServicedOn),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Next service due',
+                        _formatDate(_instrument.nextServiceDue),
+                      ),
+                      if (_serviceTimingMessage(_instrument.nextServiceDue) !=
+                          null) ...[
+                        const SizedBox(height: 10),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF7C2D12).withOpacity(0.28),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: const Color(0xFFF59E0B).withOpacity(0.4),
+                            ),
+                          ),
+                          child: Text(
+                            _serviceTimingMessage(_instrument.nextServiceDue)!,
+                            style: const TextStyle(
+                              color: Color(0xFFFCD34D),
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Service incharge',
+                        _displayValue(_instrument.serviceIncharge),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Service incharge contact no',
+                        _displayValue(_instrument.serviceInchargeContactNo),
+                      ),
+                      const SizedBox(height: 10),
+                      _buildField(
+                        'Maintenance notes',
+                        _displayValue(_instrument.maintenanceNotes),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+                  _buildSection(
+                    title: 'Service History',
+                    actionLabel: 'Add service record',
+                    onAction: _addServiceRecord,
+                    children: _instrument.serviceHistory.isEmpty
+                        ? [_buildHistoryEmptyState('No service history yet')]
+                        : [
+                            _buildServiceHistoryPreviewCard(
+                              _instrument.serviceHistory.last,
+                            ),
+                            const SizedBox(height: 4),
+                            _buildViewAllHistoryButton(
+                              label: 'View all history',
+                              onTap: _showServiceHistorySheet,
+                            ),
+                          ],
+                  ),
+                  const SizedBox(height: 14),
+                  _buildSection(
+                    title: 'In-charge History',
+                    actionLabel: 'Add in-charge record',
+                    onAction: _addInchargeRecord,
+                    children: _instrument.inchargeHistory.isEmpty
+                        ? [_buildHistoryEmptyState('No in-charge history yet')]
+                        : [
+                            _buildInchargeHistoryPreviewCard(
+                              _instrument.inchargeHistory.last,
+                            ),
+                            const SizedBox(height: 4),
+                            _buildViewAllHistoryButton(
+                              label: 'View all history',
+                              onTap: _showInchargeHistorySheet,
+                            ),
+                          ],
+                  ),
                 ],
               ),
             );
@@ -1666,12 +1691,15 @@ class _InstrumentDetailHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1687,8 +1715,8 @@ class _InstrumentDetailHero extends StatelessWidget {
               children: [
                 Text(
                   instrument.normalizedName,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     height: 1.25,
@@ -1701,13 +1729,14 @@ class _InstrumentDetailHero extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.06),
+                    color: palette.panelAlt,
                     borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: palette.border),
                   ),
                   child: Text(
                     instrument.normalizedCategory,
-                    style: const TextStyle(
-                      color: Colors.white70,
+                    style: TextStyle(
+                      color: palette.mutedText,
                       fontSize: 12,
                       fontWeight: FontWeight.w700,
                     ),
@@ -1814,14 +1843,15 @@ class _InstrumentDetailPreview extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageProvider = _resolveImageProvider();
+    final palette = context.labmate;
 
     return Container(
       height: 112,
       width: 112,
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),

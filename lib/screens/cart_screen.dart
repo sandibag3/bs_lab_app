@@ -7,6 +7,7 @@ import '../services/activity_service.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/order_service.dart';
 import '../services/requirement_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 
 enum CartViewMode { compact, detailed }
@@ -217,6 +218,9 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildViewToggle() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -224,12 +228,12 @@ class _CartScreenState extends State<CartScreen> {
         ChoiceChip(
           label: const Text('Compact'),
           selected: _viewMode == CartViewMode.compact,
-          selectedColor: const Color(0xFF14B8A6),
-          backgroundColor: const Color(0xFF1E293B),
+          selectedColor: colorScheme.primary.withOpacity(0.16),
+          backgroundColor: palette.panelAlt,
           labelStyle: TextStyle(
             color: _viewMode == CartViewMode.compact
-                ? Colors.white
-                : Colors.white70,
+                ? colorScheme.primary
+                : palette.mutedText,
             fontWeight: FontWeight.w600,
           ),
           onSelected: (_) {
@@ -241,12 +245,12 @@ class _CartScreenState extends State<CartScreen> {
         ChoiceChip(
           label: const Text('Detailed'),
           selected: _viewMode == CartViewMode.detailed,
-          selectedColor: const Color(0xFF14B8A6),
-          backgroundColor: const Color(0xFF1E293B),
+          selectedColor: colorScheme.primary.withOpacity(0.16),
+          backgroundColor: palette.panelAlt,
           labelStyle: TextStyle(
             color: _viewMode == CartViewMode.detailed
-                ? Colors.white
-                : Colors.white70,
+                ? colorScheme.primary
+                : palette.mutedText,
             fontWeight: FontWeight.w600,
           ),
           onSelected: (_) {
@@ -260,24 +264,27 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildSortDropdown() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(14),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<CartSortOption>(
           value: _sortOption,
-          dropdownColor: const Color(0xFF1E293B),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: palette.panel,
+          style: TextStyle(color: colorScheme.onSurface),
           isExpanded: true,
           items: CartSortOption.values.map((option) {
             return DropdownMenuItem<CartSortOption>(
               value: option,
               child: Text(
                 'Sort: ${_sortLabel(option)}',
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
               ),
             );
           }).toList(),
@@ -293,21 +300,24 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildControlsCard(int itemCount) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 12, 12, 8),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '$itemCount ${itemCount == 1 ? 'item' : 'items'} in cart',
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 14.5,
               fontWeight: FontWeight.w700,
             ),
@@ -443,14 +453,16 @@ class _CartScreenState extends State<CartScreen> {
     required bool isPiAdmin,
   }) {
     final isConsumable = _isConsumableRequirement(req);
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -461,8 +473,8 @@ class _CartScreenState extends State<CartScreen> {
               Expanded(
                 child: Text(
                   _requirementDisplayName(req),
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.bold,
                     fontSize: 15.5,
                   ),
@@ -474,48 +486,45 @@ class _CartScreenState extends State<CartScreen> {
           ),
           const SizedBox(height: 10),
           if (!isConsumable && req.cas.trim().isNotEmpty) ...[
-            Text(
-              'CAS: ${req.cas}',
-              style: const TextStyle(color: Colors.white70),
-            ),
+            Text('CAS: ${req.cas}', style: TextStyle(color: palette.mutedText)),
             const SizedBox(height: 4),
           ],
           if (req.packSize.trim().isNotEmpty) ...[
             Text(
               'Pack Size: ${req.packSize}',
-              style: const TextStyle(color: Colors.white70),
+              style: TextStyle(color: palette.mutedText),
             ),
             const SizedBox(height: 4),
           ],
           if (req.brand.trim().isNotEmpty) ...[
             Text(
               'Brand: ${req.brand}',
-              style: const TextStyle(color: Colors.white70),
+              style: TextStyle(color: palette.mutedText),
             ),
             const SizedBox(height: 4),
           ],
           if (req.vendor.trim().isNotEmpty) ...[
             Text(
               'Vendor: ${req.vendor}',
-              style: const TextStyle(color: Colors.white70),
+              style: TextStyle(color: palette.mutedText),
             ),
             const SizedBox(height: 4),
           ],
           Text(
             'Qty: ${req.quantity.isEmpty ? "-" : req.quantity}',
-            style: const TextStyle(color: Colors.white70),
+            style: TextStyle(color: palette.mutedText),
           ),
           if (req.modeOfPurchase.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
               'Mode: ${req.modeOfPurchase}',
-              style: const TextStyle(color: Colors.white70),
+              style: TextStyle(color: palette.mutedText),
             ),
           ],
           const SizedBox(height: 4),
           Text(
             'Requested by: ${req.userName.isEmpty ? "-" : req.userName}',
-            style: const TextStyle(color: Colors.white70),
+            style: TextStyle(color: palette.mutedText),
           ),
           const SizedBox(height: 10),
           _buildStatusBadge(req),
@@ -523,10 +532,7 @@ class _CartScreenState extends State<CartScreen> {
             const SizedBox(height: 4),
             Text(
               'Updated by: ${req.approvedBy}',
-              style: const TextStyle(
-                color: Colors.white54,
-                fontSize: 12.5,
-              ),
+              style: TextStyle(color: palette.subtleText, fontSize: 12.5),
             ),
           ],
           if (isPiAdmin && req.status.toLowerCase() == 'pending') ...[
@@ -581,9 +587,7 @@ class _CartScreenState extends State<CartScreen> {
 
                   if (!context.mounted) return;
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Order placed successfully'),
-                    ),
+                    const SnackBar(content: Text('Order placed successfully')),
                   );
                 },
                 style: ElevatedButton.styleFrom(
@@ -609,14 +613,16 @@ class _CartScreenState extends State<CartScreen> {
       req: req,
       isPiAdmin: isPiAdmin,
     );
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -629,8 +635,8 @@ class _CartScreenState extends State<CartScreen> {
                   _requirementDisplayName(req),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
                     fontSize: 15,
                     height: 1.2,
@@ -647,15 +653,18 @@ class _CartScreenState extends State<CartScreen> {
             runSpacing: 8,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.06),
+                  color: palette.panelAlt,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
                   'Qty: ${req.quantity.isEmpty ? "-" : req.quantity}',
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: palette.mutedText,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -674,6 +683,9 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   Widget _buildEmptyState() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -681,34 +693,34 @@ class _CartScreenState extends State<CartScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: palette.panel,
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: palette.border),
           ),
-          child: const Column(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
+              const Icon(
                 Icons.assignment_outlined,
                 color: Color(0xFF14B8A6),
                 size: 30,
               ),
-              SizedBox(height: 12),
+              const SizedBox(height: 12),
               Text(
                 'No pending cart items.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 'Approved items awaiting order placement and pending approvals will appear here.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: palette.mutedText,
                   fontSize: 13,
                   height: 1.4,
                 ),
@@ -724,82 +736,83 @@ class _CartScreenState extends State<CartScreen> {
   Widget build(BuildContext context) {
     final appState = AppState.instance;
     final bool isPiAdmin = appState.isPiAdmin;
+    final palette = context.labmate;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Cart', style: TextStyle(color: Colors.white)),
-      ),
+      appBar: AppBar(title: const Text('Cart')),
       body: ResponsivePageContainer(
         child: StreamBuilder<List<RequirementModel>>(
-        stream: requirementService.getRequirements(),
-        builder: (context, snapshot) {
-          if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  FirestoreAccessGuard.userMessage,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, height: 1.4),
+          stream: requirementService.getRequirements(),
+          builder: (context, snapshot) {
+            if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    FirestoreAccessGuard.userMessage,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: palette.mutedText, height: 1.4),
+                  ),
                 ),
-              ),
-            );
-          }
+              );
+            }
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  FirestoreAccessGuard.messageFor(snapshot.error),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, height: 1.4),
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(
+                    FirestoreAccessGuard.messageFor(snapshot.error),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: palette.mutedText, height: 1.4),
+                  ),
                 ),
-              ),
+              );
+            }
+
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final visibleRequirements = _visibleCartRequirements(
+              snapshot.data!,
             );
-          }
+            final sortedList = _sortRequirements(visibleRequirements);
 
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+            if (sortedList.isEmpty) {
+              return _buildEmptyState();
+            }
 
-          final visibleRequirements = _visibleCartRequirements(snapshot.data!);
-          final sortedList = _sortRequirements(visibleRequirements);
+            return Column(
+              children: [
+                _buildControlsCard(sortedList.length),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                    itemCount: sortedList.length,
+                    itemBuilder: (context, index) {
+                      final req = sortedList[index];
 
-          if (sortedList.isEmpty) {
-            return _buildEmptyState();
-          }
+                      if (_viewMode == CartViewMode.compact) {
+                        return _buildCompactCard(
+                          context: context,
+                          req: req,
+                          isPiAdmin: isPiAdmin,
+                        );
+                      }
 
-          return Column(
-            children: [
-              _buildControlsCard(sortedList.length),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                  itemCount: sortedList.length,
-                  itemBuilder: (context, index) {
-                    final req = sortedList[index];
-
-                    if (_viewMode == CartViewMode.compact) {
-                      return _buildCompactCard(
+                      return _buildDetailedCard(
                         context: context,
                         req: req,
                         isPiAdmin: isPiAdmin,
                       );
-                    }
-
-                    return _buildDetailedCard(
-                      context: context,
-                      req: req,
-                      isPiAdmin: isPiAdmin,
-                    );
-                  },
+                    },
+                  ),
                 ),
-              ),
-            ],
-          );
-        },
-      ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }

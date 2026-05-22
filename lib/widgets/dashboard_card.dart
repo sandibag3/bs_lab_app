@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/labmate_theme.dart';
 
 class DashboardCard extends StatelessWidget {
   final String title;
@@ -16,8 +17,11 @@ class DashboardCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Material(
-      color: const Color(0xFF1E293B),
+      color: palette.panel,
       borderRadius: BorderRadius.circular(18),
       elevation: 1,
       child: InkWell(
@@ -53,10 +57,7 @@ class DashboardCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: const Color(0xFFFB7185),
                           borderRadius: BorderRadius.circular(999),
-                          border: Border.all(
-                            color: const Color(0xFF1E293B),
-                            width: 2,
-                          ),
+                          border: Border.all(color: palette.panel, width: 2),
                         ),
                         alignment: Alignment.center,
                         child: Text(
@@ -77,10 +78,10 @@ class DashboardCard extends StatelessWidget {
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: colorScheme.onSurface,
                   height: 1.2,
                 ),
               ),

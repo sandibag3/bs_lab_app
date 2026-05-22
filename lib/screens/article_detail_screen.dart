@@ -3,6 +3,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/rss_article.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 
 class ArticleDetailScreen extends StatefulWidget {
@@ -29,8 +30,7 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   void initState() {
     super.initState();
     _articles = widget.articles.isEmpty ? [widget.article] : widget.articles;
-    final boundedIndex =
-        widget.initialIndex.clamp(0, _articles.length - 1) as int;
+    final boundedIndex = widget.initialIndex.clamp(0, _articles.length - 1);
     _currentIndex = boundedIndex;
   }
 
@@ -70,12 +70,15 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
     }
 
     try {
-      await Share.share(buffer.toString().trim(), subject: article.title.trim());
+      await Share.share(
+        buffer.toString().trim(),
+        subject: article.title.trim(),
+      );
     } catch (_) {
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not share article')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Could not share article')));
     }
   }
 
@@ -104,18 +107,17 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final article = _article;
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Article Details',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Article Details'),
         actions: [
           IconButton(
             tooltip: 'Share article',
             onPressed: () => _shareArticle(context),
-            icon: const Icon(Icons.share_rounded, color: Colors.white),
+            icon: Icon(Icons.share_rounded, color: colorScheme.onSurface),
           ),
         ],
       ),
@@ -125,113 +127,113 @@ class _ArticleDetailScreenState extends State<ArticleDetailScreen> {
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-            _ArticleImage(article: article, height: 270),
-            const SizedBox(height: 18),
-            Text(
-              article.title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                height: 1.25,
+              _ArticleImage(article: article, height: 270),
+              const SizedBox(height: 18),
+              Text(
+                article.title,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  height: 1.25,
+                ),
               ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _MetaPill(text: article.source),
-                if (article.publishedAt != null)
-                  _MetaPill(text: _formatDate(article.publishedAt!)),
+              const SizedBox(height: 14),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _MetaPill(text: article.source),
+                  if (article.publishedAt != null)
+                    _MetaPill(text: _formatDate(article.publishedAt!)),
+                ],
+              ),
+              if (article.authors.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const _SectionTitle('Authors'),
+                Text(
+                  article.authors.join(', '),
+                  style: TextStyle(color: palette.mutedText, height: 1.45),
+                ),
               ],
-            ),
-            if (article.authors.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              const _SectionTitle('Authors'),
-              Text(
-                article.authors.join(', '),
-                style: const TextStyle(color: Colors.white70, height: 1.45),
-              ),
-            ],
-            if (article.correspondingAuthor.trim().isNotEmpty) ...[
-              const SizedBox(height: 16),
-              const _SectionTitle('Corresponding Author'),
-              Text(
-                article.correspondingAuthor,
-                style: const TextStyle(color: Colors.white70, height: 1.45),
-              ),
-            ],
-            if (article.summary.trim().isNotEmpty) ...[
-              const SizedBox(height: 20),
-              const _SectionTitle('Summary'),
-              Text(
-                article.summary,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                  height: 1.5,
+              if (article.correspondingAuthor.trim().isNotEmpty) ...[
+                const SizedBox(height: 16),
+                const _SectionTitle('Corresponding Author'),
+                Text(
+                  article.correspondingAuthor,
+                  style: TextStyle(color: palette.mutedText, height: 1.45),
                 ),
-              ),
-            ],
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => _openFullArticle(context),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF14B8A6),
-                  padding: const EdgeInsets.symmetric(vertical: 15),
-                ),
-                icon: const Icon(
-                  Icons.open_in_new_rounded,
-                  color: Colors.white,
-                ),
-                label: const Text(
-                  'Open Full Article',
+              ],
+              if (article.summary.trim().isNotEmpty) ...[
+                const SizedBox(height: 20),
+                const _SectionTitle('Summary'),
+                Text(
+                  article.summary,
                   style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _hasPrevious ? _goPrevious : null,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      disabledForegroundColor: Colors.white38,
-                      side: BorderSide(
-                        color: _hasPrevious ? Colors.white24 : Colors.white12,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    icon: const Icon(Icons.arrow_back_rounded),
-                    label: const Text('Previous'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _hasNext ? _goNext : null,
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      disabledForegroundColor: Colors.white38,
-                      side: BorderSide(
-                        color: _hasNext ? Colors.white24 : Colors.white12,
-                      ),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    icon: const Icon(Icons.arrow_forward_rounded),
-                    label: const Text('Next'),
+                    color: palette.mutedText,
+                    fontSize: 14,
+                    height: 1.5,
                   ),
                 ),
               ],
-            ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _openFullArticle(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF14B8A6),
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                  ),
+                  icon: const Icon(
+                    Icons.open_in_new_rounded,
+                    color: Colors.white,
+                  ),
+                  label: const Text(
+                    'Open Full Article',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _hasPrevious ? _goPrevious : null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colorScheme.onSurface,
+                        disabledForegroundColor: palette.subtleText,
+                        side: BorderSide(
+                          color: _hasPrevious ? palette.border : palette.border,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      label: const Text('Previous'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _hasNext ? _goNext : null,
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: colorScheme.onSurface,
+                        disabledForegroundColor: palette.subtleText,
+                        side: BorderSide(
+                          color: _hasNext ? palette.border : palette.border,
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      icon: const Icon(Icons.arrow_forward_rounded),
+                      label: const Text('Next'),
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         ),
@@ -249,13 +251,14 @@ class _ArticleImage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = article.displayImageUrl;
+    final palette = context.labmate;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(18),
       child: Container(
         height: height,
         width: double.infinity,
-        color: const Color(0xFF1E293B),
+        color: palette.panelAlt,
         child: imageUrl.isEmpty
             ? const _ImagePlaceholder()
             : Image.network(
@@ -275,16 +278,20 @@ class _ImagePlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.article_rounded, color: Colors.white30, size: 54),
-          SizedBox(height: 10),
+          Icon(
+            Icons.article_rounded,
+            color: context.labmate.subtleText,
+            size: 54,
+          ),
+          const SizedBox(height: 10),
           Text(
             'No article graphic available',
             style: TextStyle(
-              color: Colors.white38,
+              color: context.labmate.subtleText,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -302,16 +309,18 @@ class _MetaPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.white70,
+        style: TextStyle(
+          color: palette.mutedText,
           fontSize: 12,
           fontWeight: FontWeight.w700,
         ),

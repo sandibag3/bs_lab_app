@@ -4,6 +4,7 @@ import '../app_state.dart';
 import '../models/order_model.dart';
 import '../services/activity_service.dart';
 import '../services/order_service.dart';
+import '../theme/labmate_theme.dart';
 
 class AddNewConsumableScreen extends StatefulWidget {
   final OrderModel order;
@@ -58,11 +59,13 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
   }
 
   InputDecoration inputDecoration(String label) {
+    final palette = context.labmate;
+
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: palette.subtleText),
       filled: true,
-      fillColor: const Color(0xFF1E293B),
+      fillColor: palette.panel,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -283,14 +286,11 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
   @override
   Widget build(BuildContext context) {
     final order = widget.order;
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Add New Consumable',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Add New Consumable')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -300,18 +300,19 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
               Container(
                 padding: const EdgeInsets.all(14),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: palette.border),
                 ),
-                child: const Text(
+                child: Text(
                   'Prefilled from the delivered consumable order. Review the basic details, edit if needed, and confirm entry to create the consumables inventory record.',
-                  style: TextStyle(color: Colors.white70, height: 1.4),
+                  style: TextStyle(color: palette.mutedText, height: 1.4),
                 ),
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: consumableTypeController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: inputDecoration('Consumable Type'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -323,7 +324,7 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
               const SizedBox(height: 14),
               TextFormField(
                 controller: quantityController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: inputDecoration('Quantity'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -335,41 +336,42 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
               const SizedBox(height: 14),
               TextFormField(
                 controller: brandController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: inputDecoration('Brand'),
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: vendorController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: inputDecoration('Vendor'),
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: modeOfPurchaseController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: inputDecoration('Mode of Purchase'),
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: orderedByController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: inputDecoration('Ordered By'),
               ),
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: palette.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Delivery Details',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: colorScheme.onSurface,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
@@ -377,12 +379,12 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
                     const SizedBox(height: 10),
                     Text(
                       'Received By: ${order.receivedBy.trim().isEmpty ? '-' : order.receivedBy}',
-                      style: const TextStyle(color: Colors.white70),
+                      style: TextStyle(color: palette.mutedText),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       'Delivered On: ${_formatDate(order.deliveredAt)}',
-                      style: const TextStyle(color: Colors.white70),
+                      style: TextStyle(color: palette.mutedText),
                     ),
                   ],
                 ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../../models/experiment_note_model.dart';
 import '../../services/firestore_access_guard.dart';
+import '../../theme/labmate_theme.dart';
 
 class ExperimentNotesPanel extends StatelessWidget {
   final TextEditingController noteController;
@@ -28,6 +29,8 @@ class ExperimentNotesPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     final notesList = _NotesStreamList(
       notesStream: notesStream,
       formatDateTime: formatDateTime,
@@ -64,9 +67,9 @@ class ExperimentNotesPanel extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 11 : 12),
       decoration: BoxDecoration(
-        color: docked ? const Color(0xFF0C1428) : const Color(0xFF0F172A),
+        color: docked ? palette.panelAlt : palette.panel,
         borderRadius: BorderRadius.circular(compact ? 16 : 18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -93,8 +96,8 @@ class ExperimentNotesPanel extends StatelessWidget {
                   children: [
                     Text(
                       docked ? 'Notes Dock' : 'Daily Notes',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
                         fontSize: 13.8,
                         fontWeight: FontWeight.w700,
                       ),
@@ -104,8 +107,8 @@ class ExperimentNotesPanel extends StatelessWidget {
                       docked
                           ? 'Progress log and handoff notes'
                           : 'Progress log and updates',
-                      style: const TextStyle(
-                        color: Colors.white54,
+                      style: TextStyle(
+                        color: palette.subtleText,
                         fontSize: 11.4,
                         fontWeight: FontWeight.w500,
                       ),
@@ -118,10 +121,10 @@ class ExperimentNotesPanel extends StatelessWidget {
           const SizedBox(height: 10),
           composer,
           const SizedBox(height: 10),
-          const Text(
+          Text(
             'Updates',
             style: TextStyle(
-              color: Colors.white54,
+              color: palette.subtleText,
               fontSize: 11.2,
               fontWeight: FontWeight.w700,
             ),
@@ -136,16 +139,16 @@ class ExperimentNotesPanel extends StatelessWidget {
   Widget _buildInputField() {
     return TextField(
       controller: noteController,
-      style: const TextStyle(color: Colors.white, fontSize: 12.6),
+      style: const TextStyle(fontSize: 12.6),
       minLines: docked ? 2 : 3,
       maxLines: docked ? 3 : 4,
       textCapitalization: TextCapitalization.sentences,
       decoration: InputDecoration(
         hintText: 'Add progress, issues, observations, or next steps...',
-        hintStyle: const TextStyle(color: Colors.white38, fontSize: 12.2),
+        hintStyle: const TextStyle(fontSize: 12.2),
         isDense: true,
         filled: true,
-        fillColor: const Color(0xFF111C34),
+        fillColor: Colors.transparent,
         contentPadding: const EdgeInsets.all(12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -197,6 +200,8 @@ class _NotesStreamList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.colorScheme;
+    final palette = context.labmate;
     return StreamBuilder<List<ExperimentNoteModel>>(
       stream: notesStream,
       builder: (context, snapshot) {
@@ -232,9 +237,9 @@ class _NotesStreamList extends StatelessWidget {
               width: double.infinity,
               padding: EdgeInsets.all(compact ? 10 : 11),
               decoration: BoxDecoration(
-                color: const Color(0xFF111C34),
+                color: palette.panelAlt,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+                border: Border.all(color: palette.border),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -252,7 +257,7 @@ class _NotesStreamList extends StatelessWidget {
                       Container(
                         width: 1.5,
                         height: compact ? 44 : 52,
-                        color: Colors.white.withValues(alpha: 0.08),
+                        color: palette.border,
                       ),
                     ],
                   ),
@@ -264,7 +269,7 @@ class _NotesStreamList extends StatelessWidget {
                         Text(
                           note.note.trim(),
                           style: TextStyle(
-                            color: Colors.white,
+                            color: colorScheme.onSurface,
                             fontSize: compact ? 12.0 : 12.4,
                             height: 1.42,
                           ),
@@ -311,11 +316,13 @@ class _NoteMetaChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.05),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -324,8 +331,8 @@ class _NoteMetaChip extends StatelessWidget {
           const SizedBox(width: 5),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: palette.mutedText,
               fontSize: 11.0,
               fontWeight: FontWeight.w600,
             ),
@@ -343,18 +350,19 @@ class _MessageCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF111C34),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+        border: Border.all(color: palette.border),
       ),
       child: Text(
         message,
-        style: const TextStyle(
-          color: Colors.white70,
+        style: TextStyle(
+          color: palette.mutedText,
           fontSize: 12.2,
           height: 1.4,
         ),

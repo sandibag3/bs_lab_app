@@ -4,15 +4,13 @@ import '../models/lab_context_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/lab_service.dart';
 import '../services/lab_membership_service.dart';
+import '../theme/labmate_theme.dart';
 import 'home_screen.dart';
 
 class CreateLabScreen extends StatefulWidget {
   final AppState appState;
 
-  const CreateLabScreen({
-    super.key,
-    required this.appState,
-  });
+  const CreateLabScreen({super.key, required this.appState});
 
   @override
   State<CreateLabScreen> createState() => _CreateLabScreenState();
@@ -35,11 +33,12 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
   }
 
   InputDecoration _inputDecoration(String label) {
+    final palette = context.labmate;
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: palette.subtleText),
       filled: true,
-      fillColor: const Color(0xFF1E293B),
+      fillColor: palette.panel,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -123,11 +122,13 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
         context: context,
         barrierDismissible: false,
         builder: (context) {
+          final palette = context.labmate;
+          final colorScheme = context.colorScheme;
           return AlertDialog(
-            backgroundColor: const Color(0xFF1E293B),
-            title: const Text(
+            backgroundColor: palette.panel,
+            title: Text(
               'Lab Created',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: colorScheme.onSurface),
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
@@ -135,10 +136,7 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
               children: [
                 Text(
                   dialogMessage,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    height: 1.4,
-                  ),
+                  style: TextStyle(color: palette.mutedText, height: 1.4),
                 ),
                 if (createdLab != null) ...[
                   const SizedBox(height: 14),
@@ -146,13 +144,14 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.06),
+                      color: palette.panelAlt,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: palette.border),
                     ),
                     child: Text(
                       'Lab Code: ${createdLab['labCode'] ?? '-'}',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -163,9 +162,9 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context),
-                child: const Text(
+                child: Text(
                   'Continue',
-                  style: TextStyle(color: Color(0xFF14B8A6)),
+                  style: TextStyle(color: colorScheme.primary),
                 ),
               ),
             ],
@@ -192,13 +191,11 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Create Lab',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Create Lab')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -209,13 +206,14 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: palette.border),
                 ),
-                child: const Text(
+                child: Text(
                   'Create a minimal Labmate lab workspace. The lab name is required, institute is optional, and a simple lab code will be generated for joining later.',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: palette.mutedText,
                     fontSize: 13.5,
                     height: 1.45,
                   ),
@@ -224,7 +222,7 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _labNameController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: _inputDecoration('Lab Name'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -236,7 +234,7 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
               const SizedBox(height: 14),
               TextFormField(
                 controller: _instituteController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: _inputDecoration('Institute (optional)'),
               ),
               const SizedBox(height: 22),

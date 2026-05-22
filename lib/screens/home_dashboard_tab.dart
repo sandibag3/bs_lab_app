@@ -258,33 +258,35 @@ class HomeDashboardTab extends StatelessWidget {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetContext) {
+        final palette = sheetContext.labmate;
+        final colorScheme = sheetContext.colorScheme;
         return SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF111827),
+                color: palette.panel,
                 borderRadius: BorderRadius.circular(24),
-                border: Border.all(color: Colors.white.withOpacity(0.06)),
+                border: Border.all(color: palette.border),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Lab Actions',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: colorScheme.onSurface,
                       fontSize: 18,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  const Text(
+                  Text(
                     'View members or open settings for the current workspace.',
                     style: TextStyle(
-                      color: Colors.white60,
+                      color: palette.subtleText,
                       fontSize: 13,
                       height: 1.4,
                     ),
@@ -1221,7 +1223,9 @@ class _UpcomingEventsPreview extends StatelessWidget {
                 return SizedBox(
                   height: eventItemHeight,
                   child: Center(
-                    child: CircularProgressIndicator(color: colorScheme.primary),
+                    child: CircularProgressIndicator(
+                      color: colorScheme.primary,
+                    ),
                   ),
                 );
               }
@@ -1727,9 +1731,7 @@ class _HomeToolCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: palette.panelAlt,
                               borderRadius: BorderRadius.circular(999),
-                              border: Border.all(
-                                color: palette.border,
-                              ),
+                              border: Border.all(color: palette.border),
                             ),
                             child: Icon(
                               Icons.lock_rounded,

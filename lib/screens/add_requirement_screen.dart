@@ -8,6 +8,7 @@ import '../app_state.dart';
 import '../services/activity_service.dart';
 import '../services/requirement_service.dart';
 import '../models/requirement_model.dart';
+import '../theme/labmate_theme.dart';
 
 class AddRequirementScreen extends StatefulWidget {
   const AddRequirementScreen({super.key});
@@ -217,11 +218,13 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
   }
 
   InputDecoration inputDecoration(String label, {Widget? suffixIcon}) {
+    final palette = context.labmate;
+
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: palette.subtleText),
       filled: true,
-      fillColor: const Color(0xFF1E293B),
+      fillColor: palette.panel,
       suffixIcon: suffixIcon,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
@@ -237,17 +240,20 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     required ValueChanged<String?> onChanged,
     String? Function(String?)? validator,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return DropdownButtonFormField<String>(
       key: ValueKey('dropdown_$label|${value ?? ''}|${items.join('|')}'),
       initialValue: value,
-      dropdownColor: const Color(0xFF1E293B),
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: palette.panel,
+      style: TextStyle(color: colorScheme.onSurface),
       decoration: inputDecoration(label),
       items: items
           .map(
             (item) => DropdownMenuItem<String>(
               value: item,
-              child: Text(item, style: const TextStyle(color: Colors.white)),
+              child: Text(item, style: TextStyle(color: colorScheme.onSurface)),
             ),
           )
           .toList(),
@@ -542,14 +548,11 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
   @override
   Widget build(BuildContext context) {
     final total = totalPrice;
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Add Requirement',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Add Requirement')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -574,7 +577,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
               if (selectedMainType == 'chemical') ...[
                 TextFormField(
                   controller: casController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: colorScheme.onSurface),
                   decoration: inputDecoration(
                     'CAS No',
                     suffixIcon: IconButton(
@@ -587,7 +590,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Icon(Icons.search, color: Colors.white70),
+                          : Icon(Icons.search, color: palette.subtleText),
                     ),
                   ),
                   validator: (value) {
@@ -600,7 +603,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: chemicalNameController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: colorScheme.onSurface),
                   decoration: inputDecoration(
                     'Chemical Name (auto from inventory/PubChem or enter manually)',
                   ),
@@ -614,7 +617,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: catalogNoController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: colorScheme.onSurface),
                   decoration: inputDecoration('Catalog No'),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
@@ -691,7 +694,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                 if (shouldShowManualConsumableVariantField) ...[
                   TextFormField(
                     controller: manualConsumableVariantController,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: colorScheme.onSurface),
                     decoration: inputDecoration(
                       'Consumable Subcategory / Variant (optional)',
                     ),
@@ -706,7 +709,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                 if (isOtherConsumableCategory) ...[
                   TextFormField(
                     controller: manualConsumableNameController,
-                    style: const TextStyle(color: Colors.white),
+                    style: TextStyle(color: colorScheme.onSurface),
                     decoration: inputDecoration(
                       'Consumable Item Name / Variant',
                     ),
@@ -730,8 +733,9 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                   Container(
                     padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: palette.panel,
                       borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: palette.border),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -745,8 +749,8 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                         Expanded(
                           child: Text(
                             'Will save as: ${selectedConsumableType!}',
-                            style: const TextStyle(
-                              color: Colors.white70,
+                            style: TextStyle(
+                              color: palette.mutedText,
                               height: 1.35,
                             ),
                           ),
@@ -768,7 +772,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: customBrandController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: colorScheme.onSurface),
                   decoration: inputDecoration('Enter Brand'),
                   validator: (value) {
                     if (selectedBrand == 'Others' &&
@@ -790,7 +794,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: customVendorController,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: colorScheme.onSurface),
                   decoration: inputDecoration('Enter Vendor'),
                   validator: (value) {
                     if (selectedVendor == 'Others' &&
@@ -812,7 +816,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
               TextFormField(
                 controller: estimatedCostController,
                 keyboardType: TextInputType.number,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: inputDecoration('Estimated Cost'),
                 onChanged: (_) => setState(() {}),
                 validator: (value) {
@@ -836,16 +840,17 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: palette.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Calculated Summary',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: colorScheme.onSurface,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
@@ -860,9 +865,12 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Approval and fund allocation will be handled later by PI.',
-                      style: TextStyle(color: Colors.white60, fontSize: 12.5),
+                      style: TextStyle(
+                        color: palette.subtleText,
+                        fontSize: 12.5,
+                      ),
                     ),
                   ],
                 ),

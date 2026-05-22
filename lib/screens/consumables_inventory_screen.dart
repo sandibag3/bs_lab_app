@@ -20,7 +20,8 @@ class ConsumablesInventoryScreen extends StatefulWidget {
       _ConsumablesInventoryScreenState();
 }
 
-class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen> {
+class _ConsumablesInventoryScreenState
+    extends State<ConsumablesInventoryScreen> {
   Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _inventoryStream() {
     return ConsumablesInventoryService().getConsumablesInventoryDocs();
   }
@@ -210,10 +211,7 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
   _ConsumableTypeParts _parseConsumableType(String consumableType) {
     final cleanType = consumableType.trim();
     if (cleanType.isEmpty) {
-      return const _ConsumableTypeParts(
-        category: 'Others',
-        variant: 'Unnamed',
-      );
+      return const _ConsumableTypeParts(category: 'Others', variant: 'Unnamed');
     }
 
     final normalized = cleanType.toLowerCase();
@@ -233,31 +231,19 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
     }
 
     if (normalized.startsWith('gloves')) {
-      return _mapTypeWithSuffix(
-        originalType: cleanType,
-        category: 'Gloves',
-      );
+      return _mapTypeWithSuffix(originalType: cleanType, category: 'Gloves');
     }
 
     if (normalized.startsWith('syringe')) {
-      return _mapTypeWithSuffix(
-        originalType: cleanType,
-        category: 'Syringes',
-      );
+      return _mapTypeWithSuffix(originalType: cleanType, category: 'Syringes');
     }
 
     if (normalized.startsWith('balloon') || normalized.contains('balloon')) {
-      return _mapTypeWithSuffix(
-        originalType: cleanType,
-        category: 'Balloons',
-      );
+      return _mapTypeWithSuffix(originalType: cleanType, category: 'Balloons');
     }
 
     if (normalized.startsWith('needle') || normalized.contains('needle')) {
-      return _mapTypeWithSuffix(
-        originalType: cleanType,
-        category: 'Needles',
-      );
+      return _mapTypeWithSuffix(originalType: cleanType, category: 'Needles');
     }
 
     if (normalized.contains('filter paper')) {
@@ -268,17 +254,11 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
     }
 
     if (normalized.startsWith('silica') || normalized.contains('silica')) {
-      return _mapTypeWithSuffix(
-        originalType: cleanType,
-        category: 'Silica',
-      );
+      return _mapTypeWithSuffix(originalType: cleanType, category: 'Silica');
     }
 
     if (normalized.startsWith('cotton') || normalized.contains('cotton')) {
-      return _mapTypeWithSuffix(
-        originalType: cleanType,
-        category: 'Cotton',
-      );
+      return _mapTypeWithSuffix(originalType: cleanType, category: 'Cotton');
     }
 
     if (normalized.contains('rubber band')) {
@@ -289,10 +269,7 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
     }
 
     if (normalized.startsWith('tube') || normalized.contains('tube')) {
-      return _mapTypeWithSuffix(
-        originalType: cleanType,
-        category: 'Tubes',
-      );
+      return _mapTypeWithSuffix(originalType: cleanType, category: 'Tubes');
     }
 
     if (normalized.startsWith('clips') ||
@@ -305,17 +282,11 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
     }
 
     if (normalized.startsWith('grease') || normalized.contains('grease')) {
-      return _mapTypeWithSuffix(
-        originalType: cleanType,
-        category: 'Grease',
-      );
+      return _mapTypeWithSuffix(originalType: cleanType, category: 'Grease');
     }
 
     if (normalized.startsWith('teflon') || normalized.contains('teflon')) {
-      return _mapTypeWithSuffix(
-        originalType: cleanType,
-        category: 'Teflon',
-      );
+      return _mapTypeWithSuffix(originalType: cleanType, category: 'Teflon');
     }
 
     if (normalized.startsWith('reflux pump') ||
@@ -400,13 +371,15 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
       final consumableType = _readText(data, 'consumableType');
       final parsedType = _parseConsumableType(consumableType);
 
-      grouped.putIfAbsent(parsedType.category, () => []).add(
-        _ConsumableVariantItem(
-          item: item,
-          variant: parsedType.variant,
-          consumableType: consumableType,
-        ),
-      );
+      grouped
+          .putIfAbsent(parsedType.category, () => [])
+          .add(
+            _ConsumableVariantItem(
+              item: item,
+              variant: parsedType.variant,
+              consumableType: consumableType,
+            ),
+          );
     }
 
     final groups = grouped.entries.map((entry) {
@@ -706,9 +679,7 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
 
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-            action == 'added' ? 'Added 1 stock.' : 'Used 1 stock.',
-          ),
+          content: Text(action == 'added' ? 'Added 1 stock.' : 'Used 1 stock.'),
         ),
       );
     } catch (error) {
@@ -762,11 +733,7 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
         builder: (_) => _ConsumableCategoryDetailScreen(
           categoryGroup: categoryGroup,
           formatQuantityNumber: _formatQuantityNumber,
-          variantCardBuilder: (
-            screenContext,
-            variantItem,
-            selectionControl,
-          ) {
+          variantCardBuilder: (screenContext, variantItem, selectionControl) {
             return _buildVariantCard(
               context: screenContext,
               variantItem: variantItem,
@@ -793,8 +760,10 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onTap: () =>
-            _openCategoryDetails(context: context, categoryGroup: categoryGroup),
+        onTap: () => _openCategoryDetails(
+          context: context,
+          categoryGroup: categoryGroup,
+        ),
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
@@ -820,10 +789,7 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: palette.subtleText,
-                  ),
+                  Icon(Icons.chevron_right_rounded, color: palette.subtleText),
                 ],
               ),
               const Spacer(),
@@ -871,13 +837,15 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
     final availability = _readAvailability(data);
     final availabilityLabel = _availabilityLabel(availability);
     final isLowStock = availabilityLabel.isNotEmpty || _isLowStock(quantity);
-    final stockBadgeLabel =
-        availabilityLabel.isNotEmpty ? availabilityLabel : 'Low Stock';
+    final stockBadgeLabel = availabilityLabel.isNotEmpty
+        ? availabilityLabel
+        : 'Low Stock';
     final stockBadgeColor = availabilityLabel.isNotEmpty
         ? _availabilityColor(availability)
         : const Color(0xFFFB7185);
     final brandStatus = brand.isEmpty ? 'Brand not set' : brand;
-    final canQuickAdjust = item.numericQuantity != null || quantity.trim().isEmpty;
+    final canQuickAdjust =
+        item.numericQuantity != null || quantity.trim().isEmpty;
     final canQuickDecrease =
         item.numericQuantity != null && item.numericQuantity! > 0;
     final quickQuantityLabel = quantity.isEmpty ? '0' : quantity;
@@ -910,29 +878,30 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
                       children: [
                         Expanded(
                           child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          variantItem.variant,
-                          style: TextStyle(
-                            color: colorScheme.onSurface,
-                            fontSize: 15.5,
-                            fontWeight: FontWeight.w700,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                variantItem.variant,
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontSize: 15.5,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              if (variantItem.consumableType.isNotEmpty &&
+                                  variantItem.consumableType !=
+                                      variantItem.variant) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  variantItem.consumableType,
+                                  style: TextStyle(
+                                    color: palette.subtleText,
+                                    fontSize: 12.5,
+                                  ),
+                                ),
+                              ],
+                            ],
                           ),
-                        ),
-                        if (variantItem.consumableType.isNotEmpty &&
-                            variantItem.consumableType != variantItem.variant) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            variantItem.consumableType,
-                            style: TextStyle(
-                              color: palette.subtleText,
-                              fontSize: 12.5,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
                         ),
                         if (isLowStock)
                           Container(
@@ -1064,10 +1033,8 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
                           label: 'View History',
                           icon: Icons.history_rounded,
                           color: const Color(0xFF38BDF8),
-                          onTap: () => _showItemHistory(
-                            context: context,
-                            item: item,
-                          ),
+                          onTap: () =>
+                              _showItemHistory(context: context, item: item),
                         ),
                       ],
                     ),
@@ -1083,94 +1050,99 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Consumables Inventory',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Consumables Inventory')),
       body: SafeArea(
         child: ResponsivePageContainer(
           child:
               StreamBuilder<List<QueryDocumentSnapshot<Map<String, dynamic>>>>(
-          stream: _inventoryStream(),
-          builder: (context, snapshot) {
-            if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    FirestoreAccessGuard.userMessage,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, height: 1.4),
-                  ),
-                ),
-              );
-            }
-
-            if (snapshot.hasError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    FirestoreAccessGuard.messageFor(snapshot.error),
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white70, height: 1.4),
-                  ),
-                ),
-              );
-            }
-
-            if (!snapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            final docs = _sortDocs(snapshot.data!);
-            final items = _groupDocs(docs);
-            final categoryGroups = _groupItemsByCategory(items);
-
-            if (categoryGroups.isEmpty) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text(
-                    'No consumables have been added yet.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ),
-              );
-            }
-
-            return LayoutBuilder(
-              builder: (context, constraints) {
-                final crossAxisCount = constraints.maxWidth >= 980
-                    ? 4
-                    : constraints.maxWidth >= 720
-                    ? 3
-                    : 2;
-
-                return GridView.builder(
-                  padding: const EdgeInsets.all(16),
-                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: crossAxisCount,
-                    crossAxisSpacing: 12,
-                    mainAxisSpacing: 12,
-                    childAspectRatio: constraints.maxWidth >= 720 ? 1.35 : 1.2,
-                  ),
-                  itemCount: categoryGroups.length,
-                  itemBuilder: (context, index) {
-                    return _buildCategoryTile(
-                      context: context,
-                      categoryGroup: categoryGroups[index],
+                stream: _inventoryStream(),
+                builder: (context, snapshot) {
+                  if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          FirestoreAccessGuard.userMessage,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: palette.mutedText,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
                     );
-                  },
-                );
-              },
-            );
-          },
-        ),
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          FirestoreAccessGuard.messageFor(snapshot.error),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: palette.mutedText,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  final docs = _sortDocs(snapshot.data!);
+                  final items = _groupDocs(docs);
+                  final categoryGroups = _groupItemsByCategory(items);
+
+                  if (categoryGroups.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'No consumables have been added yet.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: palette.mutedText),
+                        ),
+                      ),
+                    );
+                  }
+
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final crossAxisCount = constraints.maxWidth >= 980
+                          ? 4
+                          : constraints.maxWidth >= 720
+                          ? 3
+                          : 2;
+
+                      return GridView.builder(
+                        padding: const EdgeInsets.all(16),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: crossAxisCount,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          childAspectRatio: constraints.maxWidth >= 720
+                              ? 1.35
+                              : 1.2,
+                        ),
+                        itemCount: categoryGroups.length,
+                        itemBuilder: (context, index) {
+                          return _buildCategoryTile(
+                            context: context,
+                            categoryGroup: categoryGroups[index],
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
         ),
       ),
     );
@@ -1199,10 +1171,7 @@ class _ConsumableTypeParts {
   final String category;
   final String variant;
 
-  const _ConsumableTypeParts({
-    required this.category,
-    required this.variant,
-  });
+  const _ConsumableTypeParts({required this.category, required this.variant});
 }
 
 class _ConsumableVariantItem {
@@ -1234,11 +1203,8 @@ class _ConsumableCategoryGroup {
 class _ConsumableCategoryDetailScreen extends StatefulWidget {
   final _ConsumableCategoryGroup categoryGroup;
   final String Function(double) formatQuantityNumber;
-  final Widget Function(
-    BuildContext,
-    _ConsumableVariantItem,
-    Widget?,
-  ) variantCardBuilder;
+  final Widget Function(BuildContext, _ConsumableVariantItem, Widget?)
+  variantCardBuilder;
 
   const _ConsumableCategoryDetailScreen({
     required this.categoryGroup,
@@ -1284,9 +1250,7 @@ class _ConsumableCategoryDetailScreenState
     return variantItem.item.primaryDoc.id;
   }
 
-  List<String> _visibleConsumableIds(
-    List<_ConsumableVariantItem> variants,
-  ) {
+  List<String> _visibleConsumableIds(List<_ConsumableVariantItem> variants) {
     return variants
         .map(_consumableId)
         .where((id) => id.trim().isNotEmpty)
@@ -1483,7 +1447,9 @@ class _ConsumableCategoryDetailScreenState
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not export selected consumables: $error')),
+        SnackBar(
+          content: Text('Could not export selected consumables: $error'),
+        ),
       );
     } finally {
       if (mounted) {
@@ -1522,11 +1488,14 @@ class _ConsumableCategoryDetailScreenState
 
         return StatefulBuilder(
           builder: (dialogContext, setDialogState) {
+            final palette = dialogContext.labmate;
+            final colorScheme = dialogContext.colorScheme;
+
             return AlertDialog(
-              backgroundColor: const Color(0xFF111827),
-              title: const Text(
+              backgroundColor: palette.panel,
+              title: Text(
                 'Change location',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
               ),
               content: SizedBox(
                 width: 360,
@@ -1545,20 +1514,18 @@ class _ConsumableCategoryDetailScreenState
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       value: location,
-                      dropdownColor: const Color(0xFF1E293B),
+                      dropdownColor: palette.panel,
                       decoration: InputDecoration(
                         labelText: 'Location',
-                        labelStyle: const TextStyle(color: Colors.white70),
+                        labelStyle: TextStyle(color: palette.mutedText),
                         errorText: showValidationError
                             ? 'Select a location before applying.'
                             : null,
                         filled: true,
-                        fillColor: const Color(0xFF1E293B),
+                        fillColor: palette.panelAlt,
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
-                            color: Colors.white.withOpacity(0.08),
-                          ),
+                          borderSide: BorderSide(color: palette.border),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -1568,17 +1535,18 @@ class _ConsumableCategoryDetailScreenState
                         ),
                         errorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: Colors.redAccent,
-                          ),
+                          borderSide: const BorderSide(color: Colors.redAccent),
                         ),
                       ),
-                      iconEnabledColor: Colors.white70,
-                      style: const TextStyle(color: Colors.white),
+                      iconEnabledColor: palette.mutedText,
+                      style: TextStyle(color: colorScheme.onSurface),
                       items: _locationOptions.map((locationOption) {
                         return DropdownMenuItem<String>(
                           value: locationOption,
-                          child: Text(locationOption),
+                          child: Text(
+                            locationOption,
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
                         );
                       }).toList(),
                       onChanged: (value) {
@@ -1663,12 +1631,12 @@ class _ConsumableCategoryDetailScreenState
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
+        final palette = dialogContext.labmate;
+        final colorScheme = dialogContext.colorScheme;
+
         return AlertDialog(
-          backgroundColor: const Color(0xFF111827),
-          title: Text(
-            title,
-            style: const TextStyle(color: Colors.white),
-          ),
+          backgroundColor: palette.panel,
+          title: Text(title, style: TextStyle(color: colorScheme.onSurface)),
           content: SizedBox(
             width: 360,
             child: Text(
@@ -1729,6 +1697,8 @@ class _ConsumableCategoryDetailScreenState
     required IconData icon,
     required VoidCallback? onPressed,
   }) {
+    final palette = context.labmate;
+
     return SizedBox(
       height: 36,
       child: OutlinedButton.icon(
@@ -1736,14 +1706,11 @@ class _ConsumableCategoryDetailScreenState
         icon: Icon(icon, size: 16),
         label: Text(label),
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white70,
-          disabledForegroundColor: Colors.white30,
-          side: BorderSide(color: Colors.white.withOpacity(0.12)),
+          foregroundColor: palette.mutedText,
+          disabledForegroundColor: palette.subtleText.withOpacity(0.55),
+          side: BorderSide(color: palette.border),
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          textStyle: const TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-          ),
+          textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
@@ -1753,6 +1720,9 @@ class _ConsumableCategoryDetailScreenState
   }
 
   Widget _buildSelectedOnlyToggle() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return SizedBox(
       height: 36,
       child: FilterChip(
@@ -1767,22 +1737,20 @@ class _ConsumableCategoryDetailScreenState
               ? Icons.filter_alt_rounded
               : Icons.filter_alt_outlined,
           size: 16,
-          color: showSelectedOnly ? Colors.white : Colors.white70,
+          color: showSelectedOnly ? colorScheme.primary : palette.mutedText,
         ),
         label: const Text('Selected only'),
-        selectedColor: const Color(0xFF38BDF8),
-        backgroundColor: Colors.white.withOpacity(0.04),
+        selectedColor: palette.selected,
+        backgroundColor: palette.panel,
         labelStyle: TextStyle(
-          color: showSelectedOnly ? const Color(0xFF0F172A) : Colors.white70,
+          color: showSelectedOnly ? colorScheme.primary : palette.mutedText,
           fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
-        side: BorderSide(color: Colors.white.withOpacity(0.12)),
+        side: BorderSide(color: palette.border),
         visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
@@ -1807,10 +1775,13 @@ class _ConsumableCategoryDetailScreenState
     return ValueListenableBuilder<Set<String>>(
       valueListenable: selectedConsumableIdsNotifier,
       builder: (context, selectedIds, _) {
+        final palette = context.labmate;
+        final colorScheme = context.colorScheme;
         final selectedCount = selectedIds.length;
         final visibleIds = _visibleConsumableIds(visibleVariants).toSet();
-        final selectedVisibleCount =
-            selectedIds.where((id) => visibleIds.contains(id)).length;
+        final selectedVisibleCount = selectedIds
+            .where((id) => visibleIds.contains(id))
+            .length;
         final visibleCount = visibleVariants.length;
         final selectionSummary = selectedVisibleCount == selectedCount
             ? '$selectedCount selected from $visibleCount visible'
@@ -1820,21 +1791,23 @@ class _ConsumableCategoryDetailScreenState
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF111827),
+            color: palette.panelAlt,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(color: palette.border),
           ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 7,
+                  ),
                   decoration: BoxDecoration(
                     color: selectedCount == 0
-                        ? Colors.white.withOpacity(0.04)
-                        : const Color(0x2238BDF8),
+                        ? palette.panel
+                        : palette.selected,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -1843,8 +1816,8 @@ class _ConsumableCategoryDetailScreenState
                         : selectionSummary,
                     style: TextStyle(
                       color: selectedCount == 0
-                          ? Colors.white70
-                          : const Color(0xFF7DD3FC),
+                          ? palette.mutedText
+                          : colorScheme.primary,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
                     ),
@@ -1901,8 +1874,9 @@ class _ConsumableCategoryDetailScreenState
                   ),
                   const SizedBox(width: 8),
                   _buildBulkSelectionButton(
-                    label:
-                        isExportingSelectedCsv ? 'Exporting...' : 'Export CSV',
+                    label: isExportingSelectedCsv
+                        ? 'Exporting...'
+                        : 'Export CSV',
                     icon: Icons.file_download_outlined,
                     onPressed: isExportingSelectedCsv
                         ? null
@@ -1918,6 +1892,8 @@ class _ConsumableCategoryDetailScreenState
   }
 
   Widget _buildConsumableSelectionCheckbox(String consumableId) {
+    final palette = context.labmate;
+
     return ValueListenableBuilder<Set<String>>(
       valueListenable: selectedConsumableIdsNotifier,
       builder: (context, selectedIds, _) {
@@ -1932,7 +1908,7 @@ class _ConsumableCategoryDetailScreenState
               onChanged: (_) {},
               activeColor: const Color(0xFF38BDF8),
               checkColor: Colors.white,
-              side: const BorderSide(color: Colors.white54),
+              side: BorderSide(color: palette.subtleText),
               materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
           ),
@@ -1947,18 +1923,14 @@ class _ConsumableCategoryDetailScreenState
         ? 'Mixed'
         : widget.formatQuantityNumber(widget.categoryGroup.totalQuantity!);
     final isDesktop = MediaQuery.sizeOf(context).width >= 900;
+    final palette = context.labmate;
     final visibleVariants = widget.categoryGroup.variants;
     final displayedVariants = isDesktop && selectionMode && showSelectedOnly
         ? _selectedVisibleConsumables(visibleVariants)
         : visibleVariants;
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(
-          widget.categoryGroup.category,
-          style: const TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: Text(widget.categoryGroup.category)),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),
@@ -1966,9 +1938,9 @@ class _ConsumableCategoryDetailScreenState
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: palette.panel,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.white.withOpacity(0.06)),
+                border: Border.all(color: palette.border),
               ),
               child: Wrap(
                 spacing: 8,
@@ -1986,20 +1958,19 @@ class _ConsumableCategoryDetailScreenState
               ),
             ),
             const SizedBox(height: 14),
-            if (isDesktop)
-              _buildConsumableBulkToolbar(visibleVariants),
+            if (isDesktop) _buildConsumableBulkToolbar(visibleVariants),
             if (displayedVariants.isEmpty && showSelectedOnly)
               Container(
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: Colors.white.withOpacity(0.06)),
+                  border: Border.all(color: palette.border),
                 ),
-                child: const Text(
+                child: Text(
                   'No selected records are visible.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: palette.mutedText),
                 ),
               )
             else
@@ -2188,6 +2159,8 @@ class _StockActionSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return SafeArea(
       child: Padding(
@@ -2195,9 +2168,9 @@ class _StockActionSheet extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: const Color(0xFF111827),
+            color: palette.panel,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+            border: Border.all(color: palette.border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -2205,8 +2178,8 @@ class _StockActionSheet extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
                 ),
@@ -2214,7 +2187,7 @@ class _StockActionSheet extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 subtitle,
-                style: const TextStyle(color: Colors.white60, fontSize: 12.5),
+                style: TextStyle(color: palette.subtleText, fontSize: 12.5),
               ),
               const SizedBox(height: 16),
               TextField(
@@ -2222,16 +2195,16 @@ class _StockActionSheet extends StatelessWidget {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration('Quantity'),
+                style: TextStyle(color: colorScheme.onSurface),
+                decoration: _inputDecoration(context, 'Quantity'),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: noteController,
                 minLines: 2,
                 maxLines: 3,
-                style: const TextStyle(color: Colors.white),
-                decoration: _inputDecoration('Note (optional)'),
+                style: TextStyle(color: colorScheme.onSurface),
+                decoration: _inputDecoration(context, 'Note (optional)'),
               ),
               const SizedBox(height: 16),
               SizedBox(
@@ -2257,15 +2230,17 @@ class _StockActionSheet extends StatelessWidget {
     );
   }
 
-  InputDecoration _inputDecoration(String label) {
+  InputDecoration _inputDecoration(BuildContext context, String label) {
+    final palette = context.labmate;
+
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white60),
+      labelStyle: TextStyle(color: palette.subtleText),
       filled: true,
-      fillColor: const Color(0xFF1E293B),
+      fillColor: palette.panelAlt,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(color: palette.border),
       ),
     );
   }
@@ -2291,6 +2266,9 @@ class _StockHistorySheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return SafeArea(
       child: DraggableScrollableSheet(
         initialChildSize: 0.72,
@@ -2299,9 +2277,12 @@ class _StockHistorySheet extends StatelessWidget {
         builder: (context, scrollController) {
           return Container(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
-            decoration: const BoxDecoration(
-              color: Color(0xFF111827),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            decoration: BoxDecoration(
+              color: palette.panel,
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
+              border: Border.all(color: palette.border),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2313,8 +2294,8 @@ class _StockHistorySheet extends StatelessWidget {
                         'Stock History · $title',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                         ),
@@ -2322,7 +2303,7 @@ class _StockHistorySheet extends StatelessWidget {
                     ),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close, color: Colors.white70),
+                      icon: Icon(Icons.close, color: palette.mutedText),
                     ),
                   ],
                 ),
@@ -2341,10 +2322,10 @@ class _StockHistorySheet extends StatelessWidget {
                             builder: (context, stockSnapshot) {
                               if (purchaseSnapshot.hasError ||
                                   stockSnapshot.hasError) {
-                                return const Center(
+                                return Center(
                                   child: Text(
                                     'Unable to load item history.',
-                                    style: TextStyle(color: Colors.white70),
+                                    style: TextStyle(color: palette.mutedText),
                                   ),
                                 );
                               }
@@ -2368,10 +2349,10 @@ class _StockHistorySheet extends StatelessWidget {
                               if (purchaseLogs.isEmpty &&
                                   stockLogs.isEmpty &&
                                   legacyArrivals.isEmpty) {
-                                return const Center(
+                                return Center(
                                   child: Text(
                                     'No history recorded yet.',
-                                    style: TextStyle(color: Colors.white70),
+                                    style: TextStyle(color: palette.mutedText),
                                   ),
                                 );
                               }
@@ -2440,10 +2421,12 @@ class _HistorySectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.colorScheme;
+
     return Text(
       title,
-      style: const TextStyle(
-        color: Colors.white,
+      style: TextStyle(
+        color: colorScheme.onSurface,
         fontSize: 14,
         fontWeight: FontWeight.w800,
       ),
@@ -2468,6 +2451,8 @@ class _PurchaseHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     final quantityAdded = (data['quantityAdded'] as num?)?.toDouble() ?? 0;
     final previousQuantity =
         (data['previousQuantity'] as num?)?.toDouble() ?? 0;
@@ -2495,15 +2480,15 @@ class _PurchaseHistoryCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   'Arrival +${formatQuantityNumber(quantityAdded)}',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
               Text(
                 formatDateTime(deliveredAt),
-                style: const TextStyle(color: Colors.white54, fontSize: 11.5),
+                style: TextStyle(color: palette.subtleText, fontSize: 11.5),
               ),
             ],
           ),
@@ -2511,7 +2496,7 @@ class _PurchaseHistoryCard extends StatelessWidget {
           Text(
             '${formatQuantityNumber(previousQuantity)} -> '
             '${formatQuantityNumber(newQuantity)}',
-            style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+            style: TextStyle(color: palette.mutedText, fontSize: 12.5),
           ),
           const SizedBox(height: 8),
           Wrap(
@@ -2543,6 +2528,8 @@ class _LegacyArrivalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     final quantity = _readText('quantity');
     final brand = _readText('brand');
     final vendor = _readText('vendor');
@@ -2567,15 +2554,15 @@ class _LegacyArrivalCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   quantity.isEmpty ? 'Arrival' : 'Arrival +$quantity',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
               Text(
                 formatDateTime(deliveredAt),
-                style: const TextStyle(color: Colors.white54, fontSize: 11.5),
+                style: TextStyle(color: palette.subtleText, fontSize: 11.5),
               ),
             ],
           ),
@@ -2610,6 +2597,8 @@ class _StockHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     final action = (data['action'] ?? '').toString().trim();
     final quantityChanged = (data['quantityChanged'] as num?)?.toDouble() ?? 0;
     final previousQuantity =
@@ -2641,15 +2630,15 @@ class _StockHistoryCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   isAdded ? 'Stock added' : 'Stock used',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
               Text(
                 formatDateTime(createdAt),
-                style: const TextStyle(color: Colors.white54, fontSize: 11.5),
+                style: TextStyle(color: palette.subtleText, fontSize: 11.5),
               ),
             ],
           ),
@@ -2658,20 +2647,20 @@ class _StockHistoryCard extends StatelessWidget {
             '${formatQuantityNumber(quantityChanged)} changed - '
             '${formatQuantityNumber(previousQuantity)} -> '
             '${formatQuantityNumber(newQuantity)}',
-            style: const TextStyle(color: Colors.white70, fontSize: 12.5),
+            style: TextStyle(color: palette.mutedText, fontSize: 12.5),
           ),
           if (note.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
               note,
-              style: const TextStyle(color: Colors.white60, fontSize: 12.5),
+              style: TextStyle(color: palette.subtleText, fontSize: 12.5),
             ),
           ],
           if (actorName.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(
               'By $actorName',
-              style: const TextStyle(color: Colors.white38, fontSize: 11.5),
+              style: TextStyle(color: palette.subtleText, fontSize: 11.5),
             ),
           ],
         ],
@@ -2687,12 +2676,15 @@ class _HistoryCardFrame extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
       ),
       child: child,
     );

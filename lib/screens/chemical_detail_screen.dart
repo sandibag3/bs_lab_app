@@ -2,19 +2,16 @@ import 'package:flutter/material.dart';
 import '../models/chemical_model.dart';
 import '../services/inventory_service.dart';
 import '../services/pubchem_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 
 class ChemicalDetailScreen extends StatefulWidget {
   final ChemicalModel chemical;
 
-  const ChemicalDetailScreen({
-    super.key,
-    required this.chemical,
-  });
+  const ChemicalDetailScreen({super.key, required this.chemical});
 
   @override
-  State<ChemicalDetailScreen> createState() =>
-      _ChemicalDetailScreenState();
+  State<ChemicalDetailScreen> createState() => _ChemicalDetailScreenState();
 }
 
 class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
@@ -43,17 +40,11 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     )..repeat();
 
     _pulseAnimation = Tween<double>(begin: 0.92, end: 1.08).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
     _rotateAnimation = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.linear,
-      ),
+      CurvedAnimation(parent: _animationController, curve: Curves.linear),
     );
   }
 
@@ -90,12 +81,14 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   }
 
   Widget sectionTitle(String title) {
+    final colorScheme = context.colorScheme;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 10, top: 10),
       child: Text(
         title,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: colorScheme.onSurface,
           fontSize: 16.5,
           fontWeight: FontWeight.bold,
         ),
@@ -104,83 +97,85 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   }
 
   Widget chip(String text) {
+    final palette = context.labmate;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.white70,
-          fontSize: 12,
-        ),
+        style: TextStyle(color: palette.mutedText, fontSize: 12),
       ),
     );
   }
 
   Widget buildFunctionalGroupChips(String groups) {
-  if (groups.trim().isEmpty) return const SizedBox();
+    final palette = context.labmate;
 
-  final list = groups
-      .split(',')
-      .map((e) => e.trim())
-      .where((e) => e.isNotEmpty)
-      .toList();
+    if (groups.trim().isEmpty) return const SizedBox();
 
-  return Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(14),
-    decoration: BoxDecoration(
-      color: const Color(0xFF1E293B),
-      borderRadius: BorderRadius.circular(16),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          'Functional Groups',
-          style: TextStyle(
-            color: Colors.white70,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
+    final list = groups
+        .split(',')
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.panel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Functional Groups',
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: list.map((group) {
-            return GestureDetector(
-              onTap: () {
-                Navigator.pop(context, group);
-              },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0x2214B8A6),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  group,
-                  style: const TextStyle(
-                    color: Color(0xFF14B8A6),
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: list.map((group) {
+              return GestureDetector(
+                onTap: () {
+                  Navigator.pop(context, group);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0x2214B8A6),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    group,
+                    style: const TextStyle(
+                      color: Color(0xFF14B8A6),
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    ),
-  );
-}
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget detailBox({
     required String label,
@@ -188,26 +183,22 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     IconData? icon,
   }) {
     final displayValue = value.trim().isEmpty ? '-' : value.trim();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.05),
-        ),
+        border: Border.all(color: palette.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (icon != null) ...[
-            Icon(
-              icon,
-              size: 18,
-              color: const Color(0xFF14B8A6),
-            ),
+            Icon(icon, size: 18, color: const Color(0xFF14B8A6)),
             const SizedBox(width: 10),
           ],
           Expanded(
@@ -216,8 +207,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
               children: [
                 Text(
                   label,
-                  style: const TextStyle(
-                    color: Colors.white54,
+                  style: TextStyle(
+                    color: palette.subtleText,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -225,8 +216,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                 const SizedBox(height: 5),
                 Text(
                   displayValue,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontSize: 14.2,
                     height: 1.35,
                   ),
@@ -250,11 +241,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     return Row(
       children: [
         Expanded(
-          child: detailBox(
-            label: leftLabel,
-            value: leftValue,
-            icon: leftIcon,
-          ),
+          child: detailBox(label: leftLabel, value: leftValue, icon: leftIcon),
         ),
         const SizedBox(width: 10),
         Expanded(
@@ -269,14 +256,15 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   }
 
   Widget chemistryLoadingCard() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: Colors.white.withOpacity(0.05),
-        ),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         children: [
@@ -285,10 +273,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             builder: (context, child) {
               return Transform.rotate(
                 angle: _rotateAnimation.value * 6.28318,
-                child: ScaleTransition(
-                  scale: _pulseAnimation,
-                  child: child,
-                ),
+                child: ScaleTransition(scale: _pulseAnimation, child: child),
               );
             },
             child: Container(
@@ -297,10 +282,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: const Color(0x2214B8A6),
-                border: Border.all(
-                  color: const Color(0xFF14B8A6),
-                  width: 1.5,
-                ),
+                border: Border.all(color: const Color(0xFF14B8A6), width: 1.5),
               ),
               child: const Icon(
                 Icons.science_rounded,
@@ -310,20 +292,20 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'Fetching molecular data...',
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onSurface,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
+          Text(
             'Checking structure, formula, molecular weight and identifiers from PubChem',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white60,
+              color: palette.subtleText,
               fontSize: 12.8,
               height: 1.4,
             ),
@@ -344,11 +326,13 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
 
   Widget bottleCard(ChemicalModel b, int index) {
     final safeStatus = _safeBottleStatus(b.availability);
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -359,21 +343,24 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                 children: [
                   Text(
                     'Bottle ${index + 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const Spacer(),
                   DropdownButton<String>(
                     value: safeStatus,
-                    dropdownColor: const Color(0xFF1E293B),
-                    style: const TextStyle(color: Colors.white),
+                    dropdownColor: palette.panel,
+                    style: TextStyle(color: colorScheme.onSurface),
                     items: _allowedBottleStatuses
                         .map(
                           (status) => DropdownMenuItem<String>(
                             value: status,
-                            child: Text(_bottleStatusLabel(status)),
+                            child: Text(
+                              _bottleStatusLabel(status),
+                              style: TextStyle(color: colorScheme.onSurface),
+                            ),
                           ),
                         )
                         .toList(),
@@ -408,31 +395,31 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   }
 
   Widget pubChemDetailsCard(PubChemChemicalDetails p) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF162033),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: const Color(0x2214B8A6),
-          width: 1,
-        ),
+        border: Border.all(color: const Color(0x2214B8A6), width: 1),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(
+              const Icon(
                 Icons.biotech_rounded,
                 color: Color(0xFF14B8A6),
                 size: 20,
               ),
-              SizedBox(width: 8),
+              const SizedBox(width: 8),
               Text(
                 'PubChem Molecular Data',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: colorScheme.onSurface,
                   fontSize: 15.5,
                   fontWeight: FontWeight.bold,
                 ),
@@ -444,16 +431,16 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
+              color: palette.panelAlt,
               borderRadius: BorderRadius.circular(16),
             ),
             child: Image.network(
               p.imageUrl,
               height: 150,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Text(
+              errorBuilder: (_, __, ___) => Text(
                 'Structure image unavailable',
-                style: TextStyle(color: Colors.white70),
+                style: TextStyle(color: palette.mutedText),
               ),
             ),
           ),
@@ -498,139 +485,140 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   @override
   Widget build(BuildContext context) {
     final c = widget.chemical;
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Chemical Details',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Chemical Details')),
       body: ResponsivePageContainer(
         maxWidth: 1120,
         child: StreamBuilder<List<ChemicalModel>>(
           stream: inventoryService.getChemicals(),
           builder: (context, snapshot) {
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
+            if (!snapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-          final all = snapshot.data!;
+            final all = snapshot.data!;
 
-          final bottles = all.where((e) => e.cas.trim() == c.cas.trim()).toList()
-            ..sort((a, b) => a.label.compareTo(b.label));
+            final bottles =
+                all.where((e) => e.cas.trim() == c.cas.trim()).toList()
+                  ..sort((a, b) => a.label.compareTo(b.label));
 
-          final isDesktop = MediaQuery.sizeOf(context).width >= 900;
-          if (isDesktop) {
-            return _buildDesktopDetail(c, bottles);
-          }
+            final isDesktop = MediaQuery.sizeOf(context).width >= 900;
+            if (isDesktop) {
+              return _buildDesktopDetail(c, bottles);
+            }
 
-          return ListView(
-            padding: const EdgeInsets.all(14),
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0x2214B8A6),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        c.label,
-                        style: const TextStyle(
-                          color: Color(0xFF14B8A6),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
+            return ListView(
+              padding: const EdgeInsets.all(14),
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: palette.panel,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: palette.border),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0x2214B8A6),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          c.label,
+                          style: const TextStyle(
+                            color: Color(0xFF14B8A6),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      c.chemicalName,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 19,
-                        fontWeight: FontWeight.bold,
+                      const SizedBox(height: 10),
+                      Text(
+                        c.chemicalName,
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontSize: 19,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'CAS: ${c.cas}',
-                      style: const TextStyle(color: Colors.white60),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      '${bottles.length} bottles',
-                      style: const TextStyle(color: Colors.white70),
-                    ),
-                  ],
+                      const SizedBox(height: 4),
+                      Text(
+                        'CAS: ${c.cas}',
+                        style: TextStyle(color: palette.subtleText),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${bottles.length} bottles',
+                        style: TextStyle(color: palette.mutedText),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
 
-              const SizedBox(height: 14),
-              buildFunctionalGroupChips(c.functionalGroups),
+                const SizedBox(height: 14),
+                buildFunctionalGroupChips(c.functionalGroups),
 
-              sectionTitle('Bottles'),
-              ...List.generate(
-                bottles.length,
-                (i) => bottleCard(bottles[i], i),
-              ),
+                sectionTitle('Bottles'),
+                ...List.generate(
+                  bottles.length,
+                  (i) => bottleCard(bottles[i], i),
+                ),
 
-              sectionTitle('PubChem'),
-              FutureBuilder<PubChemChemicalDetails?>(
-                future: pubChemFuture,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return chemistryLoadingCard();
-                  }
+                sectionTitle('PubChem'),
+                FutureBuilder<PubChemChemicalDetails?>(
+                  future: pubChemFuture,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return chemistryLoadingCard();
+                    }
 
-                  if (snapshot.hasError) {
-                    return Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        'PubChem error: ${snapshot.error}',
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    );
-                  }
+                    if (snapshot.hasError) {
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: palette.panel,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: palette.border),
+                        ),
+                        child: Text(
+                          'PubChem error: ${snapshot.error}',
+                          style: TextStyle(color: palette.mutedText),
+                        ),
+                      );
+                    }
 
-                  if (!snapshot.hasData || snapshot.data == null) {
-                    return Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        c.cas.trim().isEmpty
-                            ? 'No CAS number available for PubChem lookup.'
-                            : 'No PubChem data found for CAS: ${c.cas.trim()}',
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    );
-                  }
+                    if (!snapshot.hasData || snapshot.data == null) {
+                      return Container(
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: palette.panel,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: palette.border),
+                        ),
+                        child: Text(
+                          c.cas.trim().isEmpty
+                              ? 'No CAS number available for PubChem lookup.'
+                              : 'No PubChem data found for CAS: ${c.cas.trim()}',
+                          style: TextStyle(color: palette.mutedText),
+                        ),
+                      );
+                    }
 
-                  final p = snapshot.data!;
-                  return pubChemDetailsCard(p);
-                },
-              ),
-            ],
-          );
+                    final p = snapshot.data!;
+                    return pubChemDetailsCard(p);
+                  },
+                ),
+              ],
+            );
           },
         ),
       ),
@@ -680,12 +668,15 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     required String value,
     Color? valueColor,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -695,8 +686,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             label,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: palette.subtleText,
               fontSize: 10.8,
               fontWeight: FontWeight.w700,
             ),
@@ -707,7 +698,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: valueColor ?? Colors.white,
+              color: valueColor ?? colorScheme.onSurface,
               fontSize: 12.4,
               height: 1.2,
               fontWeight: FontWeight.w700,
@@ -715,18 +706,6 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
           ),
         ],
       ),
-    );
-  }
-
-  Widget _compactMetricRow(List<Widget> children) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (int index = 0; index < children.length; index++) ...[
-          Expanded(child: children[index]),
-          if (index != children.length - 1) const SizedBox(width: 8),
-        ],
-      ],
     );
   }
 
@@ -748,17 +727,17 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
-  Widget _compactPanel({
-    required String title,
-    required Widget child,
-  }) {
+  Widget _compactPanel({required String title, required Widget child}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -766,8 +745,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 13.2,
               fontWeight: FontWeight.w800,
             ),
@@ -822,21 +801,19 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
 
   Widget _desktopBottleRow(ChemicalModel bottle, int index) {
     final safeStatus = _safeBottleStatus(bottle.availability);
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: palette.border),
       ),
       child: Row(
         children: [
-          _desktopTableCell(
-            'Bottle ${index + 1}',
-            flex: 2,
-            isStrong: true,
-          ),
+          _desktopTableCell('Bottle ${index + 1}', flex: 2, isStrong: true),
           _desktopTableCell(_display(bottle.brand), flex: 3),
           _desktopTableCell(_display(bottle.quantity), flex: 2),
           _desktopTableCell(_display(bottle.location), flex: 3),
@@ -847,22 +824,25 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: palette.panel,
                 borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: Colors.white.withOpacity(0.06)),
+                border: Border.all(color: palette.border),
               ),
               child: DropdownButtonHideUnderline(
                 child: DropdownButton<String>(
                   value: safeStatus,
-                  dropdownColor: const Color(0xFF1E293B),
-                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                  dropdownColor: palette.panel,
+                  style: TextStyle(color: colorScheme.onSurface, fontSize: 12),
                   isDense: true,
                   isExpanded: true,
                   items: _allowedBottleStatuses
                       .map(
                         (status) => DropdownMenuItem<String>(
                           value: status,
-                          child: Text(_bottleStatusLabel(status)),
+                          child: Text(
+                            _bottleStatusLabel(status),
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
                         ),
                       )
                       .toList(),
@@ -886,6 +866,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   }
 
   Widget _desktopBottleHeader() {
+    final palette = context.labmate;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
       child: Row(
@@ -895,12 +877,12 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
           _desktopTableHeader('Qty', flex: 2),
           _desktopTableHeader('Location', flex: 3),
           const SizedBox(width: 8),
-          const SizedBox(
+          SizedBox(
             width: 126,
             child: Text(
               'Status',
               style: TextStyle(
-                color: Colors.white54,
+                color: palette.subtleText,
                 fontSize: 10.8,
                 fontWeight: FontWeight.w800,
               ),
@@ -912,12 +894,14 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   }
 
   Widget _desktopTableHeader(String text, {required int flex}) {
+    final palette = context.labmate;
+
     return Expanded(
       flex: flex,
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.white54,
+        style: TextStyle(
+          color: palette.subtleText,
           fontSize: 10.8,
           fontWeight: FontWeight.w800,
         ),
@@ -930,6 +914,9 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     required int flex,
     bool isStrong = false,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Expanded(
       flex: flex,
       child: Text(
@@ -937,7 +924,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: isStrong ? Colors.white : Colors.white70,
+          color: isStrong ? colorScheme.onSurface : palette.mutedText,
           fontSize: 11.7,
           fontWeight: isStrong ? FontWeight.w800 : FontWeight.w600,
         ),
@@ -965,7 +952,10 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             title: 'PubChem',
             child: Text(
               'PubChem error: ${snapshot.error}',
-              style: const TextStyle(color: Colors.white70, fontSize: 12.2),
+              style: TextStyle(
+                color: context.labmate.mutedText,
+                fontSize: 12.2,
+              ),
             ),
           );
         }
@@ -974,9 +964,12 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
         if (p == null) {
           return _compactPanel(
             title: 'PubChem',
-            child: const Text(
+            child: Text(
               'No PubChem data found.',
-              style: TextStyle(color: Colors.white70, fontSize: 12.2),
+              style: TextStyle(
+                color: context.labmate.mutedText,
+                fontSize: 12.2,
+              ),
             ),
           );
         }
@@ -993,9 +986,9 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                     height: 176,
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF111827),
+                      color: context.labmate.panelAlt,
                       borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: Colors.white.withOpacity(0.05)),
+                      border: Border.all(color: context.labmate.border),
                     ),
                     child: Image.network(
                       p.imageUrl,
@@ -1012,14 +1005,11 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                     child: Column(
                       children: [
                         _compactMetric(
-                        label: 'Formula',
-                        value: p.molecularFormula,
-                      ),
+                          label: 'Formula',
+                          value: p.molecularFormula,
+                        ),
                         const SizedBox(height: 8),
-                        _compactMetric(
-                        label: 'MW',
-                        value: p.molecularWeight,
-                      ),
+                        _compactMetric(label: 'MW', value: p.molecularWeight),
                         const SizedBox(height: 8),
                         _compactMetric(label: 'CID', value: p.cid),
                       ],
@@ -1032,7 +1022,10 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
               const SizedBox(height: 8),
               _identifierBlock(label: 'IUPAC Name', value: p.iupacName),
               const SizedBox(height: 8),
-              _identifierBlock(label: 'Canonical SMILES', value: p.canonicalSmiles),
+              _identifierBlock(
+                label: 'Canonical SMILES',
+                value: p.canonicalSmiles,
+              ),
             ],
           ),
         );
@@ -1040,25 +1033,25 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
-  Widget _identifierBlock({
-    required String label,
-    required String value,
-  }) {
+  Widget _identifierBlock({required String label, required String value}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: palette.subtleText,
               fontSize: 10.8,
               fontWeight: FontWeight.w800,
             ),
@@ -1067,8 +1060,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
           Text(
             _display(value),
             softWrap: true,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 11.7,
               height: 1.25,
               fontWeight: FontWeight.w600,
@@ -1085,13 +1078,16 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     required String availability,
     required Color statusColor,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1100,7 +1096,10 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: const Color(0x2214B8A6),
                   borderRadius: BorderRadius.circular(999),
@@ -1116,7 +1115,10 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
               ),
               const SizedBox(width: 10),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 11,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: statusColor.withOpacity(0.14),
                   borderRadius: BorderRadius.circular(999),
@@ -1138,22 +1140,19 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             chemical.chemicalName,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 21,
               fontWeight: FontWeight.w900,
               height: 1.15,
             ),
           ),
           const SizedBox(height: 12),
-          _compactMetricGrid(
-            [
-              _compactMetric(label: 'CAS', value: chemical.cas),
-              _compactMetric(label: 'Formula', value: chemical.formula),
-              _compactMetric(label: 'MW', value: chemical.molWt),
-            ],
-            columns: 3,
-          ),
+          _compactMetricGrid([
+            _compactMetric(label: 'CAS', value: chemical.cas),
+            _compactMetric(label: 'Formula', value: chemical.formula),
+            _compactMetric(label: 'MW', value: chemical.molWt),
+          ], columns: 3),
         ],
       ),
     );
@@ -1172,25 +1171,22 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       title: 'Inventory Details',
       child: Column(
         children: [
-          _compactMetricGrid(
-            [
-              _compactMetric(label: 'Brand', value: brand),
-              _compactMetric(label: 'Pack size', value: quantity),
-              _compactMetric(label: 'Location', value: location),
-              _compactMetric(label: 'Texture', value: chemical.texture),
-              _compactMetric(label: 'Catalog no', value: chemical.catNumber),
-              _compactMetric(label: 'Ordered by', value: chemical.orderedBy),
-              _compactMetric(
-                label: 'Availability',
-                value: availability,
-                valueColor: statusColor,
-              ),
-              _compactMetric(label: 'Bottles', value: bottleCount.toString()),
-              _compactMetric(label: 'Last updated', value: chemical.arrivalDate),
-              _compactMetric(label: 'Sheet tab', value: chemical.sheetTab),
-            ],
-            columns: 3,
-          ),
+          _compactMetricGrid([
+            _compactMetric(label: 'Brand', value: brand),
+            _compactMetric(label: 'Pack size', value: quantity),
+            _compactMetric(label: 'Location', value: location),
+            _compactMetric(label: 'Texture', value: chemical.texture),
+            _compactMetric(label: 'Catalog no', value: chemical.catNumber),
+            _compactMetric(label: 'Ordered by', value: chemical.orderedBy),
+            _compactMetric(
+              label: 'Availability',
+              value: availability,
+              valueColor: statusColor,
+            ),
+            _compactMetric(label: 'Bottles', value: bottleCount.toString()),
+            _compactMetric(label: 'Last updated', value: chemical.arrivalDate),
+            _compactMetric(label: 'Sheet tab', value: chemical.sheetTab),
+          ], columns: 3),
         ],
       ),
     );
@@ -1254,10 +1250,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded(
-                flex: 5,
-                child: _desktopPubChemPanel(),
-              ),
+              Expanded(flex: 5, child: _desktopPubChemPanel()),
             ],
           ),
         ],

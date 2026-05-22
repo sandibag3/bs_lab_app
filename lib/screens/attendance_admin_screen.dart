@@ -9,6 +9,7 @@ import '../app_state.dart';
 import '../models/attendance_record_model.dart';
 import '../services/attendance_service.dart';
 import '../services/firestore_access_guard.dart';
+import '../theme/labmate_theme.dart';
 import 'attendance_logbook_screen.dart';
 
 class AttendanceAdminScreen extends StatefulWidget {
@@ -105,9 +106,7 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
         .toList();
   }
 
-  Future<void> _generateAttendanceQr({
-    required String labId,
-  }) async {
+  Future<void> _generateAttendanceQr({required String labId}) async {
     if (_isGeneratingSecret) {
       return;
     }
@@ -268,6 +267,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
     required String message,
     required IconData icon,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -275,9 +276,9 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: palette.panel,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: palette.border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -287,8 +288,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -297,8 +298,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white70,
+                style: TextStyle(
+                  color: palette.mutedText,
                   fontSize: 13,
                   height: 1.4,
                 ),
@@ -319,17 +320,14 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
       builder: (context, _) {
         final selectedLabId = appState.selectedLabId.trim();
         final selectedLabName = appState.selectedLabName.trim();
+        final palette = context.labmate;
+        final colorScheme = context.colorScheme;
         final canQueryLabData = FirestoreAccessGuard.shouldQueryLabScopedData(
           appState: appState,
         );
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text(
-              'Attendance Admin',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
+          appBar: AppBar(title: const Text('Attendance Admin')),
           body: SafeArea(
             child: !canQueryLabData
                 ? _buildInfoState(
@@ -351,7 +349,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                         );
                       }
 
-                      final labData = labSnapshot.data?.data() ?? <String, dynamic>{};
+                      final labData =
+                          labSnapshot.data?.data() ?? <String, dynamic>{};
                       final attendanceEnabled =
                           labData['attendanceEnabled'] == true;
                       final attendanceQrSecret =
@@ -373,19 +372,17 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                           Container(
                             padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: palette.panel,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.06),
-                              ),
+                              border: Border.all(color: palette.border),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Attendance Setup',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: colorScheme.onSurface,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -395,15 +392,15 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                   selectedLabName.isEmpty
                                       ? selectedLabId
                                       : selectedLabName,
-                                  style: const TextStyle(
-                                    color: Colors.white60,
+                                  style: TextStyle(
+                                    color: palette.mutedText,
                                     fontSize: 13,
                                   ),
                                 ),
                                 const SizedBox(height: 16),
                                 Row(
                                   children: [
-                                    const Expanded(
+                                    Expanded(
                                       child: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
@@ -411,16 +408,16 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                           Text(
                                             'Attendance enabled',
                                             style: TextStyle(
-                                              color: Colors.white,
+                                              color: colorScheme.onSurface,
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),
-                                          SizedBox(height: 4),
+                                          const SizedBox(height: 4),
                                           Text(
                                             'Turn attendance tracking on or off for this lab.',
                                             style: TextStyle(
-                                              color: Colors.white60,
+                                              color: palette.mutedText,
                                               fontSize: 12.5,
                                               height: 1.35,
                                             ),
@@ -466,28 +463,26 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                           Container(
                             padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: palette.panel,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.06),
-                              ),
+                              border: Border.all(color: palette.border),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Attendance QR',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: colorScheme.onSurface,
                                     fontSize: 15.5,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
+                                Text(
                                   'Use this permanent QR during check-in setup.',
                                   style: TextStyle(
-                                    color: Colors.white60,
+                                    color: palette.mutedText,
                                     fontSize: 12.8,
                                     height: 1.35,
                                   ),
@@ -537,8 +532,9 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                           padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
                                             color: Colors.white,
-                                            borderRadius:
-                                                BorderRadius.circular(18),
+                                            borderRadius: BorderRadius.circular(
+                                              18,
+                                            ),
                                           ),
                                           child: QrImageView(
                                             data: qrPayload,
@@ -552,14 +548,18 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                         width: double.infinity,
                                         padding: const EdgeInsets.all(12),
                                         decoration: BoxDecoration(
-                                          color: Colors.white.withOpacity(0.04),
-                                          borderRadius:
-                                              BorderRadius.circular(14),
+                                          color: palette.panelAlt,
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                          border: Border.all(
+                                            color: palette.border,
+                                          ),
                                         ),
                                         child: Text(
                                           attendanceQrSecret,
-                                          style: const TextStyle(
-                                            color: Colors.white70,
+                                          style: TextStyle(
+                                            color: palette.mutedText,
                                             fontSize: 12.5,
                                             height: 1.35,
                                           ),
@@ -574,28 +574,26 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                           Container(
                             padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: palette.panel,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.06),
-                              ),
+                              border: Border.all(color: palette.border),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Allowed Wi-Fi SSIDs',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: colorScheme.onSurface,
                                     fontSize: 15.5,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
-                                const Text(
+                                Text(
                                   'Add lab Wi-Fi names that will later be used for attendance verification.',
                                   style: TextStyle(
-                                    color: Colors.white60,
+                                    color: palette.mutedText,
                                     fontSize: 12.8,
                                     height: 1.35,
                                   ),
@@ -606,20 +604,20 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                     Expanded(
                                       child: TextField(
                                         controller: _ssidController,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color: colorScheme.onSurface,
                                         ),
                                         decoration: InputDecoration(
                                           hintText: 'Add Wi-Fi SSID',
-                                          hintStyle: const TextStyle(
-                                            color: Colors.white38,
+                                          hintStyle: TextStyle(
+                                            color: palette.subtleText,
                                           ),
                                           filled: true,
-                                          fillColor:
-                                              Colors.white.withOpacity(0.04),
+                                          fillColor: palette.panelAlt,
                                           border: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(14),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
                                             borderSide: BorderSide.none,
                                           ),
                                         ),
@@ -634,7 +632,9 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                               currentSsids: allowedWifiSsids,
                                             ),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: const Color(0xFF38BDF8),
+                                        backgroundColor: const Color(
+                                          0xFF38BDF8,
+                                        ),
                                         foregroundColor: Colors.white,
                                         minimumSize: const Size(0, 50),
                                       ),
@@ -653,10 +653,10 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                 ),
                                 const SizedBox(height: 14),
                                 if (allowedWifiSsids.isEmpty)
-                                  const Text(
+                                  Text(
                                     'No Wi-Fi SSIDs added yet.',
                                     style: TextStyle(
-                                      color: Colors.white54,
+                                      color: palette.subtleText,
                                       fontSize: 13,
                                     ),
                                   )
@@ -670,9 +670,11 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                         vertical: 10,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withOpacity(0.04),
-                                        borderRadius:
-                                            BorderRadius.circular(14),
+                                        color: palette.panelAlt,
+                                        borderRadius: BorderRadius.circular(14),
+                                        border: Border.all(
+                                          color: palette.border,
+                                        ),
                                       ),
                                       child: Row(
                                         children: [
@@ -685,8 +687,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                           Expanded(
                                             child: Text(
                                               ssid,
-                                              style: const TextStyle(
-                                                color: Colors.white,
+                                              style: TextStyle(
+                                                color: colorScheme.onSurface,
                                                 fontSize: 13.2,
                                                 fontWeight: FontWeight.w600,
                                               ),
@@ -705,13 +707,15 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                                     width: 16,
                                                     child:
                                                         CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                      color: Colors.white70,
-                                                    ),
+                                                          strokeWidth: 2,
+                                                          color: Color(
+                                                            0xFF94A3B8,
+                                                          ),
+                                                        ),
                                                   )
-                                                : const Icon(
+                                                : Icon(
                                                     Icons.close_rounded,
-                                                    color: Colors.white54,
+                                                    color: palette.subtleText,
                                                   ),
                                             tooltip: 'Remove SSID',
                                           ),
@@ -726,19 +730,17 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                           Container(
                             padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: palette.panel,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.06),
-                              ),
+                              border: Border.all(color: palette.border),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Today\'s Attendance',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: colorScheme.onSurface,
                                     fontSize: 15.5,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -747,16 +749,16 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                 StreamBuilder<List<AttendanceRecordModel>>(
                                   stream: _attendanceService
                                       .getTodayAttendanceForLab(
-                                    labId: selectedLabId,
-                                  ),
+                                        labId: selectedLabId,
+                                      ),
                                   builder: (context, attendanceSnapshot) {
                                     if (attendanceSnapshot.hasError) {
                                       return Text(
                                         FirestoreAccessGuard.messageFor(
                                           attendanceSnapshot.error,
                                         ),
-                                        style: const TextStyle(
-                                          color: Colors.white60,
+                                        style: TextStyle(
+                                          color: palette.mutedText,
                                           fontSize: 13,
                                           height: 1.4,
                                         ),
@@ -781,10 +783,10 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                     }
 
                                     if (records.isEmpty) {
-                                      return const Text(
+                                      return Text(
                                         'No attendance records for today yet.',
                                         style: TextStyle(
-                                          color: Colors.white54,
+                                          color: palette.subtleText,
                                           fontSize: 13,
                                         ),
                                       );
@@ -792,18 +794,22 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
 
                                     return Column(
                                       children: records.map((record) {
-                                        final statusColor =
-                                            _statusColor(record);
+                                        final statusColor = _statusColor(
+                                          record,
+                                        );
                                         return Container(
-                                          margin:
-                                              const EdgeInsets.only(bottom: 10),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 10,
+                                          ),
                                           padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
-                                            color: Colors.white.withOpacity(
-                                              0.04,
+                                            color: palette.panelAlt,
+                                            borderRadius: BorderRadius.circular(
+                                              14,
                                             ),
-                                            borderRadius:
-                                                BorderRadius.circular(14),
+                                            border: Border.all(
+                                              color: palette.border,
+                                            ),
                                           ),
                                           child: Column(
                                             crossAxisAlignment:
@@ -823,10 +829,10 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                                                   .isEmpty
                                                               ? 'Unknown user'
                                                               : record.userName
-                                                                  .trim(),
-                                                          style:
-                                                              const TextStyle(
-                                                            color: Colors.white,
+                                                                    .trim(),
+                                                          style: TextStyle(
+                                                            color: colorScheme
+                                                                .onSurface,
                                                             fontSize: 13.5,
                                                             fontWeight:
                                                                 FontWeight.w700,
@@ -838,10 +844,9 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                                         Text(
                                                           record.userEmail
                                                               .trim(),
-                                                          style:
-                                                              const TextStyle(
-                                                            color: Colors
-                                                                .white60,
+                                                          style: TextStyle(
+                                                            color: palette
+                                                                .mutedText,
                                                             fontSize: 12.4,
                                                           ),
                                                         ),
@@ -849,18 +854,18 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                                     ),
                                                   ),
                                                   Container(
-                                                    padding: const EdgeInsets
-                                                        .symmetric(
-                                                      horizontal: 10,
-                                                      vertical: 6,
-                                                    ),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 6,
+                                                        ),
                                                     decoration: BoxDecoration(
                                                       color: statusColor
                                                           .withOpacity(0.14),
                                                       borderRadius:
                                                           BorderRadius.circular(
-                                                        999,
-                                                      ),
+                                                            999,
+                                                          ),
                                                     ),
                                                     child: Text(
                                                       _statusLabel(record),
@@ -877,17 +882,18 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                               const SizedBox(height: 10),
                                               Text(
                                                 'Check-in: ${_formatTimestamp(record.checkInAt)}',
-                                                style: const TextStyle(
-                                                  color: Colors.white70,
+                                                style: TextStyle(
+                                                  color: palette.mutedText,
                                                   fontSize: 12.5,
                                                 ),
                                               ),
-                                              if (record.checkOutAt != null) ...[
+                                              if (record.checkOutAt !=
+                                                  null) ...[
                                                 const SizedBox(height: 4),
                                                 Text(
                                                   'Check-out: ${_formatTimestamp(record.checkOutAt)}',
-                                                  style: const TextStyle(
-                                                    color: Colors.white70,
+                                                  style: TextStyle(
+                                                    color: palette.mutedText,
                                                     fontSize: 12.5,
                                                   ),
                                                 ),

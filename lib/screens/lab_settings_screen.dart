@@ -3,14 +3,12 @@ import 'package:flutter/services.dart';
 import '../app_state.dart';
 import '../services/lab_membership_service.dart';
 import '../services/lab_service.dart';
+import '../theme/labmate_theme.dart';
 
 class LabSettingsScreen extends StatefulWidget {
   final AppState appState;
 
-  const LabSettingsScreen({
-    super.key,
-    required this.appState,
-  });
+  const LabSettingsScreen({super.key, required this.appState});
 
   @override
   State<LabSettingsScreen> createState() => _LabSettingsScreenState();
@@ -45,11 +43,13 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
   }
 
   InputDecoration _inputDecoration(String label) {
+    final palette = context.labmate;
+
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: palette.subtleText),
       filled: true,
-      fillColor: const Color(0xFF0F172A),
+      fillColor: palette.panelAlt,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -84,14 +84,16 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
         final details = await _labService.getLabDetails(selectedLabId);
         if (details.isNotEmpty) {
           loadedRemoteDetails = true;
-          resolvedLabName =
-              (details['labName'] ?? resolvedLabName).toString().trim();
-          resolvedInstitute =
-              (details['institute'] ?? '').toString().trim();
+          resolvedLabName = (details['labName'] ?? resolvedLabName)
+              .toString()
+              .trim();
+          resolvedInstitute = (details['institute'] ?? '').toString().trim();
           resolvedLabCode = (details['labCode'] ?? '').toString().trim();
         }
       } catch (_) {
-        resolvedLabName = resolvedLabName.isEmpty ? selectedLabId : resolvedLabName;
+        resolvedLabName = resolvedLabName.isEmpty
+            ? selectedLabId
+            : resolvedLabName;
       }
 
       if (resolvedLabName.isEmpty) {
@@ -104,8 +106,8 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
       isEditable = loadedRemoteDetails && appState.isPiAdmin;
       helperText = loadedRemoteDetails
           ? (isEditable
-              ? 'Update the basic details for this lab and share the join code with collaborators.'
-              : 'You can view the current lab settings here. Only PI/Admin can edit them.')
+                ? 'Update the basic details for this lab and share the join code with collaborators.'
+                : 'You can view the current lab settings here. Only PI/Admin can edit them.')
           : 'This lab could not be loaded right now. You can still view the current lab context and join code.';
     }
 
@@ -133,11 +135,9 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
 
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Lab code copied'),
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Lab code copied')));
   }
 
   Future<void> _saveLabDetails() async {
@@ -167,18 +167,14 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Lab settings updated'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Lab settings updated')));
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not update lab settings: $e'),
-        ),
+        SnackBar(content: Text('Could not update lab settings: $e')),
       );
     } finally {
       if (mounted) {
@@ -204,9 +200,7 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
       if (candidates.isEmpty) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('No dummy/test labs found.'),
-          ),
+          const SnackBar(content: Text('No dummy/test labs found.')),
         );
         return;
       }
@@ -224,22 +218,22 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) {
+          final palette = context.labmate;
+          final colorScheme = context.colorScheme;
+
           return AlertDialog(
-            backgroundColor: const Color(0xFF1E293B),
-            title: const Text(
+            backgroundColor: palette.panel,
+            title: Text(
               'Remove Dummy/Test Labs?',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: colorScheme.onSurface),
             ),
             content: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'This will delete the matching lab documents and their related memberships.',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    height: 1.4,
-                  ),
+                  style: TextStyle(color: palette.mutedText, height: 1.4),
                 ),
                 const SizedBox(height: 12),
                 ...previewItems.map(
@@ -247,24 +241,21 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
                     padding: const EdgeInsets.only(bottom: 6),
                     child: Text(
                       '- $item',
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                     ),
                   ),
                 ),
                 if (extraCount > 0)
                   Text(
                     '...and $extraCount more',
-                    style: const TextStyle(color: Colors.white70),
+                    style: TextStyle(color: palette.mutedText),
                   ),
               ],
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.white70),
-                ),
+                child: const Text('Cancel'),
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
@@ -287,11 +278,13 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
           .where((labId) => labId.isNotEmpty)
           .toList();
 
-      final deletedMemberships =
-          await _labMembershipService.deleteMembershipsForLabs(labIds);
+      final deletedMemberships = await _labMembershipService
+          .deleteMembershipsForLabs(labIds);
       final deletedLabs = await _labService.deleteLabsByIds(labIds);
 
-      final removedCurrentLab = labIds.contains(widget.appState.selectedLabId.trim());
+      final removedCurrentLab = labIds.contains(
+        widget.appState.selectedLabId.trim(),
+      );
       if (removedCurrentLab) {
         await widget.appState.clearSessionContext();
       }
@@ -316,11 +309,9 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not complete cleanup: $e'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not complete cleanup: $e')));
     } finally {
       if (mounted) {
         setState(() {
@@ -331,23 +322,27 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
   }
 
   Widget _buildHeaderCard() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Lab Settings',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colorScheme.onSurface,
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
                   ),
@@ -359,13 +354,13 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
                   vertical: 5,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.08),
+                  color: palette.panelAlt,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
                   widget.appState.currentRoleLabel,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontSize: 11.5,
                     fontWeight: FontWeight.w700,
                   ),
@@ -377,7 +372,7 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
           Text(
             _helperText,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.72),
+              color: palette.mutedText,
               fontSize: 13,
               height: 1.4,
             ),
@@ -387,14 +382,14 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
     );
   }
 
-  Widget _buildDetailRow({
-    required String label,
-    required String value,
-  }) {
+  Widget _buildDetailRow({required String label, required String value}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -402,8 +397,8 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: palette.subtleText,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -411,8 +406,8 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
           const SizedBox(height: 6),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 14,
               fontWeight: FontWeight.w600,
             ),
@@ -424,21 +419,24 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
 
   Widget _buildSettingsCard() {
     final instituteText = _instituteController.text.trim();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Lab Details',
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
@@ -447,7 +445,7 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
           if (_isEditable && _isRemoteLab) ...[
             TextFormField(
               controller: _labNameController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: colorScheme.onSurface),
               decoration: _inputDecoration('Lab Name'),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -459,7 +457,7 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
             const SizedBox(height: 14),
             TextFormField(
               controller: _instituteController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: colorScheme.onSurface),
               decoration: _inputDecoration('Institute'),
             ),
           ] else ...[
@@ -481,22 +479,27 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
   }
 
   Widget _buildInviteCard() {
-    final displayCode = _labCode.trim().isEmpty ? 'Not available' : _labCode.trim();
+    final displayCode = _labCode.trim().isEmpty
+        ? 'Not available'
+        : _labCode.trim();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Invite',
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
@@ -505,7 +508,7 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
           Text(
             'Use this code when someone joins the lab.',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.68),
+              color: palette.mutedText,
               fontSize: 13,
               height: 1.4,
             ),
@@ -513,18 +516,15 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
           const SizedBox(height: 14),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 16,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
+              color: palette.panelAlt,
               borderRadius: BorderRadius.circular(16),
             ),
             child: SelectableText(
               displayCode,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: colorScheme.onSurface,
                 fontSize: 20,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.8,
@@ -537,10 +537,8 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
             child: OutlinedButton.icon(
               onPressed: displayCode == 'Not available' ? null : _copyLabCode,
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white,
-                side: BorderSide(
-                  color: Colors.white.withOpacity(0.18),
-                ),
+                foregroundColor: colorScheme.onSurface,
+                side: BorderSide(color: palette.border),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
                   vertical: 12,
@@ -556,20 +554,24 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
   }
 
   Widget _buildCleanupCard() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Temporary Cleanup',
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
@@ -578,7 +580,7 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
           Text(
             'Admin-only action to remove labs explicitly marked as dummy/test, along with their memberships.',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.68),
+              color: palette.mutedText,
               fontSize: 13,
               height: 1.4,
             ),
@@ -588,13 +590,8 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
             onPressed: _isCleaningUp ? null : _runDummyLabCleanup,
             style: OutlinedButton.styleFrom(
               foregroundColor: const Color(0xFFFB7185),
-              side: const BorderSide(
-                color: Color(0xFFFB7185),
-              ),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
+              side: const BorderSide(color: Color(0xFFFB7185)),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             ),
             icon: _isCleaningUp
                 ? const SizedBox(
@@ -617,18 +614,13 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Lab Settings',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Lab Settings')),
       body: SafeArea(
         child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
+            ? const Center(child: CircularProgressIndicator())
             : Form(
                 key: _formKey,
                 child: ListView(
@@ -648,7 +640,7 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
                         child: ElevatedButton(
                           onPressed: _isSaving ? null : _saveLabDetails,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF14B8A6),
+                            backgroundColor: colorScheme.primary,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),

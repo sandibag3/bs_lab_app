@@ -5,6 +5,7 @@ import '../app_state.dart';
 import '../models/attendance_record_model.dart';
 import '../services/attendance_service.dart';
 import '../services/firestore_access_guard.dart';
+import '../theme/labmate_theme.dart';
 
 enum _AttendanceLogbookStatusFilter { all, present, checkedOut }
 
@@ -12,7 +13,8 @@ class AttendanceLogbookScreen extends StatefulWidget {
   const AttendanceLogbookScreen({super.key});
 
   @override
-  State<AttendanceLogbookScreen> createState() => _AttendanceLogbookScreenState();
+  State<AttendanceLogbookScreen> createState() =>
+      _AttendanceLogbookScreenState();
 }
 
 class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
@@ -30,7 +32,7 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
       firstDate: DateTime(now.year - 3),
       lastDate: DateTime(now.year + 1),
       builder: (context, child) {
-        return Theme(data: ThemeData.dark(), child: child!);
+        return Theme(data: Theme.of(context), child: child!);
       },
     );
 
@@ -161,8 +163,7 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
       grouped.putIfAbsent(record.dateKey, () => []).add(record);
     }
 
-    return grouped.entries.toList()
-      ..sort((a, b) => b.key.compareTo(a.key));
+    return grouped.entries.toList()..sort((a, b) => b.key.compareTo(a.key));
   }
 
   Widget _buildStatusFilterChip({
@@ -170,13 +171,14 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
     required _AttendanceLogbookStatusFilter value,
   }) {
     final isSelected = _statusFilter == value;
+    final palette = context.labmate;
     return ChoiceChip(
       label: Text(label),
       selected: isSelected,
       selectedColor: const Color(0xFF14B8A6),
-      backgroundColor: const Color(0xFF111827),
+      backgroundColor: palette.panelAlt,
       labelStyle: TextStyle(
-        color: isSelected ? Colors.white : Colors.white70,
+        color: isSelected ? Colors.white : palette.mutedText,
         fontWeight: FontWeight.w700,
         fontSize: 12.5,
       ),
@@ -189,20 +191,22 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
   }
 
   Widget _buildFiltersCard() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Filters',
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onSurface,
               fontSize: 14.5,
               fontWeight: FontWeight.w700,
             ),
@@ -267,11 +271,13 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
     required String label,
     Color color = const Color(0xFF14B8A6),
   }) {
+    final palette = context.labmate;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.05),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -280,8 +286,8 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
           const SizedBox(width: 6),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: palette.mutedText,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -293,13 +299,15 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
 
   Widget _buildRecordCard(AttendanceRecordModel record) {
     final statusColor = _statusColor(record);
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -315,8 +323,8 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
                       record.userName.trim().isEmpty
                           ? 'Unknown user'
                           : record.userName.trim(),
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
@@ -326,8 +334,8 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
                       record.userEmail.trim().isEmpty
                           ? 'Email not available'
                           : record.userEmail.trim(),
-                      style: const TextStyle(
-                        color: Colors.white60,
+                      style: TextStyle(
+                        color: palette.mutedText,
                         fontSize: 12.6,
                       ),
                     ),
@@ -403,6 +411,8 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
     required String message,
     required IconData icon,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -410,9 +420,9 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: palette.panel,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: palette.border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -422,8 +432,8 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -432,8 +442,8 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white70,
+                style: TextStyle(
+                  color: palette.mutedText,
                   fontSize: 13,
                   height: 1.4,
                 ),
@@ -459,12 +469,7 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
         );
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text(
-              'Attendance Logbook',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
+          appBar: AppBar(title: const Text('Attendance Logbook')),
           body: SafeArea(
             child: !canQueryLabData
                 ? _buildInfoState(
@@ -497,19 +502,17 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
                           Container(
                             padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
+                              color: context.labmate.panel,
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.06),
-                              ),
+                              border: Border.all(color: context.labmate.border),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   'Attendance Logbook',
                                   style: TextStyle(
-                                    color: Colors.white,
+                                    color: context.colorScheme.onSurface,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -519,8 +522,8 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
                                   selectedLabName.isEmpty
                                       ? selectedLabId
                                       : selectedLabName,
-                                  style: const TextStyle(
-                                    color: Colors.white60,
+                                  style: TextStyle(
+                                    color: context.labmate.mutedText,
                                     fontSize: 13,
                                   ),
                                 ),
@@ -558,8 +561,8 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
                                   ),
                                   child: Text(
                                     _sectionTitle(entry.key),
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: context.colorScheme.onSurface,
                                       fontSize: 15.5,
                                       fontWeight: FontWeight.w800,
                                     ),
@@ -567,9 +570,7 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
                                 ),
                               ];
 
-                              section.addAll(
-                                entry.value.map(_buildRecordCard),
-                              );
+                              section.addAll(entry.value.map(_buildRecordCard));
                               return section;
                             }),
                         ],

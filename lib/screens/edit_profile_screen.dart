@@ -4,6 +4,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/user_profile.dart';
+import '../theme/labmate_theme.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final AppState appState;
@@ -128,8 +129,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
 
     final uri = Uri.tryParse(cleanReference);
-    if (uri != null &&
-        (uri.scheme == 'http' || uri.scheme == 'https')) {
+    if (uri != null && (uri.scheme == 'http' || uri.scheme == 'https')) {
       return NetworkImage(cleanReference);
     }
 
@@ -190,13 +190,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildPhotoFallback(String initials) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
-      color: const Color(0xFF1E293B),
+      color: palette.panel,
       alignment: Alignment.center,
       child: Text(
         initials,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: colorScheme.onSurface,
           fontSize: 28,
           fontWeight: FontWeight.w800,
         ),
@@ -210,19 +213,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ? _resolvePhotoImageProvider(selectedPhotoPath)
         : null;
     final initials = _fallbackInitials();
+    final palette = context.labmate;
 
     return Container(
       height: 90,
       width: 90,
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withOpacity(0.08)),
+        border: Border.all(color: palette.border),
       ),
       child: ClipOval(
         child: avatar != null
             ? Container(
-                color: const Color(0xFF1E293B),
+                color: palette.panel,
                 alignment: Alignment.center,
                 child: Icon(
                   avatar.icon,
@@ -264,11 +268,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   InputDecoration _inputDecoration(String label) {
+    final palette = context.labmate;
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: palette.subtleText),
       filled: true,
-      fillColor: const Color(0xFF1E293B),
+      fillColor: palette.panel,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -284,6 +289,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     bool readOnly = false,
     TextInputType? keyboardType,
   }) {
+    final colorScheme = context.colorScheme;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextField(
@@ -292,7 +299,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         readOnly: readOnly,
         onTap: onTap,
         keyboardType: keyboardType,
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: colorScheme.onSurface),
         decoration: _inputDecoration(label),
       ),
     );
@@ -304,13 +311,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     required List<String> items,
     required ValueChanged<String?> onChanged,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: DropdownButtonFormField<String>(
         initialValue: value.isEmpty ? null : value,
-        dropdownColor: const Color(0xFF1E293B),
+        dropdownColor: palette.panel,
         decoration: _inputDecoration(label),
-        style: const TextStyle(color: Colors.white),
+        style: TextStyle(color: colorScheme.onSurface),
         items: items
             .map(
               (item) =>
@@ -329,15 +339,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       firstDate: DateTime(1940),
       lastDate: DateTime.now(),
       builder: (context, child) {
-        return Theme(
-          data: ThemeData.dark().copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF14B8A6),
-              surface: Color(0xFF1E293B),
-            ),
-          ),
-          child: child!,
-        );
+        return Theme(data: Theme.of(context), child: child!);
       },
     );
 
@@ -407,14 +409,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildSectionTitle(String title) {
+    final colorScheme = context.colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Align(
         alignment: Alignment.centerLeft,
         child: Text(
           title,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: colorScheme.onSurface,
             fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
@@ -431,6 +434,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final selectedScientificAvatar = UserProfile.scientificAvatarFromReference(
       selectedPhotoPath,
     );
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return SafeArea(
       child: SingleChildScrollView(
@@ -441,8 +446,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 10),
             Text(
               isComplete ? 'Profile complete' : 'Personal information optional',
-              style: const TextStyle(
-                color: Colors.white70,
+              style: TextStyle(
+                color: palette.mutedText,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -487,8 +492,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: palette.panel,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: palette.border),
               ),
               child: Row(
                 children: [
@@ -501,10 +507,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Profile photo or avatar',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: colorScheme.onSurface,
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
                           ),
@@ -516,8 +522,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               : 'Required for profile completion',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white60,
+                          style: TextStyle(
+                            color: palette.subtleText,
                             fontSize: 12.5,
                           ),
                         ),
@@ -526,8 +532,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           selectedScientificAvatar != null
                               ? 'Built-in scientific avatars work without file upload.'
                               : 'Choose an image now, or pick a built-in scientific avatar below.',
-                          style: const TextStyle(
-                            color: Colors.white38,
+                          style: TextStyle(
+                            color: palette.subtleText,
                             fontSize: 11.5,
                           ),
                         ),
@@ -548,25 +554,26 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: palette.panel,
                 borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: palette.border),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     'Scientific avatars',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: colorScheme.onSurface,
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  const Text(
+                  Text(
                     'Pick a built-in lab-themed avatar instead of uploading a real photo.',
                     style: TextStyle(
-                      color: Colors.white60,
+                      color: palette.subtleText,
                       fontSize: 12.5,
                       height: 1.35,
                     ),
@@ -576,7 +583,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     spacing: 8,
                     runSpacing: 8,
                     children: UserProfile.scientificAvatarOptions.map((option) {
-                      final isSelected = selectedPhotoPath.trim() == option.reference;
+                      final isSelected =
+                          selectedPhotoPath.trim() == option.reference;
 
                       return ChoiceChip(
                         selected: isSelected,
@@ -587,20 +595,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           option.icon,
                           size: 18,
                           color: isSelected
-                              ? Colors.white
-                              : const Color(0xFF14B8A6),
+                              ? colorScheme.primary
+                              : colorScheme.primary,
                         ),
                         label: Text(option.label),
                         labelStyle: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white70,
+                          color: isSelected
+                              ? colorScheme.primary
+                              : palette.mutedText,
                           fontWeight: FontWeight.w600,
                         ),
-                        backgroundColor: const Color(0xFF0F172A),
-                        selectedColor: const Color(0x3314B8A6),
+                        backgroundColor: palette.panelAlt,
+                        selectedColor: palette.selected,
                         side: BorderSide(
                           color: isSelected
-                              ? const Color(0xFF14B8A6)
-                              : Colors.white10,
+                              ? colorScheme.primary
+                              : palette.border,
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(18),

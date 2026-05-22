@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/event_model.dart';
 import '../services/event_service.dart';
+import '../theme/labmate_theme.dart';
 
 class AddEventScreen extends StatefulWidget {
   const AddEventScreen({super.key});
@@ -23,11 +24,12 @@ class _AddEventScreenState extends State<AddEventScreen> {
   bool _isSaving = false;
 
   InputDecoration _inputDecoration(String label) {
+    final palette = context.labmate;
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: palette.subtleText),
       filled: true,
-      fillColor: const Color(0xFF1E293B),
+      fillColor: palette.panel,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -65,7 +67,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
       firstDate: now.subtract(const Duration(days: 365)),
       lastDate: DateTime(now.year + 5),
       builder: (context, child) {
-        return Theme(data: ThemeData.dark(), child: child!);
+        return Theme(data: Theme.of(context), child: child!);
       },
     );
 
@@ -80,7 +82,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
       context: context,
       initialTime: TimeOfDay.fromDateTime(initial),
       builder: (context, child) {
-        return Theme(data: ThemeData.dark(), child: child!);
+        return Theme(data: Theme.of(context), child: child!);
       },
     );
 
@@ -184,11 +186,11 @@ class _AddEventScreenState extends State<AddEventScreen> {
   @override
   Widget build(BuildContext context) {
     final selectedLabName = AppState.instance.selectedLabName.trim();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create Event', style: TextStyle(color: Colors.white)),
-      ),
+      appBar: AppBar(title: const Text('Create Event')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -200,8 +202,9 @@ class _AddEventScreenState extends State<AddEventScreen> {
                   margin: const EdgeInsets.only(bottom: 16),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: palette.panel,
                     borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: palette.border),
                   ),
                   child: Row(
                     children: [
@@ -213,8 +216,8 @@ class _AddEventScreenState extends State<AddEventScreen> {
                       Expanded(
                         child: Text(
                           'Creating event for $selectedLabName',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
                             fontSize: 13.5,
                             fontWeight: FontWeight.w600,
                           ),
@@ -226,7 +229,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
               ],
               TextFormField(
                 controller: _titleController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: _inputDecoration('Title'),
                 textInputAction: TextInputAction.next,
                 validator: (value) {
@@ -238,9 +241,11 @@ class _AddEventScreenState extends State<AddEventScreen> {
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
-                initialValue: _selectedEventType.isEmpty ? null : _selectedEventType,
-                dropdownColor: const Color(0xFF1E293B),
-                style: const TextStyle(color: Colors.white),
+                initialValue: _selectedEventType.isEmpty
+                    ? null
+                    : _selectedEventType,
+                dropdownColor: palette.panel,
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: _inputDecoration('Event Type'),
                 items: EventModel.eventTypeOptions
                     .map(
@@ -248,7 +253,7 @@ class _AddEventScreenState extends State<AddEventScreen> {
                         value: item,
                         child: Text(
                           item,
-                          style: const TextStyle(color: Colors.white),
+                          style: TextStyle(color: colorScheme.onSurface),
                         ),
                       ),
                     )
@@ -268,14 +273,14 @@ class _AddEventScreenState extends State<AddEventScreen> {
               const SizedBox(height: 14),
               TextFormField(
                 controller: _venueController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: _inputDecoration('Venue (optional)'),
                 textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: _descriptionController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: _inputDecoration('Description (optional)'),
                 maxLines: 3,
               ),
@@ -299,8 +304,8 @@ class _AddEventScreenState extends State<AddEventScreen> {
                               : _formatDateTime(_selectedDateTime!),
                           style: TextStyle(
                             color: _selectedDateTime == null
-                                ? Colors.white60
-                                : Colors.white,
+                                ? palette.subtleText
+                                : colorScheme.onSurface,
                             fontSize: 14,
                           ),
                         ),
@@ -313,13 +318,14 @@ class _AddEventScreenState extends State<AddEventScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: palette.border),
                 ),
-                child: const Text(
+                child: Text(
                   'Events stay lab-specific and show up on the dashboard upcoming events list automatically.',
                   style: TextStyle(
-                    color: Colors.white60,
+                    color: palette.subtleText,
                     fontSize: 12.5,
                     height: 1.4,
                   ),

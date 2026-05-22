@@ -175,9 +175,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                     ? EdgeInsets.zero
                     : const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isDesktopLayout
-                      ? Colors.transparent
-                      : palette.panel,
+                  color: isDesktopLayout ? Colors.transparent : palette.panel,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Text(
@@ -197,9 +195,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                     ? EdgeInsets.zero
                     : const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: isDesktopLayout
-                      ? Colors.transparent
-                      : palette.panel,
+                  color: isDesktopLayout ? Colors.transparent : palette.panel,
                   borderRadius: BorderRadius.circular(18),
                 ),
                 child: Text(
@@ -231,9 +227,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                       ? EdgeInsets.zero
                       : const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: isDesktopLayout
-                        ? Colors.transparent
-                        : palette.panel,
+                    color: isDesktopLayout ? Colors.transparent : palette.panel,
                     borderRadius: BorderRadius.circular(18),
                   ),
                   child: Text(
@@ -270,7 +264,9 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                       margin: const EdgeInsets.only(right: 10),
                       padding: EdgeInsets.all(cardPadding),
                       decoration: BoxDecoration(
-                        color: isDesktopLayout ? palette.panelAlt : palette.panel,
+                        color: isDesktopLayout
+                            ? palette.panelAlt
+                            : palette.panel,
                         borderRadius: BorderRadius.circular(
                           isDesktopLayout ? 14 : 18,
                         ),
@@ -367,9 +363,9 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
         height: double.infinity,
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: palette.panel,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          border: Border.all(color: palette.border),
         ),
         child: sectionContent,
       );
@@ -387,7 +383,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                 style: TextStyle(
                   fontSize: headingFontSize,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: colorScheme.onSurface,
                 ),
               ),
             ),
@@ -427,10 +423,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
               onPressed: () => _openFullList(context),
               child: const Text(
                 'View all',
-                style: TextStyle(
-                  color: Color(0xFF14B8A6),
-                  fontWeight: FontWeight.w600,
-                ),
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -443,15 +436,13 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
               return Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: palette.border),
                 ),
-                child: const Text(
+                child: Text(
                   FirestoreAccessGuard.userMessage,
-                  style: TextStyle(
-                    color: Colors.white70,
-                    height: 1.4,
-                  ),
+                  style: TextStyle(color: palette.mutedText, height: 1.4),
                 ),
               );
             }
@@ -460,15 +451,13 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
               return Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: palette.border),
                 ),
                 child: Text(
                   FirestoreAccessGuard.messageFor(snapshot.error),
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    height: 1.4,
-                  ),
+                  style: TextStyle(color: palette.mutedText, height: 1.4),
                 ),
               );
             }
@@ -489,12 +478,13 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: palette.panel,
                     borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: palette.border),
                   ),
-                  child: const Text(
+                  child: Text(
                     'No newly arrived items this week.',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: palette.mutedText),
                   ),
                 ),
               );
@@ -522,18 +512,19 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                       margin: const EdgeInsets.only(right: 12),
                       padding: EdgeInsets.all(cardPadding),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: palette.panel,
                         borderRadius: BorderRadius.circular(18),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.06),
-                        ),
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 8,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
+                        border: Border.all(color: palette.border),
+                        boxShadow:
+                            Theme.of(context).brightness == Brightness.dark
+                            ? const [
+                                BoxShadow(
+                                  color: Colors.black26,
+                                  blurRadius: 8,
+                                  offset: Offset(0, 3),
+                                ),
+                              ]
+                            : null,
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -545,8 +536,8 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                                   order.displayName,
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface,
                                     fontSize: 14.5,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -584,18 +575,18 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                                 : secondary,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white60,
+                            style: TextStyle(
+                              color: palette.subtleText,
                               fontSize: 12.5,
                             ),
                           ),
                           const Spacer(),
-                          const Text(
+                          Text(
                             'Tap to confirm entry',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Color(0xFF14B8A6),
+                              color: colorScheme.primary,
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                             ),

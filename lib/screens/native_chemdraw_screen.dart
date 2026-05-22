@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/molecule_atom.dart';
 import '../models/molecule_bond.dart';
+import '../theme/labmate_theme.dart';
 
 class NativeChemDrawScreen extends StatefulWidget {
   const NativeChemDrawScreen({super.key});
@@ -261,10 +262,12 @@ class _NativeChemDrawScreenState extends State<NativeChemDrawScreen> {
     final counts = _elementCounts();
     final formula = _formulaFromCounts(counts);
     final molecularWeight = _molecularWeight(counts);
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: const Color(0xFF111827),
+      backgroundColor: palette.panel,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
@@ -276,10 +279,10 @@ class _NativeChemDrawScreenState extends State<NativeChemDrawScreen> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'Molecular Properties',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colorScheme.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
@@ -295,10 +298,10 @@ class _NativeChemDrawScreenState extends State<NativeChemDrawScreen> {
                 _PropertyRow(label: 'Atom count', value: '${_atoms.length}'),
                 _PropertyRow(label: 'Bond count', value: '${_bonds.length}'),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   'Current MW/formula are calculated from drawn explicit atoms. Implicit hydrogens can be added in a later version.',
                   style: TextStyle(
-                    color: Colors.white60,
+                    color: palette.mutedText,
                     fontSize: 12.5,
                     height: 1.35,
                   ),
@@ -312,9 +315,10 @@ class _NativeChemDrawScreenState extends State<NativeChemDrawScreen> {
   }
 
   Widget _elementToolbar() {
+    final palette = context.labmate;
     return Container(
       height: 58,
-      color: const Color(0xFF111827),
+      color: palette.panel,
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         scrollDirection: Axis.horizontal,
@@ -326,12 +330,12 @@ class _NativeChemDrawScreenState extends State<NativeChemDrawScreen> {
             label: Text(element),
             selected: isSelected,
             selectedColor: const Color(0xFF14B8A6),
-            backgroundColor: const Color(0xFF1E293B),
+            backgroundColor: palette.panelAlt,
             side: BorderSide(
-              color: isSelected ? const Color(0xFF14B8A6) : Colors.white12,
+              color: isSelected ? const Color(0xFF14B8A6) : palette.border,
             ),
             labelStyle: TextStyle(
-              color: isSelected ? Colors.white : Colors.white70,
+              color: isSelected ? Colors.white : palette.mutedText,
               fontWeight: FontWeight.w700,
             ),
             onSelected: (_) {
@@ -349,6 +353,7 @@ class _NativeChemDrawScreenState extends State<NativeChemDrawScreen> {
 
   Widget _bondButton(String label, int order) {
     final isSelected = _selectedBondOrder == order;
+    final palette = context.labmate;
 
     return Expanded(
       child: OutlinedButton(
@@ -358,12 +363,12 @@ class _NativeChemDrawScreenState extends State<NativeChemDrawScreen> {
           });
         },
         style: OutlinedButton.styleFrom(
-          foregroundColor: isSelected ? Colors.white : Colors.white70,
+          foregroundColor: isSelected ? Colors.white : palette.mutedText,
           backgroundColor: isSelected
               ? const Color(0x3314B8A6)
               : Colors.transparent,
           side: BorderSide(
-            color: isSelected ? const Color(0xFF14B8A6) : Colors.white24,
+            color: isSelected ? const Color(0xFF14B8A6) : palette.border,
           ),
           padding: const EdgeInsets.symmetric(vertical: 12),
         ),
@@ -373,8 +378,9 @@ class _NativeChemDrawScreenState extends State<NativeChemDrawScreen> {
   }
 
   Widget _actionToolbar() {
+    final palette = context.labmate;
     return Container(
-      color: const Color(0xFF0F172A),
+      color: palette.panel,
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -414,8 +420,8 @@ class _NativeChemDrawScreenState extends State<NativeChemDrawScreen> {
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Clear'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Colors.white30),
+                    foregroundColor: palette.mutedText,
+                    side: BorderSide(color: palette.border),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
@@ -442,6 +448,7 @@ class _NativeChemDrawScreenState extends State<NativeChemDrawScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     return Scaffold(
       appBar: AppBar(title: const Text('ChemDraw')),
       body: SafeArea(
@@ -450,10 +457,10 @@ class _NativeChemDrawScreenState extends State<NativeChemDrawScreen> {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
-              color: const Color(0xFF0F172A),
-              child: const Text(
+              color: palette.panel,
+              child: Text(
                 'Tap to add atoms. Tap two atoms to bond. Drag atoms to move.',
-                style: TextStyle(color: Colors.white70, fontSize: 12.5),
+                style: TextStyle(color: palette.mutedText, fontSize: 12.5),
               ),
             ),
             Expanded(
@@ -641,6 +648,8 @@ class _PropertyRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
@@ -649,8 +658,8 @@ class _PropertyRow extends StatelessWidget {
             width: 120,
             child: Text(
               label,
-              style: const TextStyle(
-                color: Colors.white60,
+              style: TextStyle(
+                color: palette.mutedText,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -659,8 +668,8 @@ class _PropertyRow extends StatelessWidget {
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: colorScheme.onSurface,
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
               ),

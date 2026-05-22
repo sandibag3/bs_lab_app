@@ -7,6 +7,7 @@ import '../models/notebook_experiment_model.dart';
 import '../models/notebook_project_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/lab_notebook_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/notebook/characterization_panel.dart';
 import '../widgets/notebook/experiment_info_panel.dart';
 import '../widgets/notebook/experiment_notes_panel.dart';
@@ -69,7 +70,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
       case 'optimized':
         return const Color(0xFFA78BFA);
       default:
-        return Colors.white70;
+        return const Color(0xFF94A3B8);
     }
   }
 
@@ -208,6 +209,8 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     NotebookExperimentModel experiment, {
     required bool isWide,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     final safeStatus = notebookExperimentStatuses.contains(experiment.status)
         ? experiment.status
         : notebookExperimentStatuses.first;
@@ -254,7 +257,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
-            color: Colors.white,
+            color: colorScheme.onSurface,
             fontSize: isWide ? 20 : 18,
             fontWeight: FontWeight.w800,
           ),
@@ -265,8 +268,8 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
             reactionSubtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: Colors.white60,
+            style: TextStyle(
+              color: palette.mutedText,
               fontSize: 12.2,
               fontWeight: FontWeight.w500,
             ),
@@ -299,10 +302,10 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
         const SizedBox(height: 8),
         Row(
           children: [
-            const Text(
+            Text(
               'Status',
               style: TextStyle(
-                color: Colors.white60,
+                color: palette.mutedText,
                 fontSize: 11.4,
                 fontWeight: FontWeight.w700,
               ),
@@ -315,10 +318,10 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               ),
               const SizedBox(width: 6),
-              const Text(
+              Text(
                 'Saving',
                 style: TextStyle(
-                  color: Colors.white54,
+                  color: palette.subtleText,
                   fontSize: 11.0,
                   fontWeight: FontWeight.w600,
                 ),
@@ -330,8 +333,8 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
         DropdownButtonFormField<String>(
           key: ValueKey('experiment_status_${experiment.status}'),
           initialValue: safeStatus,
-          dropdownColor: const Color(0xFF111C34),
-          style: const TextStyle(color: Colors.white, fontSize: 12.6),
+          dropdownColor: palette.panelAlt,
+          style: TextStyle(color: colorScheme.onSurface, fontSize: 12.6),
           decoration: InputDecoration(
             isDense: true,
             filled: true,
@@ -375,9 +378,9 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
           vertical: isWide ? 10 : 13,
         ),
         decoration: BoxDecoration(
-          color: const Color(0xFF0B1220),
+          color: palette.panel,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+          border: Border.all(color: palette.border),
         ),
         child: isWide
             ? Row(
@@ -471,17 +474,20 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
           const SizedBox(height: 10),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF0F172A),
+              color: context.labmate.panel,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+              border: Border.all(color: context.labmate.border),
             ),
-            child: const TabBar(
-              labelColor: Colors.white,
-              unselectedLabelColor: Colors.white60,
+            child: TabBar(
+              labelColor: context.colorScheme.onSurface,
+              unselectedLabelColor: context.labmate.mutedText,
               indicatorColor: Color(0xFF14B8A6),
               indicatorSize: TabBarIndicatorSize.tab,
-              labelStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-              tabs: [
+              labelStyle: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+              tabs: const [
                 Tab(text: 'Overview'),
                 Tab(text: 'Reaction'),
                 Tab(text: 'Record'),
@@ -550,13 +556,8 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFF020617),
-      appBar: AppBar(
-        title: const Text(
-          'Experiment Details',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(title: const Text('Experiment Details')),
       body: ResponsivePageContainer(
         maxWidth: 1540,
         child: canQuery
@@ -574,8 +575,8 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                         child: Text(
                           FirestoreAccessGuard.messageFor(snapshot.error),
                           textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            color: Colors.white70,
+                          style: TextStyle(
+                            color: context.labmate.mutedText,
                             height: 1.4,
                           ),
                         ),
@@ -593,7 +594,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                       child: Text(
                         'This experiment could not be found.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70, height: 1.4),
+                        style: TextStyle(height: 1.4),
                       ),
                     );
                   }
@@ -621,7 +622,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                   child: Text(
                     FirestoreAccessGuard.userMessage,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, height: 1.4),
+                    style: TextStyle(height: 1.4),
                   ),
                 ),
               ),
@@ -639,13 +640,15 @@ class _HeaderBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 280),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: palette.panelAlt,
           borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: palette.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -657,7 +660,7 @@ class _HeaderBadge extends StatelessWidget {
                 label,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: accent ?? Colors.white70,
+                  color: accent ?? palette.mutedText,
                   fontSize: 11.3,
                   fontWeight: FontWeight.w600,
                 ),
@@ -678,19 +681,22 @@ class _HeaderMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
-        color: const Color(0xFF111C34),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: palette.subtleText,
               fontSize: 10.8,
               fontWeight: FontWeight.w700,
             ),
@@ -698,8 +704,8 @@ class _HeaderMetric extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 12.2,
               fontWeight: FontWeight.w600,
             ),

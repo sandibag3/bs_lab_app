@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/notebook_experiment_model.dart';
+import '../../theme/labmate_theme.dart';
 
 class ReactionDetailsPanel extends StatelessWidget {
   final NotebookExperimentModel experiment;
@@ -14,6 +15,7 @@ class ReactionDetailsPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     final tableRows = [
       _ReactionRow(label: 'Reaction Title', value: experiment.reactionTitle),
       _ReactionRow(
@@ -36,9 +38,9 @@ class ReactionDetailsPanel extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 12 : 13),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(compact ? 16 : 18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -86,6 +88,8 @@ class _PanelHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = context.colorScheme;
+    final palette = context.labmate;
     return Row(
       children: [
         Container(
@@ -104,8 +108,8 @@ class _PanelHeader extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
                   fontSize: 13.8,
                   fontWeight: FontWeight.w700,
                 ),
@@ -113,8 +117,8 @@ class _PanelHeader extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  color: Colors.white54,
+                style: TextStyle(
+                  color: palette.subtleText,
                   fontSize: 11.4,
                   fontWeight: FontWeight.w500,
                 ),
@@ -138,14 +142,16 @@ class _SchemePlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Container(
       height: compact ? 122 : 156,
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF111C34),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -155,7 +161,7 @@ class _SchemePlaceholder extends StatelessWidget {
             height: 38,
             width: 38,
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
+              color: palette.panel,
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(
@@ -165,21 +171,21 @@ class _SchemePlaceholder extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          const Text(
+          Text(
             'Reaction Scheme',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onSurface,
               fontSize: 14.2,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Add scheme / ChemDraw image later',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white54,
+              color: palette.subtleText,
               fontSize: 11.8,
               fontWeight: FontWeight.w500,
             ),
@@ -211,10 +217,11 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     return Text(
       text,
-      style: const TextStyle(
-        color: Colors.white54,
+      style: TextStyle(
+        color: palette.subtleText,
         fontSize: 11.2,
         fontWeight: FontWeight.w700,
       ),
@@ -230,11 +237,13 @@ class _SetupTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF111C34),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         children: rows.asMap().entries.map((entry) {
@@ -250,11 +259,7 @@ class _SetupTable extends StatelessWidget {
             decoration: BoxDecoration(
               border: isLast
                   ? null
-                  : Border(
-                      bottom: BorderSide(
-                        color: Colors.white.withValues(alpha: 0.05),
-                      ),
-                    ),
+                  : Border(bottom: BorderSide(color: palette.border)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,8 +268,8 @@ class _SetupTable extends StatelessWidget {
                   width: compact ? 102 : 118,
                   child: Text(
                     row.label,
-                    style: const TextStyle(
-                      color: Colors.white54,
+                    style: TextStyle(
+                      color: palette.subtleText,
                       fontSize: 11.4,
                       fontWeight: FontWeight.w700,
                     ),
@@ -276,8 +281,8 @@ class _SetupTable extends StatelessWidget {
                     _displayValue(row.value),
                     style: TextStyle(
                       color: row.value.trim().isEmpty
-                          ? Colors.white38
-                          : Colors.white,
+                          ? palette.subtleText
+                          : colorScheme.onSurface,
                       fontSize: compact ? 12.0 : 12.4,
                       fontWeight: FontWeight.w600,
                       height: 1.32,
@@ -307,6 +312,8 @@ class _ConditionChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasValue = item.value.trim().isNotEmpty;
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       padding: EdgeInsets.symmetric(
@@ -314,11 +321,9 @@ class _ConditionChip extends StatelessWidget {
         vertical: compact ? 8 : 9,
       ),
       decoration: BoxDecoration(
-        color: hasValue
-            ? const Color(0xFF111C34)
-            : Colors.white.withValues(alpha: 0.04),
+        color: hasValue ? palette.panelAlt : palette.panel,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -326,8 +331,8 @@ class _ConditionChip extends StatelessWidget {
         children: [
           Text(
             item.label,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: palette.subtleText,
               fontSize: 10.8,
               fontWeight: FontWeight.w700,
             ),
@@ -336,7 +341,9 @@ class _ConditionChip extends StatelessWidget {
           Text(
             hasValue ? item.value.trim() : 'Not set',
             style: TextStyle(
-              color: hasValue ? const Color(0xFFDBEAFE) : Colors.white38,
+              color: hasValue
+                  ? const Color(0xFFDBEAFE)
+                  : colorScheme.onSurface.withValues(alpha: 0.55),
               fontSize: compact ? 11.6 : 12.0,
               fontWeight: FontWeight.w600,
             ),

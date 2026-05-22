@@ -8,15 +8,13 @@ import '../app_state.dart';
 import '../models/instrument_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/instrument_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 
 class AddInstrumentScreen extends StatefulWidget {
   final InstrumentModel? existingInstrument;
 
-  const AddInstrumentScreen({
-    super.key,
-    this.existingInstrument,
-  });
+  const AddInstrumentScreen({super.key, this.existingInstrument});
 
   @override
   State<AddInstrumentScreen> createState() => _AddInstrumentScreenState();
@@ -79,10 +77,10 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
       _lastServicedOn = existing.lastServicedOn?.toDate();
       _nextServiceDue = existing.nextServiceDue?.toDate();
       _serviceDate = existing.serviceDate?.toDate();
-      _instrumentInchargeTenureFrom =
-          existing.instrumentInchargeTenureFrom?.toDate();
-      _instrumentInchargeTenureTo =
-          existing.instrumentInchargeTenureTo?.toDate();
+      _instrumentInchargeTenureFrom = existing.instrumentInchargeTenureFrom
+          ?.toDate();
+      _instrumentInchargeTenureTo = existing.instrumentInchargeTenureTo
+          ?.toDate();
       _nameController.text = existing.name;
       _brandController.text = existing.brand;
       _serialNoController.text = existing.serialNo;
@@ -123,11 +121,13 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
   }
 
   InputDecoration _inputDecoration(String label) {
+    final palette = context.labmate;
+
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: palette.subtleText),
       filled: true,
-      fillColor: const Color(0xFF111827),
+      fillColor: palette.panelAlt,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -154,7 +154,7 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
       firstDate: DateTime(2000),
       lastDate: DateTime(now.year + 10),
       builder: (context, child) {
-        return Theme(data: ThemeData.dark(), child: child!);
+        return Theme(data: Theme.of(context), child: child!);
       },
     );
   }
@@ -164,9 +164,9 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
       return;
     }
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _selectArrivedOn() async {
@@ -186,7 +186,9 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
   }
 
   Future<void> _selectLastServicedOn() async {
-    final picked = await _pickDate(_lastServicedOn ?? _serviceDate ?? _arrivedOn);
+    final picked = await _pickDate(
+      _lastServicedOn ?? _serviceDate ?? _arrivedOn,
+    );
     if (picked == null) return;
     setState(() {
       _lastServicedOn = picked;
@@ -269,21 +271,24 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     required String subtitle,
     required List<Widget> children,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 15.5,
               fontWeight: FontWeight.w700,
             ),
@@ -291,8 +296,8 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
           const SizedBox(height: 6),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: Colors.white60,
+            style: TextStyle(
+              color: palette.subtleText,
               fontSize: 12.5,
               height: 1.4,
             ),
@@ -309,13 +314,16 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     required DateTime? value,
     required VoidCallback onTap,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: onTap,
       child: Ink(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
         decoration: BoxDecoration(
-          color: const Color(0xFF111827),
+          color: palette.panelAlt,
           borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
@@ -326,16 +334,13 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: palette.mutedText, fontSize: 12),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     _formatDate(value),
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -373,10 +378,9 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
     try {
       final existing = widget.existingInstrument;
       final now = Timestamp.now();
-      final instrumentId =
-          existing?.id.trim().isNotEmpty == true
-              ? existing!.id.trim()
-              : _instrumentService.createInstrumentId();
+      final instrumentId = existing?.id.trim().isNotEmpty == true
+          ? existing!.id.trim()
+          : _instrumentService.createInstrumentId();
 
       final photoUrls = [
         ..._existingPhotoUrls,
@@ -395,12 +399,13 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
         serialNo: _serialNoController.text.trim(),
         catalogNumber: _catalogNumberController.text.trim(),
         serviceIncharge: _serviceInchargeController.text.trim(),
-        serviceInchargeContactNo: _serviceInchargeContactNoController.text.trim(),
+        serviceInchargeContactNo: _serviceInchargeContactNoController.text
+            .trim(),
         specification: _specificationController.text.trim(),
         userGuide: _userGuideController.text.trim(),
         instrumentIncharge: _instrumentInchargeController.text.trim(),
-        instrumentInchargeContactNo:
-            _instrumentInchargeContactNoController.text.trim(),
+        instrumentInchargeContactNo: _instrumentInchargeContactNoController.text
+            .trim(),
         instrumentInchargeTenureFrom: _instrumentInchargeTenureFrom == null
             ? null
             : Timestamp.fromDate(_instrumentInchargeTenureFrom!),
@@ -420,9 +425,11 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
             : Timestamp.fromDate(_serviceDate!),
         serviceDetails: _serviceDetailsController.text.trim(),
         serviceHistory:
-            existing?.serviceHistory ?? const <InstrumentServiceHistoryRecord>[],
+            existing?.serviceHistory ??
+            const <InstrumentServiceHistoryRecord>[],
         inchargeHistory:
-            existing?.inchargeHistory ?? const <InstrumentInchargeHistoryRecord>[],
+            existing?.inchargeHistory ??
+            const <InstrumentInchargeHistoryRecord>[],
         photoUrls: photoUrls,
         createdAt: existing?.createdAt ?? now,
         updatedAt: now,
@@ -459,13 +466,12 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
   @override
   Widget build(BuildContext context) {
     final totalPhotos = _existingPhotoUrls.length + _pendingPhotoFiles.length;
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          _isEditMode ? 'Edit Instrument' : 'Add Instrument',
-          style: const TextStyle(color: Colors.white),
-        ),
+        title: Text(_isEditMode ? 'Edit Instrument' : 'Add Instrument'),
       ),
       body: SafeArea(
         child: ResponsivePageContainer(
@@ -475,302 +481,313 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
             child: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-              _buildSectionCard(
-                title: 'Basic Information',
-                subtitle: _isEditMode
-                    ? 'Update the current lab-scoped instrument record.'
-                    : 'Create a lab-scoped instrument record.',
-                children: [
-                  TextFormField(
-                    controller: _nameController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Instrument name'),
-                    validator: (value) {
-                      if (value == null || value.trim().isEmpty) {
-                        return 'Enter instrument name';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedCategory,
-                    dropdownColor: const Color(0xFF111827),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Category'),
-                    items: InstrumentModel.categories.map((category) {
-                      return DropdownMenuItem<String>(
-                        value: category,
-                        child: Text(category),
-                      );
-                    }).toList(),
-                    onChanged: _isSaving
-                        ? null
-                        : (value) {
-                            if (value == null) return;
-                            setState(() {
-                              _selectedCategory = value;
-                            });
-                          },
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDateField(
-                    label: 'Arrived on',
-                    value: _arrivedOn,
-                    onTap: _selectArrivedOn,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              _buildSectionCard(
-                title: 'Instrument Details',
-                subtitle: 'Track vendor and reference details for the instrument.',
-                children: [
-                  TextFormField(
-                    controller: _brandController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Brand'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _serialNoController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Serial no'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _catalogNumberController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Catalog number'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _serviceInchargeController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Service incharge'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _serviceInchargeContactNoController,
-                    style: const TextStyle(color: Colors.white),
-                    keyboardType: TextInputType.phone,
-                    decoration: _inputDecoration('Service incharge contact no'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _specificationController,
-                    style: const TextStyle(color: Colors.white),
-                    maxLines: 3,
-                    decoration: _inputDecoration('Specification'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              _buildSectionCard(
-                title: 'Guides & Ownership',
-                subtitle: 'Keep quick access info and point-of-contact details together.',
-                children: [
-                  TextFormField(
-                    controller: _userGuideController,
-                    style: const TextStyle(color: Colors.white),
-                    maxLines: 2,
-                    decoration: _inputDecoration('User guide (text or link)'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _instrumentInchargeController,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Instrument in-charge'),
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _instrumentInchargeContactNoController,
-                    style: const TextStyle(color: Colors.white),
-                    keyboardType: TextInputType.phone,
-                    decoration: _inputDecoration(
-                      'Instrument in-charge contact no',
+                _buildSectionCard(
+                  title: 'Basic Information',
+                  subtitle: _isEditMode
+                      ? 'Update the current lab-scoped instrument record.'
+                      : 'Create a lab-scoped instrument record.',
+                  children: [
+                    TextFormField(
+                      controller: _nameController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      decoration: _inputDecoration('Instrument name'),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return 'Enter instrument name';
+                        }
+                        return null;
+                      },
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDateField(
-                    label: 'Tenure from',
-                    value: _instrumentInchargeTenureFrom,
-                    onTap: _selectInstrumentInchargeTenureFrom,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDateField(
-                    label: 'Tenure to',
-                    value: _instrumentInchargeTenureTo,
-                    onTap: _selectInstrumentInchargeTenureTo,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              _buildSectionCard(
-                title: 'Maintenance Status',
-                subtitle:
-                    'Track the instrument condition and upcoming maintenance window.',
-                children: [
-                  DropdownButtonFormField<String>(
-                    initialValue: _selectedStatus,
-                    dropdownColor: const Color(0xFF111827),
-                    style: const TextStyle(color: Colors.white),
-                    decoration: _inputDecoration('Status'),
-                    items: InstrumentModel.statusOptions.map((status) {
-                      return DropdownMenuItem<String>(
-                        value: status,
-                        child: Text(status),
-                      );
-                    }).toList(),
-                    onChanged: _isSaving
-                        ? null
-                        : (value) {
-                            if (value == null) return;
-                            setState(() {
-                              _selectedStatus = value;
-                            });
-                          },
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDateField(
-                    label: 'Last serviced on',
-                    value: _lastServicedOn,
-                    onTap: _selectLastServicedOn,
-                  ),
-                  const SizedBox(height: 12),
-                  _buildDateField(
-                    label: 'Next service due',
-                    value: _nextServiceDue,
-                    onTap: _selectNextServiceDue,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _maintenanceNotesController,
-                    style: const TextStyle(color: Colors.white),
-                    maxLines: 3,
-                    decoration: _inputDecoration('Maintenance notes'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              _buildSectionCard(
-                title: 'Servicing',
-                subtitle: 'Record the most recent service checkpoint if available.',
-                children: [
-                  _buildDateField(
-                    label: 'Service date',
-                    value: _serviceDate,
-                    onTap: _selectServiceDate,
-                  ),
-                  const SizedBox(height: 12),
-                  TextFormField(
-                    controller: _serviceDetailsController,
-                    style: const TextStyle(color: Colors.white),
-                    maxLines: 3,
-                    decoration: _inputDecoration('Service details'),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              _buildSectionCard(
-                title: 'Instrument Photos',
-                subtitle:
-                    'Pick instrument photos from the device. For now, selected local photo paths are saved directly with the instrument record.',
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          totalPhotos == 0
-                              ? 'No photos selected yet'
-                              : '$totalPhotos photo${totalPhotos == 1 ? '' : 's'} selected',
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12.8,
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedCategory,
+                      dropdownColor: palette.panel,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      decoration: _inputDecoration('Category'),
+                      items: InstrumentModel.categories.map((category) {
+                        return DropdownMenuItem<String>(
+                          value: category,
+                          child: Text(
+                            category,
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: _isSaving
+                          ? null
+                          : (value) {
+                              if (value == null) return;
+                              setState(() {
+                                _selectedCategory = value;
+                              });
+                            },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDateField(
+                      label: 'Arrived on',
+                      value: _arrivedOn,
+                      onTap: _selectArrivedOn,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _buildSectionCard(
+                  title: 'Instrument Details',
+                  subtitle:
+                      'Track vendor and reference details for the instrument.',
+                  children: [
+                    TextFormField(
+                      controller: _brandController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      decoration: _inputDecoration('Brand'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _serialNoController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      decoration: _inputDecoration('Serial no'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _catalogNumberController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      decoration: _inputDecoration('Catalog number'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _serviceInchargeController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      decoration: _inputDecoration('Service incharge'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _serviceInchargeContactNoController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      keyboardType: TextInputType.phone,
+                      decoration: _inputDecoration(
+                        'Service incharge contact no',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _specificationController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      maxLines: 3,
+                      decoration: _inputDecoration('Specification'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _buildSectionCard(
+                  title: 'Guides & Ownership',
+                  subtitle:
+                      'Keep quick access info and point-of-contact details together.',
+                  children: [
+                    TextFormField(
+                      controller: _userGuideController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      maxLines: 2,
+                      decoration: _inputDecoration('User guide (text or link)'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _instrumentInchargeController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      decoration: _inputDecoration('Instrument in-charge'),
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _instrumentInchargeContactNoController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      keyboardType: TextInputType.phone,
+                      decoration: _inputDecoration(
+                        'Instrument in-charge contact no',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDateField(
+                      label: 'Tenure from',
+                      value: _instrumentInchargeTenureFrom,
+                      onTap: _selectInstrumentInchargeTenureFrom,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDateField(
+                      label: 'Tenure to',
+                      value: _instrumentInchargeTenureTo,
+                      onTap: _selectInstrumentInchargeTenureTo,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _buildSectionCard(
+                  title: 'Maintenance Status',
+                  subtitle:
+                      'Track the instrument condition and upcoming maintenance window.',
+                  children: [
+                    DropdownButtonFormField<String>(
+                      initialValue: _selectedStatus,
+                      dropdownColor: palette.panel,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      decoration: _inputDecoration('Status'),
+                      items: InstrumentModel.statusOptions.map((status) {
+                        return DropdownMenuItem<String>(
+                          value: status,
+                          child: Text(
+                            status,
+                            style: TextStyle(color: colorScheme.onSurface),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: _isSaving
+                          ? null
+                          : (value) {
+                              if (value == null) return;
+                              setState(() {
+                                _selectedStatus = value;
+                              });
+                            },
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDateField(
+                      label: 'Last serviced on',
+                      value: _lastServicedOn,
+                      onTap: _selectLastServicedOn,
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDateField(
+                      label: 'Next service due',
+                      value: _nextServiceDue,
+                      onTap: _selectNextServiceDue,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _maintenanceNotesController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      maxLines: 3,
+                      decoration: _inputDecoration('Maintenance notes'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _buildSectionCard(
+                  title: 'Servicing',
+                  subtitle:
+                      'Record the most recent service checkpoint if available.',
+                  children: [
+                    _buildDateField(
+                      label: 'Service date',
+                      value: _serviceDate,
+                      onTap: _selectServiceDate,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _serviceDetailsController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      maxLines: 3,
+                      decoration: _inputDecoration('Service details'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _buildSectionCard(
+                  title: 'Instrument Photos',
+                  subtitle:
+                      'Pick instrument photos from the device. For now, selected local photo paths are saved directly with the instrument record.',
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            totalPhotos == 0
+                                ? 'No photos selected yet'
+                                : '$totalPhotos photo${totalPhotos == 1 ? '' : 's'} selected',
+                            style: TextStyle(
+                              color: palette.mutedText,
+                              fontSize: 12.8,
+                            ),
                           ),
                         ),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: _isSaving ? null : _pickInstrumentPhoto,
-                        icon: const Icon(Icons.add_a_photo_outlined),
-                        label: const Text('Add photo'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  if (totalPhotos == 0)
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF111827),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: const Text(
-                        'Selected photos will appear here before save.',
-                        style: TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12.8,
-                          height: 1.4,
+                        OutlinedButton.icon(
+                          onPressed: _isSaving ? null : _pickInstrumentPhoto,
+                          icon: const Icon(Icons.add_a_photo_outlined),
+                          label: const Text('Add photo'),
                         ),
-                      ),
-                    )
-                  else
-                    Wrap(
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        ...List.generate(_existingPhotoUrls.length, (index) {
-                          return _InstrumentPhotoPreviewTile(
-                            previewSource: _existingPhotoUrls[index],
-                            label: 'Saved',
-                            onRemove: _isSaving
-                                ? null
-                                : () => _removeExistingPhoto(index),
-                          );
-                        }),
-                        ...List.generate(_pendingPhotoFiles.length, (index) {
-                          return _InstrumentPhotoPreviewTile(
-                            previewSource: _pendingPhotoFiles[index].path,
-                            label: 'New',
-                            onRemove: _isSaving
-                                ? null
-                                : () => _removePendingPhoto(index),
-                          );
-                        }),
                       ],
                     ),
-                ],
-              ),
-              const SizedBox(height: 18),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _isSaving ? null : _save,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF14B8A6),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                  ),
-                  icon: _isSaving
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2,
+                    const SizedBox(height: 12),
+                    if (totalPhotos == 0)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(14),
+                        decoration: BoxDecoration(
+                          color: palette.panelAlt,
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          'Selected photos will appear here before save.',
+                          style: TextStyle(
+                            color: palette.subtleText,
+                            fontSize: 12.8,
+                            height: 1.4,
                           ),
-                        )
-                      : const Icon(Icons.save_rounded),
-                  label: Text(
-                    _isSaving
-                        ? (_isEditMode ? 'Updating...' : 'Saving...')
-                        : (_isEditMode
-                              ? 'Update Instrument'
-                              : 'Save Instrument'),
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          ...List.generate(_existingPhotoUrls.length, (index) {
+                            return _InstrumentPhotoPreviewTile(
+                              previewSource: _existingPhotoUrls[index],
+                              label: 'Saved',
+                              onRemove: _isSaving
+                                  ? null
+                                  : () => _removeExistingPhoto(index),
+                            );
+                          }),
+                          ...List.generate(_pendingPhotoFiles.length, (index) {
+                            return _InstrumentPhotoPreviewTile(
+                              previewSource: _pendingPhotoFiles[index].path,
+                              label: 'New',
+                              onRemove: _isSaving
+                                  ? null
+                                  : () => _removePendingPhoto(index),
+                            );
+                          }),
+                        ],
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: _isSaving ? null : _save,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF14B8A6),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                    icon: _isSaving
+                        ? const SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Icon(Icons.save_rounded),
+                    label: Text(
+                      _isSaving
+                          ? (_isEditMode ? 'Updating...' : 'Saving...')
+                          : (_isEditMode
+                                ? 'Update Instrument'
+                                : 'Save Instrument'),
+                    ),
                   ),
                 ),
-              ),
               ],
             ),
           ),
@@ -820,12 +837,13 @@ class _InstrumentPhotoPreviewTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageProvider = _resolveImageProvider();
+    final palette = context.labmate;
 
     return Container(
       width: 104,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
@@ -837,26 +855,26 @@ class _InstrumentPhotoPreviewTile extends StatelessWidget {
                 height: 86,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: imageProvider == null
-                      ? const Center(
+                      ? Center(
                           child: Icon(
                             Icons.image_not_supported_outlined,
-                            color: Colors.white38,
+                            color: palette.subtleText,
                           ),
                         )
                       : Image(
                           image: imageProvider,
                           fit: BoxFit.cover,
                           errorBuilder: (_, __, ___) {
-                            return const Center(
+                            return Center(
                               child: Icon(
                                 Icons.image_not_supported_outlined,
-                                color: Colors.white38,
+                                color: palette.subtleText,
                               ),
                             );
                           },
@@ -888,8 +906,8 @@ class _InstrumentPhotoPreviewTile extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: palette.mutedText,
               fontSize: 11.8,
               fontWeight: FontWeight.w600,
             ),

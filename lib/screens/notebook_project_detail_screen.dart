@@ -6,6 +6,7 @@ import '../models/notebook_experiment_model.dart';
 import '../models/notebook_project_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/lab_notebook_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 import 'add_experiment_screen.dart';
 import 'experiment_detail_screen.dart';
@@ -43,7 +44,7 @@ class NotebookProjectDetailScreen extends StatelessWidget {
       case 'optimized':
         return const Color(0xFFA78BFA);
       default:
-        return Colors.white70;
+        return const Color(0xFF94A3B8);
     }
   }
 
@@ -63,6 +64,8 @@ class NotebookProjectDetailScreen extends StatelessWidget {
     required int experimentCount,
     required bool isWide,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     final description = project.description.trim();
     final labLabel = appState.selectedLabName.trim().isEmpty
         ? project.labId
@@ -72,9 +75,9 @@ class NotebookProjectDetailScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,22 +98,25 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              const Expanded(
+              Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Project Workspace',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: colorScheme.onSurface,
                         fontSize: 15.0,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 2),
                     Text(
                       'Experiments and reaction log',
-                      style: TextStyle(color: Colors.white54, fontSize: 11.4),
+                      style: TextStyle(
+                        color: palette.subtleText,
+                        fontSize: 11.4,
+                      ),
                     ),
                   ],
                 ),
@@ -122,8 +128,8 @@ class NotebookProjectDetailScreen extends StatelessWidget {
             project.title.trim().isEmpty
                 ? 'Untitled project'
                 : project.title.trim(),
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 16.2,
               fontWeight: FontWeight.w700,
             ),
@@ -139,7 +145,7 @@ class NotebookProjectDetailScreen extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(11),
             decoration: BoxDecoration(
-              color: const Color(0xFF111827),
+              color: palette.panelAlt,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Text(
@@ -147,7 +153,9 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                   ? 'No project description yet. Start by capturing the first experiment for this project.'
                   : description,
               style: TextStyle(
-                color: description.isEmpty ? Colors.white54 : Colors.white70,
+                color: description.isEmpty
+                    ? palette.subtleText
+                    : palette.mutedText,
                 fontSize: 12.2,
                 height: 1.4,
               ),
@@ -233,7 +241,7 @@ class NotebookProjectDetailScreen extends StatelessWidget {
         : experiment.aim.trim();
 
     return Material(
-      color: const Color(0xFF111827),
+      color: context.labmate.panelAlt,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
@@ -253,7 +261,7 @@ class NotebookProjectDetailScreen extends StatelessWidget {
           padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+            border: Border.all(color: context.labmate.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -282,8 +290,8 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                               : experiment.title.trim(),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: context.colorScheme.onSurface,
                             fontSize: 14.0,
                             fontWeight: FontWeight.w700,
                           ),
@@ -319,7 +327,7 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(11),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF0B1220),
+                  color: context.labmate.panel,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
@@ -330,8 +338,8 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: reactionSummary.isEmpty
-                        ? Colors.white54
-                        : Colors.white70,
+                        ? context.labmate.subtleText
+                        : context.labmate.mutedText,
                     fontSize: 12.2,
                     height: 1.38,
                   ),
@@ -369,8 +377,8 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                           : experiment.startingMaterial.trim(),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white54,
+                      style: TextStyle(
+                        color: context.labmate.subtleText,
                         fontSize: 11.4,
                         fontWeight: FontWeight.w600,
                       ),
@@ -379,7 +387,7 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                   Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 14,
-                    color: Colors.white.withValues(alpha: 0.42),
+                    color: context.labmate.subtleText,
                   ),
                 ],
               ),
@@ -448,32 +456,32 @@ class NotebookProjectDetailScreen extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(13),
           decoration: BoxDecoration(
-            color: const Color(0xFF0F172A),
+            color: context.labmate.panel,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+            border: Border.all(color: context.labmate.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Expanded(
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Experiments',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: context.colorScheme.onSurface,
                             fontSize: 15.0,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        SizedBox(height: 2),
+                        const SizedBox(height: 2),
                         Text(
                           'Reaction records inside this project',
                           style: TextStyle(
-                            color: Colors.white54,
+                            color: context.labmate.subtleText,
                             fontSize: 11.4,
                           ),
                         ),
@@ -512,7 +520,7 @@ class NotebookProjectDetailScreen extends StatelessWidget {
               child: Text(
                 FirestoreAccessGuard.messageFor(snapshot.error),
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.white70, height: 1.4),
+                style: TextStyle(color: context.labmate.mutedText, height: 1.4),
               ),
             ),
           );
@@ -567,13 +575,8 @@ class NotebookProjectDetailScreen extends StatelessWidget {
     final isMobileWidth = MediaQuery.sizeOf(context).width < 900;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF020617),
-      appBar: AppBar(
-        title: const Text(
-          'Notebook Project',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(title: const Text('Notebook Project')),
       floatingActionButton: canQuery && isMobileWidth
           ? FloatingActionButton.extended(
               onPressed: () => _openAddExperiment(context),
@@ -596,7 +599,7 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                   child: Text(
                     FirestoreAccessGuard.userMessage,
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white70, height: 1.4),
+                    style: TextStyle(height: 1.4),
                   ),
                 ),
         ),
@@ -620,13 +623,15 @@ class _ProjectNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -636,8 +641,8 @@ class _ProjectNotice extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 15.2,
               fontWeight: FontWeight.w700,
             ),
@@ -646,8 +651,8 @@ class _ProjectNotice extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: palette.mutedText,
               fontSize: 12.4,
               height: 1.42,
             ),
@@ -666,19 +671,22 @@ class _ProjectMetric extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white54,
+            style: TextStyle(
+              color: palette.subtleText,
               fontSize: 10.8,
               fontWeight: FontWeight.w700,
             ),
@@ -686,8 +694,8 @@ class _ProjectMetric extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 13.8,
               fontWeight: FontWeight.w700,
             ),
@@ -707,13 +715,15 @@ class _ProjectBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 280),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: palette.panelAlt,
           borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: palette.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -725,7 +735,7 @@ class _ProjectBadge extends StatelessWidget {
                 label,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: accent ?? Colors.white70,
+                  color: accent ?? palette.mutedText,
                   fontSize: 11.2,
                   fontWeight: FontWeight.w600,
                 ),

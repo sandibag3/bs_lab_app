@@ -7,6 +7,7 @@ import '../app_state.dart';
 import '../models/attendance_record_model.dart';
 import '../services/attendance_service.dart';
 import '../services/firestore_access_guard.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 import 'attendance_admin_screen.dart';
 import 'attendance_logbook_screen.dart';
@@ -207,6 +208,8 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
   Widget build(BuildContext context) {
     final appState = AppState.instance;
     final currentUser = FirebaseAuth.instance.currentUser;
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return AnimatedBuilder(
       animation: appState,
@@ -221,495 +224,489 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         );
 
         return Scaffold(
-          appBar: AppBar(
-            title: const Text(
-              'Attendance',
-              style: TextStyle(color: Colors.white),
-            ),
-          ),
+          appBar: AppBar(title: const Text('Attendance')),
           body: SafeArea(
             child: ResponsivePageContainer(
               child: !canQueryLabData
-                ? _AttendanceInfoState(
-                    title: 'Attendance needs a lab',
-                    message:
-                        'Select, create, or join a lab to start using attendance.',
-                    icon: Icons.apartment_rounded,
-                  )
-                : currentUserId.isEmpty
-                ? const _AttendanceInfoState(
-                    title: 'Sign in required',
-                    message: 'Please sign in again to use attendance.',
-                    icon: Icons.lock_outline_rounded,
-                  )
-                : StreamBuilder<List<AttendanceRecordModel>>(
-                    stream: _attendanceService.getTodayAttendanceForLab(
-                      labId: selectedLabId,
-                    ),
-                    builder: (context, snapshot) {
-                      if (snapshot.hasError) {
-                        return _AttendanceInfoState(
-                          title: 'Attendance unavailable',
-                          message: FirestoreAccessGuard.messageFor(
-                            snapshot.error,
-                          ),
-                          icon: Icons.error_outline_rounded,
-                        );
-                      }
-
-                      final todayRecords = snapshot.data ?? [];
-                      final todayRecord = _findTodayRecord(
-                        todayRecords,
-                        currentUserId,
-                      );
-                      final statusLabel = _statusLabel(todayRecord);
-                      final statusColor = _statusColor(todayRecord);
-                      final canCheckOut =
-                          todayRecord != null &&
-                          !todayRecord.isCheckedOut &&
-                          !_isCheckingOut;
-
-                      return ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.06),
-                              ),
+                  ? _AttendanceInfoState(
+                      title: 'Attendance needs a lab',
+                      message:
+                          'Select, create, or join a lab to start using attendance.',
+                      icon: Icons.apartment_rounded,
+                    )
+                  : currentUserId.isEmpty
+                  ? const _AttendanceInfoState(
+                      title: 'Sign in required',
+                      message: 'Please sign in again to use attendance.',
+                      icon: Icons.lock_outline_rounded,
+                    )
+                  : StreamBuilder<List<AttendanceRecordModel>>(
+                      stream: _attendanceService.getTodayAttendanceForLab(
+                        labId: selectedLabId,
+                      ),
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return _AttendanceInfoState(
+                            title: 'Attendance unavailable',
+                            message: FirestoreAccessGuard.messageFor(
+                              snapshot.error,
                             ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(10),
-                                      decoration: BoxDecoration(
-                                        color: const Color(0x2214B8A6),
-                                        borderRadius: BorderRadius.circular(14),
-                                      ),
-                                      child: const Icon(
-                                        Icons.fact_check_outlined,
-                                        color: Color(0xFF2DD4BF),
-                                        size: 22,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Today\'s Attendance',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w700,
-                                            ),
+                            icon: Icons.error_outline_rounded,
+                          );
+                        }
+
+                        final todayRecords = snapshot.data ?? [];
+                        final todayRecord = _findTodayRecord(
+                          todayRecords,
+                          currentUserId,
+                        );
+                        final statusLabel = _statusLabel(todayRecord);
+                        final statusColor = _statusColor(todayRecord);
+                        final canCheckOut =
+                            todayRecord != null &&
+                            !todayRecord.isCheckedOut &&
+                            !_isCheckingOut;
+
+                        return ListView(
+                          padding: const EdgeInsets.all(16),
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: palette.panel,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: palette.border),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0x2214B8A6),
+                                          borderRadius: BorderRadius.circular(
+                                            14,
                                           ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            selectedLabName.isEmpty
-                                                ? 'Attendance for your current lab'
-                                                : selectedLabName,
-                                            style: const TextStyle(
-                                              color: Colors.white60,
-                                              fontSize: 13,
-                                            ),
-                                          ),
-                                        ],
+                                        ),
+                                        child: const Icon(
+                                          Icons.fact_check_outlined,
+                                          color: Color(0xFF2DD4BF),
+                                          size: 22,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                Wrap(
-                                  spacing: 10,
-                                  runSpacing: 10,
-                                  children: [
-                                    _AttendanceChip(
-                                      icon: Icons.person_outline_rounded,
-                                      label: currentUserName,
-                                      accentColor: const Color(0xFF38BDF8),
-                                    ),
-                                    _AttendanceChip(
-                                      icon: Icons.calendar_today_rounded,
-                                      label: _formatDate(DateTime.now()),
-                                      accentColor: const Color(0xFF94A3B8),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 16),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Status',
-                                            style: TextStyle(
-                                              color: Colors.white60,
-                                              fontSize: 12.5,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
-                                              vertical: 8,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: statusColor.withOpacity(
-                                                0.14,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(999),
-                                            ),
-                                            child: Text(
-                                              statusLabel,
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Today\'s Attendance',
                                               style: TextStyle(
-                                                color: statusColor,
-                                                fontSize: 13,
+                                                color: colorScheme.onSurface,
+                                                fontSize: 16,
                                                 fontWeight: FontWeight.w700,
                                               ),
                                             ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    if (snapshot.connectionState ==
-                                            ConnectionState.waiting &&
-                                        snapshot.data == null)
-                                      const SizedBox(
-                                        height: 22,
-                                        width: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2.2,
-                                          color: Color(0xFF14B8A6),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              selectedLabName.isEmpty
+                                                  ? 'Attendance for your current lab'
+                                                  : selectedLabName,
+                                              style: TextStyle(
+                                                color: palette.subtleText,
+                                                fontSize: 13,
+                                              ),
+                                            ),
+                                          ],
                                         ),
                                       ),
-                                  ],
-                                ),
-                              ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: [
+                                      _AttendanceChip(
+                                        icon: Icons.person_outline_rounded,
+                                        label: currentUserName,
+                                        accentColor: const Color(0xFF38BDF8),
+                                      ),
+                                      _AttendanceChip(
+                                        icon: Icons.calendar_today_rounded,
+                                        label: _formatDate(DateTime.now()),
+                                        accentColor: const Color(0xFF94A3B8),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 16),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              'Status',
+                                              style: TextStyle(
+                                                color: palette.subtleText,
+                                                fontSize: 12.5,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 12,
+                                                    vertical: 8,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: statusColor.withOpacity(
+                                                  0.14,
+                                                ),
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                              ),
+                                              child: Text(
+                                                statusLabel,
+                                                style: TextStyle(
+                                                  color: statusColor,
+                                                  fontSize: 13,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      if (snapshot.connectionState ==
+                                              ConnectionState.waiting &&
+                                          snapshot.data == null)
+                                        const SizedBox(
+                                          height: 22,
+                                          width: 22,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2.2,
+                                            color: Color(0xFF14B8A6),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          if (todayRecord == null) ...[
+                            if (todayRecord == null) ...[
+                              const SizedBox(height: 16),
+                              const _AttendanceInfoState(
+                                title: 'No check-in yet today',
+                                message:
+                                    'Use Scan Lab QR when you arrive to create today\'s attendance record.',
+                                icon: Icons.qr_code_scanner_rounded,
+                              ),
+                            ],
                             const SizedBox(height: 16),
-                            const _AttendanceInfoState(
-                              title: 'No check-in yet today',
-                              message:
-                                  'Use Scan Lab QR when you arrive to create today\'s attendance record.',
-                              icon: Icons.qr_code_scanner_rounded,
+                            Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: palette.panel,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: palette.border),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Today\'s Record',
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface,
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  _AttendanceInfoRow(
+                                    label: 'Check-in time',
+                                    value: todayRecord == null
+                                        ? 'Not checked in yet'
+                                        : _formatTimestamp(
+                                            todayRecord.checkInAt,
+                                          ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _AttendanceInfoRow(
+                                    label: 'Check-out time',
+                                    value: todayRecord?.checkOutAt == null
+                                        ? 'Not checked out yet'
+                                        : _formatTimestamp(
+                                            todayRecord?.checkOutAt,
+                                          ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: palette.panel,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: palette.border),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'My Attendance',
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface,
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  StreamBuilder<List<AttendanceRecordModel>>(
+                                    stream: _attendanceService
+                                        .getUserAttendanceHistory(
+                                          labId: selectedLabId,
+                                          userId: currentUserId,
+                                          limit: 10,
+                                        ),
+                                    builder: (context, historySnapshot) {
+                                      if (historySnapshot.hasError) {
+                                        return Text(
+                                          FirestoreAccessGuard.messageFor(
+                                            historySnapshot.error,
+                                          ),
+                                          style: TextStyle(
+                                            color: palette.mutedText,
+                                            fontSize: 13,
+                                            height: 1.4,
+                                          ),
+                                        );
+                                      }
+
+                                      final historyRecords =
+                                          historySnapshot.data ?? [];
+                                      if (historySnapshot.connectionState ==
+                                              ConnectionState.waiting &&
+                                          historyRecords.isEmpty) {
+                                        return const Padding(
+                                          padding: EdgeInsets.symmetric(
+                                            vertical: 6,
+                                          ),
+                                          child: Center(
+                                            child: SizedBox(
+                                              height: 22,
+                                              width: 22,
+                                              child: CircularProgressIndicator(
+                                                strokeWidth: 2.2,
+                                                color: Color(0xFF14B8A6),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }
+
+                                      if (historyRecords.isEmpty) {
+                                        return const Text(
+                                          'No attendance history yet.',
+                                        );
+                                      }
+
+                                      return Column(
+                                        children: [
+                                          for (
+                                            int index = 0;
+                                            index < historyRecords.length;
+                                            index++
+                                          ) ...[
+                                            _AttendanceHistoryCard(
+                                              dateLabel: _formatHistoryDate(
+                                                historyRecords[index],
+                                              ),
+                                              statusLabel: _statusLabel(
+                                                historyRecords[index],
+                                              ),
+                                              statusColor: _statusColor(
+                                                historyRecords[index],
+                                              ),
+                                              checkInLabel: _formatTimeOnly(
+                                                historyRecords[index].checkInAt,
+                                              ),
+                                              checkOutLabel:
+                                                  historyRecords[index]
+                                                          .checkOutAt ==
+                                                      null
+                                                  ? 'Not checked out yet'
+                                                  : _formatTimeOnly(
+                                                      historyRecords[index]
+                                                          .checkOutAt,
+                                                    ),
+                                              wifiLabel:
+                                                  historyRecords[index].wifiSsid
+                                                      .trim()
+                                                      .isEmpty
+                                                  ? ''
+                                                  : historyRecords[index]
+                                                        .wifiSsid
+                                                        .trim(),
+                                            ),
+                                            if (index !=
+                                                historyRecords.length - 1)
+                                              const SizedBox(height: 10),
+                                          ],
+                                        ],
+                                      );
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.all(18),
+                              decoration: BoxDecoration(
+                                color: palette.panel,
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: palette.border),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Actions',
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface,
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Wrap(
+                                    spacing: 10,
+                                    runSpacing: 10,
+                                    children: [
+                                      ElevatedButton.icon(
+                                        onPressed: () =>
+                                            _openAttendanceScanner(context),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(
+                                            0xFF14B8A6,
+                                          ),
+                                          foregroundColor: Colors.white,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 12,
+                                          ),
+                                        ),
+                                        icon: const Icon(
+                                          Icons.qr_code_scanner_rounded,
+                                          size: 18,
+                                        ),
+                                        label: const Text('Scan Lab QR'),
+                                      ),
+                                      OutlinedButton.icon(
+                                        onPressed: canCheckOut
+                                            ? () => _checkOut(
+                                                labId: selectedLabId,
+                                                userId: currentUserId,
+                                              )
+                                            : null,
+                                        style: OutlinedButton.styleFrom(
+                                          foregroundColor: const Color(
+                                            0xFF38BDF8,
+                                          ),
+                                          disabledForegroundColor:
+                                              palette.subtleText,
+                                          side: BorderSide(
+                                            color: canCheckOut
+                                                ? const Color(0xFF38BDF8)
+                                                : palette.border,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 12,
+                                          ),
+                                        ),
+                                        icon: _isCheckingOut
+                                            ? const SizedBox(
+                                                height: 16,
+                                                width: 16,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                      color: Color(0xFF38BDF8),
+                                                    ),
+                                              )
+                                            : const Icon(
+                                                Icons.logout_rounded,
+                                                size: 18,
+                                              ),
+                                        label: Text(
+                                          _isCheckingOut
+                                              ? 'Checking out...'
+                                              : 'Check out',
+                                        ),
+                                      ),
+                                      if (isPiAdmin)
+                                        OutlinedButton.icon(
+                                          onPressed: () =>
+                                              _openAttendanceLogbook(context),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: const Color(
+                                              0xFF2DD4BF,
+                                            ),
+                                            side: const BorderSide(
+                                              color: Color(0xFF2DD4BF),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 12,
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.menu_book_rounded,
+                                            size: 18,
+                                          ),
+                                          label: const Text(
+                                            'Attendance Logbook',
+                                          ),
+                                        ),
+                                      if (isPiAdmin)
+                                        OutlinedButton.icon(
+                                          onPressed: () =>
+                                              _openAttendanceAdmin(context),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: const Color(
+                                              0xFFF59E0B,
+                                            ),
+                                            side: const BorderSide(
+                                              color: Color(0xFFF59E0B),
+                                            ),
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                              vertical: 12,
+                                            ),
+                                          ),
+                                          icon: const Icon(
+                                            Icons.admin_panel_settings_outlined,
+                                            size: 18,
+                                          ),
+                                          label: const Text('Attendance Admin'),
+                                        ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.06),
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Today\'s Record',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                _AttendanceInfoRow(
-                                  label: 'Check-in time',
-                                  value: todayRecord == null
-                                      ? 'Not checked in yet'
-                                      : _formatTimestamp(todayRecord.checkInAt),
-                                ),
-                                const SizedBox(height: 12),
-                                _AttendanceInfoRow(
-                                  label: 'Check-out time',
-                                  value: todayRecord?.checkOutAt == null
-                                      ? 'Not checked out yet'
-                                      : _formatTimestamp(
-                                          todayRecord?.checkOutAt,
-                                        ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.06),
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'My Attendance',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                StreamBuilder<List<AttendanceRecordModel>>(
-                                  stream: _attendanceService
-                                      .getUserAttendanceHistory(
-                                        labId: selectedLabId,
-                                        userId: currentUserId,
-                                        limit: 10,
-                                      ),
-                                  builder: (context, historySnapshot) {
-                                    if (historySnapshot.hasError) {
-                                      return Text(
-                                        FirestoreAccessGuard.messageFor(
-                                          historySnapshot.error,
-                                        ),
-                                        style: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 13,
-                                          height: 1.4,
-                                        ),
-                                      );
-                                    }
-
-                                    final historyRecords =
-                                        historySnapshot.data ?? [];
-                                    if (historySnapshot.connectionState ==
-                                            ConnectionState.waiting &&
-                                        historyRecords.isEmpty) {
-                                      return const Padding(
-                                        padding: EdgeInsets.symmetric(
-                                          vertical: 6,
-                                        ),
-                                        child: Center(
-                                          child: SizedBox(
-                                            height: 22,
-                                            width: 22,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2.2,
-                                              color: Color(0xFF14B8A6),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    }
-
-                                    if (historyRecords.isEmpty) {
-                                      return const Text(
-                                        'No attendance history yet.',
-                                        style: TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 13,
-                                        ),
-                                      );
-                                    }
-
-                                    return Column(
-                                      children: [
-                                        for (int index = 0;
-                                            index < historyRecords.length;
-                                            index++) ...[
-                                          _AttendanceHistoryCard(
-                                            dateLabel: _formatHistoryDate(
-                                              historyRecords[index],
-                                            ),
-                                            statusLabel: _statusLabel(
-                                              historyRecords[index],
-                                            ),
-                                            statusColor: _statusColor(
-                                              historyRecords[index],
-                                            ),
-                                            checkInLabel: _formatTimeOnly(
-                                              historyRecords[index].checkInAt,
-                                            ),
-                                            checkOutLabel:
-                                                historyRecords[index]
-                                                            .checkOutAt ==
-                                                        null
-                                                    ? 'Not checked out yet'
-                                                    : _formatTimeOnly(
-                                                        historyRecords[index]
-                                                            .checkOutAt,
-                                                      ),
-                                            wifiLabel: historyRecords[index]
-                                                    .wifiSsid
-                                                    .trim()
-                                                    .isEmpty
-                                                ? ''
-                                                : historyRecords[index]
-                                                    .wifiSsid
-                                                    .trim(),
-                                          ),
-                                          if (index !=
-                                              historyRecords.length - 1)
-                                            const SizedBox(height: 10),
-                                        ],
-                                      ],
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(18),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFF1E293B),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.06),
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Actions',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 15.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                Wrap(
-                                  spacing: 10,
-                                  runSpacing: 10,
-                                  children: [
-                                    ElevatedButton.icon(
-                                      onPressed: () =>
-                                          _openAttendanceScanner(context),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor:
-                                            const Color(0xFF14B8A6),
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 12,
-                                        ),
-                                      ),
-                                      icon: const Icon(
-                                        Icons.qr_code_scanner_rounded,
-                                        size: 18,
-                                      ),
-                                      label: const Text('Scan Lab QR'),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: canCheckOut
-                                          ? () => _checkOut(
-                                              labId: selectedLabId,
-                                              userId: currentUserId,
-                                            )
-                                          : null,
-                                      style: OutlinedButton.styleFrom(
-                                        foregroundColor: const Color(
-                                          0xFF38BDF8,
-                                        ),
-                                        disabledForegroundColor:
-                                            Colors.white38,
-                                        side: BorderSide(
-                                          color: canCheckOut
-                                              ? const Color(0xFF38BDF8)
-                                              : Colors.white24,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 12,
-                                        ),
-                                      ),
-                                      icon: _isCheckingOut
-                                          ? const SizedBox(
-                                              height: 16,
-                                              width: 16,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                color: Color(0xFF38BDF8),
-                                              ),
-                                            )
-                                          : const Icon(
-                                              Icons.logout_rounded,
-                                              size: 18,
-                                            ),
-                                      label: Text(
-                                        _isCheckingOut
-                                            ? 'Checking out...'
-                                            : 'Check out',
-                                      ),
-                                    ),
-                                    if (isPiAdmin)
-                                      OutlinedButton.icon(
-                                        onPressed: () =>
-                                            _openAttendanceLogbook(context),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor:
-                                              const Color(0xFF2DD4BF),
-                                          side: const BorderSide(
-                                            color: Color(0xFF2DD4BF),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 12,
-                                          ),
-                                        ),
-                                        icon: const Icon(
-                                          Icons.menu_book_rounded,
-                                          size: 18,
-                                        ),
-                                        label:
-                                            const Text('Attendance Logbook'),
-                                      ),
-                                    if (isPiAdmin)
-                                      OutlinedButton.icon(
-                                        onPressed: () =>
-                                            _openAttendanceAdmin(context),
-                                        style: OutlinedButton.styleFrom(
-                                          foregroundColor:
-                                              const Color(0xFFF59E0B),
-                                          side: const BorderSide(
-                                            color: Color(0xFFF59E0B),
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 12,
-                                          ),
-                                        ),
-                                        icon: const Icon(
-                                          Icons.admin_panel_settings_outlined,
-                                          size: 18,
-                                        ),
-                                        label:
-                                            const Text('Attendance Admin'),
-                                      ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                        );
+                      },
+                    ),
             ),
           ),
         );
@@ -737,12 +734,15 @@ class _AttendanceHistoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A).withOpacity(0.45),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.05)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -753,8 +753,8 @@ class _AttendanceHistoryCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   dateLabel,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
                     fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                   ),
@@ -811,22 +811,21 @@ class _AttendanceHistoryMeta extends StatelessWidget {
   final IconData icon;
   final String label;
 
-  const _AttendanceHistoryMeta({
-    required this.icon,
-    required this.label,
-  });
+  const _AttendanceHistoryMeta({required this.icon, required this.label});
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 14, color: Colors.white54),
+        Icon(icon, size: 14, color: palette.subtleText),
         const SizedBox(width: 5),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white70,
+          style: TextStyle(
+            color: palette.mutedText,
             fontSize: 12.4,
             fontWeight: FontWeight.w500,
           ),
@@ -849,6 +848,9 @@ class _AttendanceInfoState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
@@ -856,9 +858,9 @@ class _AttendanceInfoState extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: palette.panel,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: palette.border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -868,8 +870,8 @@ class _AttendanceInfoState extends StatelessWidget {
               Text(
                 title,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -878,8 +880,8 @@ class _AttendanceInfoState extends StatelessWidget {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white70,
+                style: TextStyle(
+                  color: palette.mutedText,
                   fontSize: 13,
                   height: 1.4,
                 ),
@@ -896,13 +898,13 @@ class _AttendanceInfoRow extends StatelessWidget {
   final String label;
   final String value;
 
-  const _AttendanceInfoRow({
-    required this.label,
-    required this.value,
-  });
+  const _AttendanceInfoRow({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -910,10 +912,7 @@ class _AttendanceInfoRow extends StatelessWidget {
           flex: 4,
           child: Text(
             label,
-            style: const TextStyle(
-              color: Colors.white60,
-              fontSize: 13,
-            ),
+            style: TextStyle(color: palette.subtleText, fontSize: 13),
           ),
         ),
         const SizedBox(width: 12),
@@ -922,8 +921,8 @@ class _AttendanceInfoRow extends StatelessWidget {
           child: Text(
             value,
             textAlign: TextAlign.right,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 13.2,
               fontWeight: FontWeight.w600,
               height: 1.35,

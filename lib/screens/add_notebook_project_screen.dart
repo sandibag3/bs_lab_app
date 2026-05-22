@@ -5,6 +5,7 @@ import '../app_state.dart';
 import '../models/notebook_project_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/lab_notebook_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 
 class AddNotebookProjectScreen extends StatefulWidget {
@@ -26,11 +27,12 @@ class _AddNotebookProjectScreenState extends State<AddNotebookProjectScreen> {
   bool _isSaving = false;
 
   InputDecoration _inputDecoration(String label) {
+    final palette = context.labmate;
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: palette.subtleText),
       filled: true,
-      fillColor: const Color(0xFF1E293B),
+      fillColor: palette.panel,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -114,33 +116,43 @@ class _AddNotebookProjectScreenState extends State<AddNotebookProjectScreen> {
   }
 
   Widget _buildBlockedState() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: palette.border),
       ),
-      child: const Column(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.folder_off_outlined, color: Color(0xFF38BDF8), size: 30),
-          SizedBox(height: 12),
+          const Icon(
+            Icons.folder_off_outlined,
+            color: Color(0xFF38BDF8),
+            size: 30,
+          ),
+          const SizedBox(height: 12),
           Text(
             'No lab selected',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white,
+              color: colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
           ),
-          SizedBox(height: 8),
+          const SizedBox(height: 8),
           Text(
             'Choose a lab first, then come back to create a notebook project.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 13,
+              height: 1.4,
+            ),
           ),
         ],
       ),
@@ -160,14 +172,11 @@ class _AddNotebookProjectScreenState extends State<AddNotebookProjectScreen> {
       appState: widget.appState,
     );
     final selectedLabName = widget.appState.selectedLabName.trim();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'New Notebook Project',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: const Text('New Notebook Project')),
       body: ResponsivePageContainer(
         child: SafeArea(
           child: ListView(
@@ -177,19 +186,17 @@ class _AddNotebookProjectScreenState extends State<AddNotebookProjectScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF111827),
+                  color: palette.panelAlt,
                   borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.06),
-                  ),
+                  border: Border.all(color: palette.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'Current Lab',
                       style: TextStyle(
-                        color: Colors.white70,
+                        color: palette.mutedText,
                         fontSize: 12.5,
                         fontWeight: FontWeight.w600,
                       ),
@@ -199,8 +206,8 @@ class _AddNotebookProjectScreenState extends State<AddNotebookProjectScreen> {
                       selectedLabName.isEmpty
                           ? 'No lab selected'
                           : selectedLabName,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
                         fontSize: 17,
                         fontWeight: FontWeight.w700,
                       ),
@@ -218,7 +225,7 @@ class _AddNotebookProjectScreenState extends State<AddNotebookProjectScreen> {
                     children: [
                       TextFormField(
                         controller: _titleController,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: colorScheme.onSurface),
                         decoration: _inputDecoration('Project Title'),
                         textCapitalization: TextCapitalization.sentences,
                         validator: (value) {
@@ -231,7 +238,7 @@ class _AddNotebookProjectScreenState extends State<AddNotebookProjectScreen> {
                       const SizedBox(height: 14),
                       TextFormField(
                         controller: _descriptionController,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: colorScheme.onSurface),
                         decoration: _inputDecoration('Description'),
                         textCapitalization: TextCapitalization.sentences,
                         minLines: 4,

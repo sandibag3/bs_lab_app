@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../theme/labmate_theme.dart';
 import 'login_screen.dart';
 
 class WelcomeScreen extends StatelessWidget {
@@ -16,16 +17,19 @@ class WelcomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF0F172A),
-              Color(0xFF111827),
-              Color(0xFF1E293B),
+              palette.appBackground,
+              palette.panelAlt,
+              palette.panel,
             ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
@@ -38,11 +42,11 @@ class WelcomeScreen extends StatelessWidget {
               height: 110,
               width: 110,
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: palette.panel,
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Colors.black26,
+                    color: Colors.black.withValues(alpha: 0.16),
                     blurRadius: 12,
                     offset: Offset(0, 4),
                   ),
@@ -55,23 +59,23 @@ class WelcomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 28),
-            const Text(
+            Text(
               'Labmate',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 30,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: colorScheme.onSurface,
               ),
             ),
             const SizedBox(height: 14),
-            const Text(
+            Text(
               'Welcome to Labmate\nYour chemistry lab partner.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 17,
                 height: 1.5,
-                color: Colors.white70,
+                color: palette.mutedText,
               ),
             ),
             const SizedBox(height: 40),
@@ -142,7 +146,7 @@ class WelcomeScreen extends StatelessWidget {
                 },
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  foregroundColor: Colors.white,
+                  foregroundColor: colorScheme.onSurface,
                   side: const BorderSide(color: Color(0xFF14B8A6)),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -155,12 +159,12 @@ class WelcomeScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'Login or create an account to continue to your lab.',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.white54,
+                color: palette.subtleText,
               ),
             ),
           ],

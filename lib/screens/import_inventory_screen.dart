@@ -1,14 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:csv/csv.dart';
-import 'package:excel/excel.dart';
+import 'package:excel/excel.dart' hide Border;
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../theme/labmate_theme.dart';
 
 class ImportInventoryScreen extends StatefulWidget {
   const ImportInventoryScreen({super.key});
@@ -19,8 +18,8 @@ class ImportInventoryScreen extends StatefulWidget {
 
 class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
-  final CollectionReference inventoryRef =
-      FirebaseFirestore.instance.collection('inventory');
+  final CollectionReference inventoryRef = FirebaseFirestore.instance
+      .collection('inventory');
 
   bool isImporting = false;
   String statusMessage =
@@ -164,11 +163,9 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
         statusMessage = 'Import failed: $e';
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Import failed: $e'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
     }
   }
 
@@ -237,15 +234,18 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
 
         final currentLabel = rowMap['Current Label'] ?? rowMap['Label'] ?? '';
         final suggestedLabel = rowMap['Suggested Label'] ?? '';
-        final finalLabel =
-            currentLabel.isNotEmpty ? currentLabel : suggestedLabel;
+        final finalLabel = currentLabel.isNotEmpty
+            ? currentLabel
+            : suggestedLabel;
 
-        final formula = rowMap['Molecular Formula'] ??
+        final formula =
+            rowMap['Molecular Formula'] ??
             rowMap['Formula'] ??
             rowMap['Molecular Formula '] ??
             '';
 
-        final molWt = rowMap['Mol. Wt.'] ??
+        final molWt =
+            rowMap['Mol. Wt.'] ??
             rowMap['Molecular Weight'] ??
             rowMap['Mol Wt'] ??
             '';
@@ -258,7 +258,8 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
         final location = rowMap['Location'] ?? '';
         final quantity = rowMap['Quantity'] ?? '';
         final brand = rowMap['Brand'] ?? '';
-        final catNumber = rowMap['Catalogue Number'] ??
+        final catNumber =
+            rowMap['Catalogue Number'] ??
             rowMap['Catalog Number'] ??
             rowMap['Cat Number'] ??
             '';
@@ -473,13 +474,11 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Import Inventory',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Import Inventory')),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16),
@@ -489,16 +488,17 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: palette.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'One-time Inventory Import',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: colorScheme.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
@@ -506,8 +506,8 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
                     const SizedBox(height: 10),
                     Text(
                       statusMessage,
-                      style: const TextStyle(
-                        color: Colors.white70,
+                      style: TextStyle(
+                        color: palette.mutedText,
                         fontSize: 13,
                         height: 1.4,
                       ),
@@ -525,8 +525,8 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
                       const SizedBox(height: 8),
                       Text(
                         'Current lab: $lastImportedLabId',
-                        style: const TextStyle(
-                          color: Colors.white54,
+                        style: TextStyle(
+                          color: palette.subtleText,
                           fontSize: 12,
                         ),
                       ),

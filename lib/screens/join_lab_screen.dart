@@ -4,6 +4,7 @@ import '../models/lab_context_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/lab_service.dart';
 import '../services/lab_membership_service.dart';
+import '../theme/labmate_theme.dart';
 import 'home_screen.dart';
 
 class JoinLabScreen extends StatefulWidget {
@@ -35,11 +36,12 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
   }
 
   InputDecoration _inputDecoration(String label) {
+    final palette = context.labmate;
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: palette.subtleText),
       filled: true,
-      fillColor: const Color(0xFF1E293B),
+      fillColor: palette.panel,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -152,9 +154,7 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(FirestoreAccessGuard.messageFor(e))),
       );
     } finally {
@@ -168,10 +168,11 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Join Lab', style: TextStyle(color: Colors.white)),
-      ),
+      appBar: AppBar(title: const Text('Join Lab')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -182,13 +183,14 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: palette.border),
                 ),
-                child: const Text(
+                child: Text(
                   'Enter a shared lab code from Create Lab, an existing lab document id, or a mock identifier for a temporary local lab context on this device.',
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: palette.mutedText,
                     fontSize: 13.5,
                     height: 1.45,
                   ),
@@ -197,7 +199,7 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
               const SizedBox(height: 16),
               TextFormField(
                 controller: _identifierController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 decoration: _inputDecoration('Lab Code or Identifier'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
@@ -209,9 +211,9 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 initialValue: _selectedRoleName,
-                dropdownColor: const Color(0xFF1E293B),
+                dropdownColor: palette.panel,
                 decoration: _inputDecoration('Join as'),
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
                 items: DemoUserRole.values.map((role) {
                   return DropdownMenuItem<String>(
                     value: role.name,

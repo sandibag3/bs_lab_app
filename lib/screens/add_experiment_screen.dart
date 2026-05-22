@@ -6,6 +6,7 @@ import '../models/notebook_experiment_model.dart';
 import '../models/notebook_project_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/lab_notebook_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 
 class AddExperimentScreen extends StatefulWidget {
@@ -82,17 +83,18 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
       case 'optimized':
         return const Color(0xFFA78BFA);
       default:
-        return Colors.white70;
+        return const Color(0xFF94A3B8);
     }
   }
 
-  InputDecoration _inputDecoration(String label) {
+  InputDecoration _inputDecoration(BuildContext context, String label) {
+    final palette = context.labmate;
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70, fontSize: 12.2),
+      labelStyle: TextStyle(color: palette.mutedText, fontSize: 12.2),
       isDense: true,
       filled: true,
-      fillColor: const Color(0xFF111827),
+      fillColor: palette.panelAlt,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 13),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -111,18 +113,23 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     bool readOnly = false,
     VoidCallback? onTap,
   }) {
-    return TextFormField(
-      controller: controller,
-      style: const TextStyle(color: Colors.white, fontSize: 12.8),
-      decoration: _inputDecoration(label),
-      minLines: minLines,
-      maxLines: maxLines,
-      readOnly: readOnly,
-      onTap: onTap,
-      textCapitalization: maxLines > 1
-          ? TextCapitalization.sentences
-          : TextCapitalization.none,
-      validator: validator,
+    return Builder(
+      builder: (context) => TextFormField(
+        controller: controller,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
+          fontSize: 12.8,
+        ),
+        decoration: _inputDecoration(context, label),
+        minLines: minLines,
+        maxLines: maxLines,
+        readOnly: readOnly,
+        onTap: onTap,
+        textCapitalization: maxLines > 1
+            ? TextCapitalization.sentences
+            : TextCapitalization.none,
+        validator: validator,
+      ),
     );
   }
 
@@ -158,38 +165,44 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     required String subtitle,
     required Widget child,
   }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14.6,
-              fontWeight: FontWeight.w700,
-            ),
+    return Builder(
+      builder: (context) {
+        final palette = context.labmate;
+        final colorScheme = context.colorScheme;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: palette.panel,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: palette.border),
           ),
-          const SizedBox(height: 3),
-          Text(
-            subtitle,
-            style: const TextStyle(
-              color: Colors.white54,
-              fontSize: 11.4,
-              height: 1.35,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 14.6,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: palette.subtleText,
+                  fontSize: 11.4,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 11),
+              child,
+            ],
           ),
-          const SizedBox(height: 11),
-          child,
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -215,7 +228,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
       firstDate: DateTime(now.year - 10),
       lastDate: DateTime(now.year + 10),
       builder: (context, child) {
-        return Theme(data: ThemeData.dark(), child: child!);
+        return Theme(data: Theme.of(context), child: child!);
       },
     );
 
@@ -332,108 +345,117 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
         ? widget.project.labId
         : widget.appState.selectedLabName.trim();
 
-    final titleBlock = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+    return Builder(
+      builder: (context) {
+        final palette = context.labmate;
+        final colorScheme = context.colorScheme;
+        final titleBlock = Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _DraftBadge(
-              icon: Icons.edit_note_rounded,
-              label: 'New Experiment Draft',
-              accent: Color(0xFF5EEAD4),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                const _DraftBadge(
+                  icon: Icons.edit_note_rounded,
+                  label: 'New Experiment Draft',
+                  accent: Color(0xFF5EEAD4),
+                ),
+                _DraftBadge(
+                  icon: Icons.folder_open_rounded,
+                  label: projectTitle,
+                ),
+              ],
             ),
-            _DraftBadge(icon: Icons.folder_open_rounded, label: projectTitle),
+            const SizedBox(height: 8),
+            Text(
+              projectTitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: isWide ? 20 : 18,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              labLabel,
+              style: TextStyle(
+                color: palette.mutedText,
+                fontSize: 12.0,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ],
-        ),
-        const SizedBox(height: 8),
-        Text(
-          projectTitle,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: isWide ? 20 : 18,
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          labLabel,
-          style: const TextStyle(
-            color: Colors.white60,
-            fontSize: 12.0,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ],
-    );
+        );
 
-    final saveButton = SizedBox(
-      width: isWide ? 220 : double.infinity,
-      child: ElevatedButton.icon(
-        onPressed: _isSaving ? null : _saveExperiment,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF14B8A6),
-          foregroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 13),
-        ),
-        icon: _isSaving
-            ? const SizedBox(
-                height: 16,
-                width: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.white,
-                ),
-              )
-            : const Icon(Icons.save_rounded, size: 18),
-        label: const Text(
-          'Save Experiment',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-      ),
-    );
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0B1220),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: isWide
-          ? Row(
-              children: [
-                Expanded(child: titleBlock),
-                const SizedBox(width: 12),
-                saveButton,
-              ],
-            )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                titleBlock,
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(11),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Text(
-                    'Required: experiment code, title, date, and status.',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12.2,
-                    ),
-                  ),
-                ),
-              ],
+        final saveButton = SizedBox(
+          width: isWide ? 220 : double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _isSaving ? null : _saveExperiment,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF14B8A6),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 13),
             ),
+            icon: _isSaving
+                ? const SizedBox(
+                    height: 16,
+                    width: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Icon(Icons.save_rounded, size: 18),
+            label: const Text(
+              'Save Experiment',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+        );
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: palette.panel,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: palette.border),
+          ),
+          child: isWide
+              ? Row(
+                  children: [
+                    Expanded(child: titleBlock),
+                    const SizedBox(width: 12),
+                    saveButton,
+                  ],
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    titleBlock,
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(11),
+                      decoration: BoxDecoration(
+                        color: palette.panelAlt,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: Text(
+                        'Required: experiment code, title, date, and status.',
+                        style: TextStyle(
+                          color: palette.mutedText,
+                          fontSize: 12.2,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+        );
+      },
     );
   }
 
@@ -444,189 +466,207 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     final statusColor = _statusColor(_selectedStatus);
     final description = widget.project.description.trim();
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Builder(
+      builder: (context) {
+        final palette = context.labmate;
+        final colorScheme = context.colorScheme;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: palette.panel,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: palette.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                height: 32,
-                width: 32,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF14B8A6).withValues(alpha: 0.14),
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: const Icon(
-                  Icons.biotech_rounded,
-                  color: Color(0xFF5EEAD4),
-                  size: 17,
-                ),
+              Row(
+                children: [
+                  Container(
+                    height: 32,
+                    width: 32,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(11),
+                    ),
+                    child: const Icon(
+                      Icons.biotech_rounded,
+                      color: Color(0xFF5EEAD4),
+                      size: 17,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Draft Context',
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 14.2,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Project and required fields',
+                          style: TextStyle(
+                            color: palette.subtleText,
+                            fontSize: 11.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 10),
-              const Expanded(
+              const SizedBox(height: 11),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(11),
+                decoration: BoxDecoration(
+                  color: palette.panelAlt,
+                  borderRadius: BorderRadius.circular(14),
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Draft Context',
+                      'Project',
                       style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14.2,
+                        color: palette.subtleText,
+                        fontSize: 10.8,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    SizedBox(height: 2),
+                    const SizedBox(height: 5),
                     Text(
-                      'Project and required fields',
-                      style: TextStyle(color: Colors.white54, fontSize: 11.4),
+                      projectTitle,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 13.6,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    if (description.isNotEmpty) ...[
+                      const SizedBox(height: 7),
+                      Text(
+                        description,
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.mutedText,
+                          fontSize: 12.0,
+                          height: 1.35,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _DraftBadge(
+                    icon: Icons.flag_rounded,
+                    label: _selectedStatus,
+                    accent: statusColor,
+                  ),
+                  const _DraftBadge(
+                    icon: Icons.checklist_rounded,
+                    label: 'Code required',
+                  ),
+                  const _DraftBadge(
+                    icon: Icons.checklist_rounded,
+                    label: 'Title required',
+                  ),
+                  const _DraftBadge(
+                    icon: Icons.checklist_rounded,
+                    label: 'Date required',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildSchemePlaceholder() {
+    return Builder(
+      builder: (context) {
+        final palette = context.labmate;
+        final colorScheme = context.colorScheme;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: palette.panel,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: palette.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Reaction Scheme Slot',
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 14.4,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'Add scheme / ChemDraw image later',
+                style: TextStyle(color: palette.subtleText, fontSize: 11.4),
+              ),
+              const SizedBox(height: 11),
+              Container(
+                height: 150,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  color: palette.panelAlt,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: palette.border),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      Icons.device_hub_rounded,
+                      color: Color(0xFF5EEAD4),
+                      size: 24,
+                    ),
+                    const SizedBox(height: 10),
+                    Text(
+                      'Reaction Scheme',
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 13.2,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Placeholder only for now',
+                      style: TextStyle(
+                        color: palette.subtleText,
+                        fontSize: 11.6,
+                      ),
                     ),
                   ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 11),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(11),
-            decoration: BoxDecoration(
-              color: const Color(0xFF111827),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Project',
-                  style: TextStyle(
-                    color: Colors.white54,
-                    fontSize: 10.8,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  projectTitle,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 13.6,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (description.isNotEmpty) ...[
-                  const SizedBox(height: 7),
-                  Text(
-                    description,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 12.0,
-                      height: 1.35,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _DraftBadge(
-                icon: Icons.flag_rounded,
-                label: _selectedStatus,
-                accent: statusColor,
-              ),
-              const _DraftBadge(
-                icon: Icons.checklist_rounded,
-                label: 'Code required',
-              ),
-              const _DraftBadge(
-                icon: Icons.checklist_rounded,
-                label: 'Title required',
-              ),
-              const _DraftBadge(
-                icon: Icons.checklist_rounded,
-                label: 'Date required',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSchemePlaceholder() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Reaction Scheme Slot',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 14.4,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 3),
-          const Text(
-            'Add scheme / ChemDraw image later',
-            style: TextStyle(color: Colors.white54, fontSize: 11.4),
-          ),
-          const SizedBox(height: 11),
-          Container(
-            height: 150,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: const Color(0xFF111827),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-            ),
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.device_hub_rounded,
-                  color: Color(0xFF5EEAD4),
-                  size: 24,
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'Reaction Scheme',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 13.2,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                SizedBox(height: 4),
-                Text(
-                  'Placeholder only for now',
-                  style: TextStyle(color: Colors.white54, fontSize: 11.6),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -634,81 +674,88 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     return _buildSection(
       title: 'Overview',
       subtitle: 'Identity, date, status, and aim',
-      child: Column(
-        children: [
-          _buildAdaptiveFields([
-            _buildTextField(
-              controller: _experimentCodeController,
-              label: 'Experiment Code',
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Experiment code is required.';
-                }
-                return null;
-              },
-            ),
-            _buildTextField(
-              controller: _titleController,
-              label: 'Title',
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Experiment title is required.';
-                }
-                return null;
-              },
-            ),
-            _buildTextField(
-              controller: _dateController,
-              label: 'Date',
-              readOnly: true,
-              onTap: _pickDate,
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Experiment date is required.';
-                }
-                return null;
-              },
-            ),
-            DropdownButtonFormField<String>(
-              key: ValueKey(_selectedStatus),
-              initialValue: _selectedStatus,
-              dropdownColor: const Color(0xFF111827),
-              style: const TextStyle(color: Colors.white, fontSize: 12.8),
-              decoration: _inputDecoration('Status'),
-              items: notebookExperimentStatuses.map((status) {
-                return DropdownMenuItem<String>(
-                  value: status,
-                  child: Text(
-                    status,
-                    style: TextStyle(color: _statusColor(status)),
+      child: Builder(
+        builder: (context) {
+          return Column(
+            children: [
+              _buildAdaptiveFields([
+                _buildTextField(
+                  controller: _experimentCodeController,
+                  label: 'Experiment Code',
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Experiment code is required.';
+                    }
+                    return null;
+                  },
+                ),
+                _buildTextField(
+                  controller: _titleController,
+                  label: 'Title',
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Experiment title is required.';
+                    }
+                    return null;
+                  },
+                ),
+                _buildTextField(
+                  controller: _dateController,
+                  label: 'Date',
+                  readOnly: true,
+                  onTap: _pickDate,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Experiment date is required.';
+                    }
+                    return null;
+                  },
+                ),
+                DropdownButtonFormField<String>(
+                  key: ValueKey(_selectedStatus),
+                  initialValue: _selectedStatus,
+                  dropdownColor: context.labmate.panelAlt,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 12.8,
                   ),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value == null) {
-                  return;
-                }
+                  decoration: _inputDecoration(context, 'Status'),
+                  items: notebookExperimentStatuses.map((status) {
+                    return DropdownMenuItem<String>(
+                      value: status,
+                      child: Text(
+                        status,
+                        style: TextStyle(color: _statusColor(status)),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
 
-                setState(() {
-                  _selectedStatus = value;
-                });
-              },
-              validator: (value) {
-                if (value == null || value.trim().isEmpty) {
-                  return 'Experiment status is required.';
-                }
-                return null;
-              },
-            ),
-          ]),
-          const SizedBox(height: 10),
-          _buildTextField(
-            controller: _aimController,
-            label: 'Aim',
-            minLines: 3,
-            maxLines: 4,
-          ),
-        ],
+                    setState(() {
+                      _selectedStatus = value;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Experiment status is required.';
+                    }
+                    return null;
+                  },
+                ),
+              ]),
+              const SizedBox(height: 10),
+              _buildTextField(
+                controller: _aimController,
+                label: 'Aim',
+                minLines: 3,
+                maxLines: 4,
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -926,13 +973,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFF020617),
-      appBar: AppBar(
-        title: const Text(
-          'New Experiment',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppBar(title: const Text('New Experiment')),
       body: ResponsivePageContainer(
         maxWidth: 1500,
         child: SafeArea(
@@ -978,13 +1020,15 @@ class _DraftNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -994,8 +1038,8 @@ class _DraftNotice extends StatelessWidget {
           Text(
             title,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 15.2,
               fontWeight: FontWeight.w700,
             ),
@@ -1004,8 +1048,8 @@ class _DraftNotice extends StatelessWidget {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: palette.mutedText,
               fontSize: 12.4,
               height: 1.42,
             ),
@@ -1025,13 +1069,15 @@ class _DraftBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: 280),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.05),
+          color: palette.panelAlt,
           borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: palette.border),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -1043,7 +1089,7 @@ class _DraftBadge extends StatelessWidget {
                 label,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: accent ?? Colors.white70,
+                  color: accent ?? palette.mutedText,
                   fontSize: 11.2,
                   fontWeight: FontWeight.w600,
                 ),

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/article_feed.dart';
 import '../models/rss_article.dart';
 import '../services/article_feed_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 import 'article_detail_screen.dart';
 
@@ -153,7 +154,7 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
   void _openFeedSettings() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: context.labmate.panel,
       isScrollControlled: true,
       builder: (context) {
         return StatefulBuilder(
@@ -176,11 +177,11 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
                     children: [
                       Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
                               'Article Feeds',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: context.colorScheme.onSurface,
                                 fontSize: 20,
                                 fontWeight: FontWeight.w800,
                               ),
@@ -207,9 +208,9 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
                           IconButton(
                             tooltip: 'Close',
                             onPressed: () => Navigator.pop(context),
-                            icon: const Icon(
+                            icon: Icon(
                               Icons.close_rounded,
-                              color: Colors.white70,
+                              color: context.labmate.mutedText,
                             ),
                           ),
                         ],
@@ -237,8 +238,8 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
                                   contentPadding: EdgeInsets.zero,
                                   title: Text(
                                     feed.title,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: context.colorScheme.onSurface,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -246,8 +247,8 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
                                     feed.isCustom ? feed.feedUrl : feed.source,
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.white60,
+                                    style: TextStyle(
+                                      color: context.labmate.subtleText,
                                     ),
                                   ),
                                   onChanged: (value) async {
@@ -293,7 +294,7 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
   void _openAddFeedSheet() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: context.labmate.panel,
       isScrollControlled: true,
       builder: (context) {
         return _AddFeedSheet(
@@ -348,11 +349,7 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
                 )
               else
                 for (var i = 0; i < filteredArticles.length; i++)
-                  _buildArticleCard(
-                    filteredArticles[i],
-                    filteredArticles,
-                    i,
-                  ),
+                  _buildArticleCard(filteredArticles[i], filteredArticles, i),
             ],
           ),
         ),
@@ -361,13 +358,16 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
   }
 
   Widget _buildToolbar() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Row(
       children: [
         Expanded(
           child: Text(
             '${_enabledFeeds.length} feeds enabled',
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: palette.mutedText,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -376,19 +376,19 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
         IconButton(
           tooltip: 'Add feed',
           onPressed: _openAddFeedSheet,
-          icon: const Icon(Icons.add_rounded, color: Colors.white),
+          icon: Icon(Icons.add_rounded, color: colorScheme.onSurface),
         ),
         IconButton(
           tooltip: 'Manage feeds',
           onPressed: _openFeedSettings,
-          icon: const Icon(Icons.tune_rounded, color: Colors.white),
+          icon: Icon(Icons.tune_rounded, color: colorScheme.onSurface),
         ),
         IconButton(
           tooltip: 'Refresh',
           onPressed: _isLoading ? null : _refreshArticles,
           icon: Icon(
             Icons.refresh_rounded,
-            color: _isLoading ? Colors.white30 : Colors.white,
+            color: _isLoading ? palette.subtleText : colorScheme.onSurface,
           ),
         ),
       ],
@@ -396,22 +396,25 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
   }
 
   Widget _buildSearchField() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return TextField(
       controller: _searchController,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: colorScheme.onSurface),
       decoration: InputDecoration(
         hintText: 'Search titles and summaries',
-        hintStyle: const TextStyle(color: Colors.white54),
-        prefixIcon: const Icon(Icons.search_rounded, color: Colors.white54),
+        hintStyle: TextStyle(color: palette.subtleText),
+        prefixIcon: Icon(Icons.search_rounded, color: palette.subtleText),
         suffixIcon: _searchController.text.trim().isEmpty
             ? null
             : IconButton(
                 tooltip: 'Clear search',
                 onPressed: _searchController.clear,
-                icon: const Icon(Icons.close_rounded, color: Colors.white54),
+                icon: Icon(Icons.close_rounded, color: palette.subtleText),
               ),
         filled: true,
-        fillColor: const Color(0xFF1E293B),
+        fillColor: palette.panel,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
@@ -454,6 +457,9 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
     List<RssArticle> visibleArticles,
     int articleIndex,
   ) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return InkWell(
       onTap: () => _openArticle(article, visibleArticles, articleIndex),
       borderRadius: BorderRadius.circular(18),
@@ -461,9 +467,10 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: palette.panel,
           borderRadius: BorderRadius.circular(18),
-          boxShadow: const [
+          border: Border.all(color: palette.border),
+          boxShadow: [
             BoxShadow(
               color: Colors.black26,
               blurRadius: 8,
@@ -485,10 +492,10 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
                     children: [
                       Text(
                         article.title,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          color: colorScheme.onSurface,
                           height: 1.25,
                         ),
                       ),
@@ -498,9 +505,9 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
                           article.firstAuthor,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12.5,
-                            color: Colors.white70,
+                            color: palette.mutedText,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -532,9 +539,9 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
                 article.summary,
                 maxLines: 4,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: Colors.white60,
+                  color: palette.subtleText,
                   height: 1.4,
                 ),
               ),
@@ -546,16 +553,18 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
   }
 
   Widget _buildMetaPill(String text) {
+    final palette = context.labmate;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         text,
-        style: const TextStyle(
-          color: Colors.white70,
+        style: TextStyle(
+          color: palette.mutedText,
           fontSize: 11,
           fontWeight: FontWeight.w600,
         ),
@@ -568,16 +577,19 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
     required String title,
     required String message,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Padding(
       padding: const EdgeInsets.only(top: 80),
       child: Column(
         children: [
-          Icon(icon, color: Colors.white30, size: 44),
+          Icon(icon, color: palette.subtleText, size: 44),
           const SizedBox(height: 12),
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.w700,
             ),
@@ -586,7 +598,7 @@ class _LatestArticlesScreenState extends State<LatestArticlesScreen> {
           Text(
             message,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white60),
+            style: TextStyle(color: palette.subtleText),
           ),
         ],
       ),
@@ -610,13 +622,14 @@ class _ArticleThumbnail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final imageUrl = article.displayImageUrl;
+    final palette = context.labmate;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
       child: Container(
         width: 92,
         height: 92,
-        color: const Color(0xFF0F172A),
+        color: palette.panelAlt,
         child: imageUrl.isEmpty
             ? const _ThumbnailPlaceholder()
             : Image.network(
@@ -636,8 +649,12 @@ class _ThumbnailPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Icon(Icons.article_rounded, color: Colors.white30, size: 36),
+    return Center(
+      child: Icon(
+        Icons.article_rounded,
+        color: context.labmate.subtleText,
+        size: 36,
+      ),
     );
   }
 }
@@ -720,6 +737,9 @@ class _AddFeedSheetState extends State<_AddFeedSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
@@ -734,11 +754,11 @@ class _AddFeedSheetState extends State<_AddFeedSheet> {
           children: [
             Row(
               children: [
-                const Expanded(
+                Expanded(
                   child: Text(
                     'Add Feed',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: colorScheme.onSurface,
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
                     ),
@@ -747,7 +767,7 @@ class _AddFeedSheetState extends State<_AddFeedSheet> {
                 IconButton(
                   tooltip: 'Close',
                   onPressed: _isSaving ? null : () => Navigator.pop(context),
-                  icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                  icon: Icon(Icons.close_rounded, color: palette.mutedText),
                 ),
               ],
             ),
@@ -766,7 +786,7 @@ class _AddFeedSheetState extends State<_AddFeedSheet> {
             ),
             if (_error.isNotEmpty) ...[
               const SizedBox(height: 10),
-              Text(_error, style: const TextStyle(color: Color(0xFFFCA5A5))),
+              Text(_error, style: TextStyle(color: palette.danger)),
             ],
             const SizedBox(height: 16),
             SizedBox(
@@ -805,17 +825,20 @@ class _AddFeedSheetState extends State<_AddFeedSheet> {
     required IconData icon,
     TextInputType? keyboardType,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
       enabled: !_isSaving,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: colorScheme.onSurface),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.white70),
-        prefixIcon: Icon(icon, color: Colors.white54),
+        labelStyle: TextStyle(color: palette.subtleText),
+        prefixIcon: Icon(icon, color: palette.subtleText),
         filled: true,
-        fillColor: const Color(0xFF1E293B),
+        fillColor: palette.panel,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,

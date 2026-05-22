@@ -7,6 +7,7 @@ import '../services/inventory_service.dart';
 import '../services/order_service.dart';
 import '../services/pubchem_service.dart';
 import '../services/chemical_label_service.dart';
+import '../theme/labmate_theme.dart';
 
 class AddNewChemicalScreen extends StatefulWidget {
   final OrderModel? order;
@@ -145,13 +146,16 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     quantityController = TextEditingController(
       text: manualPrefill?.quantity ?? order?.quantity ?? '',
     );
-    formulaController = TextEditingController(text: manualPrefill?.formula ?? '');
+    formulaController = TextEditingController(
+      text: manualPrefill?.formula ?? '',
+    );
     molWtController = TextEditingController(text: manualPrefill?.molWt ?? '');
     catNumberController = TextEditingController(
       text: manualPrefill?.catNumber ?? '',
     );
     arrivalDateController = TextEditingController(
-      text: manualPrefill?.arrivalDate ??
+      text:
+          manualPrefill?.arrivalDate ??
           (deliveredDate == null
               ? ''
               : '${deliveredDate.day.toString().padLeft(2, '0')}/${deliveredDate.month.toString().padLeft(2, '0')}/${deliveredDate.year}'),
@@ -398,11 +402,13 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   }
 
   InputDecoration inputDecoration(String label) {
+    final palette = context.labmate;
+
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: palette.subtleText),
       filled: true,
-      fillColor: const Color(0xFF1E293B),
+      fillColor: palette.panel,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -411,13 +417,16 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   }
 
   Widget _buildFunctionalGroupSelector() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Functional Groups',
           style: TextStyle(
-            color: Colors.white70,
+            color: palette.mutedText,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -427,8 +436,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: palette.panel,
             borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: palette.border),
           ),
           child: Wrap(
             spacing: 8,
@@ -440,14 +450,14 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                 label: Text(group),
                 selected: isSelected,
                 selectedColor: const Color(0xFF14B8A6),
-                backgroundColor: const Color(0xFF0F172A),
+                backgroundColor: palette.panelAlt,
                 checkmarkColor: Colors.white,
                 labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white70,
+                  color: isSelected ? Colors.white : colorScheme.onSurface,
                   fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
                 side: BorderSide(
-                  color: isSelected ? const Color(0xFF14B8A6) : Colors.white12,
+                  color: isSelected ? const Color(0xFF14B8A6) : palette.border,
                 ),
                 onSelected: (selected) {
                   setState(() {
@@ -522,14 +532,11 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   Widget build(BuildContext context) {
     final isExisting = selectedEntryType == 'Existing Chemical';
     final subcategories = getSubcategories(selectedCategory);
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Add New Chemical',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Add New Chemical')),
       body: SafeArea(
         child: isLoadingMetadata
             ? const Center(child: CircularProgressIndicator())
@@ -542,19 +549,23 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       Container(
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1E293B),
+                          color: palette.panel,
                           borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: palette.border),
                         ),
-                        child: const Text(
+                        child: Text(
                           'Prefilled from delivered order. Name, CAS, brand, quantity, ordered by, and arrival date come from the order. Formula and molecular weight can be fetched from CAS.',
-                          style: TextStyle(color: Colors.white70, height: 1.4),
+                          style: TextStyle(
+                            color: palette.mutedText,
+                            height: 1.4,
+                          ),
                         ),
                       ),
                       const SizedBox(height: 14),
                     ],
                     TextFormField(
                       controller: chemicalNameController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Chemical Name'),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
@@ -566,7 +577,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: casController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('CAS No'),
                     ),
                     const SizedBox(height: 14),
@@ -577,8 +588,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                             ? null
                             : _fetchFromCasAndCheckInventory,
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
-                          side: const BorderSide(color: Color(0xFF14B8A6)),
+                          foregroundColor: colorScheme.primary,
+                          side: BorderSide(color: colorScheme.primary),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         child: Text(
@@ -596,8 +607,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                         ),
                         child: Text(
                           'Existing chemical found. Label ${labelController.text.trim()} will be reused and this entry will be saved as bottle ${existingBottleCount + 1}.',
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
                             height: 1.4,
                           ),
                         ),
@@ -606,8 +617,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     DropdownButtonFormField<String>(
                       key: ValueKey('category_$selectedCategory'),
                       initialValue: selectedCategory,
-                      dropdownColor: const Color(0xFF1E293B),
-                      style: const TextStyle(color: Colors.white),
+                      dropdownColor: palette.panel,
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Category'),
                       items: categories
                           .map(
@@ -615,7 +626,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                               value: item,
                               child: Text(
                                 item,
-                                style: const TextStyle(color: Colors.white),
+                                style: TextStyle(color: colorScheme.onSurface),
                               ),
                             ),
                           )
@@ -643,8 +654,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                           'subcategory_${selectedCategory}_${selectedSubcategory ?? ''}_${subcategories.join('|')}',
                         ),
                         initialValue: selectedSubcategory,
-                        dropdownColor: const Color(0xFF1E293B),
-                        style: const TextStyle(color: Colors.white),
+                        dropdownColor: palette.panel,
+                        style: TextStyle(color: colorScheme.onSurface),
                         decoration: inputDecoration('Subcategory'),
                         items: subcategories
                             .map(
@@ -652,7 +663,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                                 value: item,
                                 child: Text(
                                   item,
-                                  style: const TextStyle(color: Colors.white),
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface,
+                                  ),
                                 ),
                               ),
                             )
@@ -682,7 +695,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                         controller: carbonCountController,
                         readOnly: isExisting,
                         keyboardType: TextInputType.number,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: colorScheme.onSurface),
                         decoration: inputDecoration('Carbon Count'),
                         onChanged: (_) async {
                           if (!isExisting) {
@@ -709,7 +722,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       TextFormField(
                         controller: catalystMetalController,
                         readOnly: isExisting,
-                        style: const TextStyle(color: Colors.white),
+                        style: TextStyle(color: colorScheme.onSurface),
                         decoration: inputDecoration(
                           'Catalyst Metal (Pd, Cu, Fe...)',
                         ),
@@ -731,40 +744,40 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     ],
                     TextFormField(
                       controller: formulaController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Molecular Formula'),
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: molWtController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Molecular Weight'),
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: brandController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Brand'),
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: quantityController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Quantity'),
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: labelController,
                       readOnly: true,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Generated Label'),
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
                       key: ValueKey('location_${selectedLocation ?? ''}'),
                       initialValue: selectedLocation,
-                      dropdownColor: const Color(0xFF1E293B),
-                      style: const TextStyle(color: Colors.white),
+                      dropdownColor: palette.panel,
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Location'),
                       items: locationOptions
                           .map(
@@ -772,7 +785,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                               value: item,
                               child: Text(
                                 item,
-                                style: const TextStyle(color: Colors.white),
+                                style: TextStyle(color: colorScheme.onSurface),
                               ),
                             ),
                           )
@@ -795,8 +808,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     DropdownButtonFormField<String>(
                       key: ValueKey('texture_${selectedTexture ?? ''}'),
                       initialValue: selectedTexture,
-                      dropdownColor: const Color(0xFF1E293B),
-                      style: const TextStyle(color: Colors.white),
+                      dropdownColor: palette.panel,
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Texture / Physical State'),
                       items: textureOptions
                           .map(
@@ -804,7 +817,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                               value: item,
                               child: Text(
                                 item,
-                                style: const TextStyle(color: Colors.white),
+                                style: TextStyle(color: colorScheme.onSurface),
                               ),
                             ),
                           )
@@ -818,26 +831,26 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: catNumberController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Catalog Number'),
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: arrivalDateController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Arrival Date'),
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: orderedByController,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Ordered By'),
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
                       controller: sheetTabController,
                       readOnly: true,
-                      style: const TextStyle(color: Colors.white),
+                      style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Sheet Tab'),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
@@ -850,15 +863,16 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
+                        color: palette.panel,
                         borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: palette.border),
                       ),
                       child: Text(
                         isExisting
                             ? 'CAS already exists in inventory. Same label is reused, and this confirm step adds a new bottle under that chemical.'
                             : 'CAS is new to inventory. Category-based label generation is active. Functional category is prioritized over carbon-count category.',
-                        style: const TextStyle(
-                          color: Colors.white60,
+                        style: TextStyle(
+                          color: palette.subtleText,
                           fontSize: 12.5,
                           height: 1.4,
                         ),
@@ -873,8 +887,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                               ? null
                               : _generateLabelForNewChemical,
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            side: const BorderSide(color: Color(0xFF14B8A6)),
+                            foregroundColor: colorScheme.primary,
+                            side: BorderSide(color: colorScheme.primary),
                             padding: const EdgeInsets.symmetric(vertical: 16),
                           ),
                           child: Text(

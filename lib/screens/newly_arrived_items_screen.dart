@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/order_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/order_service.dart';
+import '../theme/labmate_theme.dart';
 import 'add_new_chemical_screen.dart';
 import 'add_new_consumable_screen.dart';
 
@@ -52,25 +53,22 @@ class NewlyArrivedItemsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final orderService = OrderService();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Newly Arrived',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Newly Arrived')),
       body: StreamBuilder<List<OrderModel>>(
         stream: orderService.getOrders(),
         builder: (context, snapshot) {
           if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
                   FirestoreAccessGuard.userMessage,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white70, height: 1.4),
+                  style: TextStyle(color: palette.mutedText, height: 1.4),
                 ),
               ),
             );
@@ -83,7 +81,7 @@ class NewlyArrivedItemsScreen extends StatelessWidget {
                 child: Text(
                   FirestoreAccessGuard.messageFor(snapshot.error),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.white70, height: 1.4),
+                  style: TextStyle(color: palette.mutedText, height: 1.4),
                 ),
               ),
             );
@@ -96,14 +94,14 @@ class NewlyArrivedItemsScreen extends StatelessWidget {
           final recent = _pendingRecentOrders(snapshot.data!);
 
           if (recent.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
                   'No delivered chemicals or consumables are pending entry in the last 7 days.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: palette.mutedText,
                     fontSize: 15,
                     height: 1.4,
                   ),
@@ -117,13 +115,14 @@ class NewlyArrivedItemsScreen extends StatelessWidget {
             itemCount: recent.length,
             itemBuilder: (context, index) {
               final order = recent[index];
-              final secondary =
-                  order.brand.trim().isNotEmpty ? order.brand : order.vendor;
+              final secondary = order.brand.trim().isNotEmpty
+                  ? order.brand
+                  : order.vendor;
 
               return Container(
                 margin: const EdgeInsets.only(bottom: 12),
                 child: Material(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(18),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(18),
@@ -138,8 +137,8 @@ class NewlyArrivedItemsScreen extends StatelessWidget {
                               Expanded(
                                 child: Text(
                                   order.displayName,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface,
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                   ),
@@ -173,16 +172,16 @@ class NewlyArrivedItemsScreen extends StatelessWidget {
                           const SizedBox(height: 10),
                           Text(
                             'Delivered on ${_formatDate(order)}',
-                            style: const TextStyle(
-                              color: Colors.white60,
+                            style: TextStyle(
+                              color: palette.subtleText,
                               fontSize: 12.5,
                             ),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             'Quantity: ${order.quantity.trim().isEmpty ? '-' : order.quantity}',
-                            style: const TextStyle(
-                              color: Colors.white70,
+                            style: TextStyle(
+                              color: palette.mutedText,
                               fontSize: 13,
                             ),
                           ),
@@ -192,8 +191,8 @@ class NewlyArrivedItemsScreen extends StatelessWidget {
                               order.brand.trim().isNotEmpty
                                   ? 'Brand: $secondary'
                                   : 'Vendor: $secondary',
-                              style: const TextStyle(
-                                color: Colors.white70,
+                              style: TextStyle(
+                                color: palette.mutedText,
                                 fontSize: 13,
                               ),
                             ),

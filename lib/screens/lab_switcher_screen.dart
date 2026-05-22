@@ -4,14 +4,12 @@ import '../models/lab_context_model.dart';
 import '../models/lab_membership_model.dart';
 import '../services/lab_membership_service.dart';
 import '../services/lab_service.dart';
+import '../theme/labmate_theme.dart';
 
 class LabSwitcherScreen extends StatefulWidget {
   final AppState appState;
 
-  const LabSwitcherScreen({
-    super.key,
-    required this.appState,
-  });
+  const LabSwitcherScreen({super.key, required this.appState});
 
   @override
   State<LabSwitcherScreen> createState() => _LabSwitcherScreenState();
@@ -86,7 +84,9 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
         addOption(
           _LabOption(
             labId: membership.labId,
-            labName: resolvedLabName.isEmpty ? membership.labId : resolvedLabName,
+            labName: resolvedLabName.isEmpty
+                ? membership.labId
+                : resolvedLabName,
             roleName: membership.role.trim().isEmpty
                 ? DemoUserRole.researcher.name
                 : membership.role.trim(),
@@ -163,21 +163,24 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
 
   Widget _buildHeaderCard() {
     final selectedLabName = widget.appState.selectedLabName.trim();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Current Lab',
             style: TextStyle(
-              color: Colors.white70,
+              color: palette.mutedText,
               fontSize: 12.5,
               fontWeight: FontWeight.w600,
             ),
@@ -185,8 +188,8 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
           const SizedBox(height: 6),
           Text(
             selectedLabName.isEmpty ? 'No lab selected' : selectedLabName,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 18,
               fontWeight: FontWeight.w700,
             ),
@@ -195,7 +198,7 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
           Text(
             'Switch between labs you belong to.',
             style: TextStyle(
-              color: Colors.white.withOpacity(0.72),
+              color: palette.mutedText,
               fontSize: 13,
               height: 1.4,
             ),
@@ -207,21 +210,17 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Switch Lab',
-          style: TextStyle(color: Colors.white),
-        ),
-      ),
+      appBar: AppBar(title: const Text('Switch Lab')),
       body: SafeArea(
         child: FutureBuilder<List<_LabOption>>(
           future: _optionsFuture,
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return const Center(child: CircularProgressIndicator());
             }
 
             final options = snapshot.data ?? [];
@@ -240,11 +239,12 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
 
                   final option = options[index - 1];
                   final isSelected =
-                      option.labId.trim() == widget.appState.selectedLabId.trim();
+                      option.labId.trim() ==
+                      widget.appState.selectedLabId.trim();
                   final isSwitching = _switchingLabId == option.labId;
 
                   return Material(
-                    color: const Color(0xFF1E293B),
+                    color: palette.panel,
                     borderRadius: BorderRadius.circular(18),
                     child: InkWell(
                       borderRadius: BorderRadius.circular(18),
@@ -257,12 +257,12 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
                               height: 46,
                               width: 46,
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.08),
+                                color: palette.panelAlt,
                                 borderRadius: BorderRadius.circular(14),
                               ),
                               child: Icon(
                                 Icons.apartment_rounded,
-                                color: Colors.white,
+                                color: colorScheme.primary,
                               ),
                             ),
                             const SizedBox(width: 14),
@@ -272,8 +272,8 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
                                 children: [
                                   Text(
                                     option.labName,
-                                    style: const TextStyle(
-                                      color: Colors.white,
+                                    style: TextStyle(
+                                      color: colorScheme.onSurface,
                                       fontSize: 15,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -315,7 +315,7 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
                                         : Icons.arrow_forward_ios_rounded,
                                     color: isSelected
                                         ? const Color(0xFF14B8A6)
-                                        : Colors.white.withOpacity(0.65),
+                                        : palette.subtleText,
                                     size: isSelected ? 20 : 16,
                                   ),
                           ],
@@ -353,26 +353,24 @@ class _InlineBadge extends StatelessWidget {
   final String label;
   final Color accentColor;
 
-  const _InlineBadge({
-    required this.label,
-    this.accentColor = Colors.white24,
-  });
+  const _InlineBadge({required this.label, this.accentColor = Colors.white24});
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 10,
-        vertical: 5,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: accentColor,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Colors.white,
+        style: TextStyle(
+          color: accentColor == Colors.white24
+              ? palette.mutedText
+              : Colors.white,
           fontSize: 11.5,
           fontWeight: FontWeight.w700,
         ),

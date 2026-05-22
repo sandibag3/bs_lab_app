@@ -5,6 +5,7 @@ import '../app_state.dart';
 import '../models/glass_apparatus_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/glass_apparatus_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 
 class AddGlassApparatusScreen extends StatefulWidget {
@@ -89,11 +90,12 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
   }
 
   InputDecoration _inputDecoration(String label) {
+    final palette = context.labmate;
     return InputDecoration(
       labelText: label,
-      labelStyle: const TextStyle(color: Colors.white70),
+      labelStyle: TextStyle(color: palette.subtleText),
       filled: true,
-      fillColor: const Color(0xFF111827),
+      fillColor: palette.panel,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
@@ -117,21 +119,24 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     required List<Widget> children,
     bool dense = false,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(dense ? 14 : 16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(dense ? 18 : 20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontSize: 15.5,
               fontWeight: FontWeight.w700,
             ),
@@ -139,8 +144,8 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
           const SizedBox(height: 6),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: Colors.white60,
+            style: TextStyle(
+              color: palette.subtleText,
               fontSize: 12.5,
               height: 1.4,
             ),
@@ -152,10 +157,7 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     );
   }
 
-  Widget _fieldGrid({
-    required bool isDesktop,
-    required List<Widget> children,
-  }) {
+  Widget _fieldGrid({required bool isDesktop, required List<Widget> children}) {
     if (!isDesktop) {
       return Column(
         children: [
@@ -184,10 +186,7 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     );
   }
 
-  Widget _fullWidthField({
-    required bool isDesktop,
-    required Widget child,
-  }) {
+  Widget _fullWidthField({required bool isDesktop, required Widget child}) {
     if (!isDesktop) {
       return child;
     }
@@ -198,10 +197,7 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
   List<DropdownMenuItem<String>> _categoryItems() {
     return [
       ...GlassApparatusModel.categories.map((category) {
-        return DropdownMenuItem<String>(
-          value: category,
-          child: Text(category),
-        );
+        return DropdownMenuItem<String>(value: category, child: Text(category));
       }),
       const DropdownMenuItem<String>(
         value: _customCategoryOption,
@@ -211,10 +207,12 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
   }
 
   Widget _buildCategoryDropdown() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return DropdownButtonFormField<String>(
       initialValue: _selectedCategory,
-      dropdownColor: const Color(0xFF111827),
-      style: const TextStyle(color: Colors.white),
+      dropdownColor: palette.panel,
+      style: TextStyle(color: colorScheme.onSurface),
       decoration: _inputDecoration('Category'),
       items: _categoryItems(),
       validator: (value) {
@@ -235,9 +233,10 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
   }
 
   Widget _buildCustomCategoryField() {
+    final colorScheme = context.colorScheme;
     return TextFormField(
       controller: _customCategoryController,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: colorScheme.onSurface),
       decoration: _inputDecoration('Custom category'),
       textCapitalization: TextCapitalization.words,
       validator: (value) {
@@ -338,11 +337,12 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: Text(
           _isEditMode ? 'Edit Glass Apparatus' : 'Add Glass Apparatus',
-          style: const TextStyle(color: Colors.white),
         ),
       ),
       body: SafeArea(
@@ -369,7 +369,7 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
                           children: [
                             TextFormField(
                               controller: _nameController,
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: colorScheme.onSurface),
                               decoration: _inputDecoration('Name'),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
@@ -383,17 +383,18 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
                               _buildCustomCategoryField(),
                             TextFormField(
                               controller: _sizeController,
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: colorScheme.onSurface),
                               decoration: _inputDecoration('Size / capacity'),
                             ),
                             TextFormField(
                               controller: _quantityController,
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: colorScheme.onSurface),
                               keyboardType: TextInputType.number,
                               decoration: _inputDecoration('Quantity'),
                               validator: (value) {
-                                final quantity =
-                                    int.tryParse((value ?? '').trim());
+                                final quantity = int.tryParse(
+                                  (value ?? '').trim(),
+                                );
                                 if (quantity == null || quantity < 0) {
                                   return 'Enter a valid quantity';
                                 }
@@ -416,17 +417,17 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
                           children: [
                             DropdownButtonFormField<String>(
                               initialValue: _selectedCondition,
-                              dropdownColor: const Color(0xFF111827),
-                              style: const TextStyle(color: Colors.white),
+                              dropdownColor: palette.panel,
+                              style: TextStyle(color: colorScheme.onSurface),
                               decoration: _inputDecoration('Condition'),
-                              items: GlassApparatusModel.conditionOptions.map(
-                                (status) {
-                                  return DropdownMenuItem<String>(
-                                    value: status,
-                                    child: Text(status),
-                                  );
-                                },
-                              ).toList(),
+                              items: GlassApparatusModel.conditionOptions.map((
+                                status,
+                              ) {
+                                return DropdownMenuItem<String>(
+                                  value: status,
+                                  child: Text(status),
+                                );
+                              }).toList(),
                               onChanged: _isSaving
                                   ? null
                                   : (value) {
@@ -438,12 +439,12 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
                             ),
                             TextFormField(
                               controller: _locationController,
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: colorScheme.onSurface),
                               decoration: _inputDecoration('Location'),
                             ),
                             TextFormField(
                               controller: _inchargeController,
-                              style: const TextStyle(color: Colors.white),
+                              style: TextStyle(color: colorScheme.onSurface),
                               decoration: _inputDecoration('In-charge'),
                             ),
                           ],
@@ -453,7 +454,7 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
                           isDesktop: isDesktop,
                           child: TextFormField(
                             controller: _notesController,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: colorScheme.onSurface),
                             maxLines: isDesktop ? 2 : 3,
                             decoration: _inputDecoration('Notes'),
                           ),
@@ -486,8 +487,8 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
                           _isSaving
                               ? (_isEditMode ? 'Updating...' : 'Saving...')
                               : (_isEditMode
-                                  ? 'Update Apparatus'
-                                  : 'Save Apparatus'),
+                                    ? 'Update Apparatus'
+                                    : 'Save Apparatus'),
                         ),
                       ),
                     ),

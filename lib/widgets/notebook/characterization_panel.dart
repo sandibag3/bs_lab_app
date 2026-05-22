@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../models/notebook_experiment_model.dart';
+import '../../theme/labmate_theme.dart';
 
 class CharacterizationPanel extends StatelessWidget {
   final NotebookExperimentModel experiment;
@@ -14,6 +15,7 @@ class CharacterizationPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     final sections = [
       _RecordSection(title: 'Procedure', value: experiment.procedure),
       _RecordSection(title: 'Observations', value: experiment.observations),
@@ -31,9 +33,9 @@ class CharacterizationPanel extends StatelessWidget {
       width: double.infinity,
       padding: EdgeInsets.all(compact ? 12 : 13),
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(compact ? 16 : 18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,6 +80,8 @@ class _PanelHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     return Row(
       children: [
         Container(
@@ -96,8 +100,8 @@ class _PanelHeader extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
                   fontSize: 13.8,
                   fontWeight: FontWeight.w700,
                 ),
@@ -105,8 +109,8 @@ class _PanelHeader extends StatelessWidget {
               const SizedBox(height: 2),
               Text(
                 subtitle,
-                style: const TextStyle(
-                  color: Colors.white54,
+                style: TextStyle(
+                  color: palette.subtleText,
                   fontSize: 11.4,
                   fontWeight: FontWeight.w500,
                 ),
@@ -129,12 +133,14 @@ class _RecordTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final preview = _previewText(section.value);
     final cleanValue = section.value.trim();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF111C34),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.04)),
+        border: Border.all(color: palette.border),
       ),
       child: ExpansionTile(
         tilePadding: EdgeInsets.symmetric(
@@ -147,11 +153,11 @@ class _RecordTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
         ),
         iconColor: const Color(0xFF5EEAD4),
-        collapsedIconColor: Colors.white54,
+        collapsedIconColor: palette.subtleText,
         title: Text(
           section.title,
           style: TextStyle(
-            color: Colors.white,
+            color: colorScheme.onSurface,
             fontSize: compact ? 12.6 : 13.0,
             fontWeight: FontWeight.w700,
           ),
@@ -163,7 +169,9 @@ class _RecordTile extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: cleanValue.isEmpty ? Colors.white38 : Colors.white60,
+              color: cleanValue.isEmpty
+                  ? palette.subtleText
+                  : palette.mutedText,
               fontSize: compact ? 11.4 : 11.8,
             ),
           ),
@@ -174,7 +182,9 @@ class _RecordTile extends StatelessWidget {
             child: Text(
               cleanValue.isEmpty ? 'Not recorded yet.' : cleanValue,
               style: TextStyle(
-                color: cleanValue.isEmpty ? Colors.white38 : Colors.white70,
+                color: cleanValue.isEmpty
+                    ? palette.subtleText
+                    : palette.mutedText,
                 fontSize: compact ? 12.0 : 12.4,
                 height: 1.42,
               ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/chemical_model.dart';
+import '../theme/labmate_theme.dart';
 
 class ChemicalDetailScreenGroup extends StatelessWidget {
   final List<ChemicalModel> bottles;
@@ -8,6 +9,9 @@ class ChemicalDetailScreenGroup extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Scaffold(
       appBar: AppBar(title: Text(bottles.first.chemicalName)),
       body: ListView.builder(
@@ -17,26 +21,30 @@ class ChemicalDetailScreenGroup extends StatelessWidget {
           final b = bottles[index];
 
           return Card(
-            color: const Color(0xFF1E293B),
+            color: palette.panel,
             margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
               title: Text(
                 'Bottle ${index + 1}',
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
               ),
               subtitle: Text(
                 'Qty: ${b.quantity} | ${b.location}',
-                style: const TextStyle(color: Colors.white70),
+                style: TextStyle(color: palette.mutedText),
               ),
               trailing: DropdownButton<String>(
                 value: b.availability,
-                dropdownColor: const Color(0xFF1E293B),
+                dropdownColor: palette.panel,
                 items: ['Available', 'Low', 'Finished']
-                    .map((e) => DropdownMenuItem(
-                          value: e,
-                          child: Text(e,
-                              style: const TextStyle(color: Colors.white)),
-                        ))
+                    .map(
+                      (e) => DropdownMenuItem(
+                        value: e,
+                        child: Text(
+                          e,
+                          style: TextStyle(color: colorScheme.onSurface),
+                        ),
+                      ),
+                    )
                     .toList(),
                 onChanged: (value) {
                   // later we update firestore

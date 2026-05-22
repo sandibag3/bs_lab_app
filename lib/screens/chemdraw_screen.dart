@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 
+import '../theme/labmate_theme.dart';
+
 class ChemDrawScreen extends StatelessWidget {
   const ChemDrawScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     final tools = [
       'Draw New Structure',
       'Open Saved Structure',
@@ -22,11 +27,12 @@ class ChemDrawScreen extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
+                color: palette.panel,
                 borderRadius: BorderRadius.circular(18),
-                boxShadow: const [
+                border: Border.all(color: palette.border),
+                boxShadow: [
                   BoxShadow(
-                    color: Colors.black26,
+                    color: Colors.black.withValues(alpha: 0.12),
                     blurRadius: 8,
                     offset: Offset(0, 3),
                   ),
@@ -42,8 +48,8 @@ class ChemDrawScreen extends StatelessWidget {
                   Expanded(
                     child: Text(
                       tools[index],
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),

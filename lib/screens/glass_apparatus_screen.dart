@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/glass_apparatus_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/glass_apparatus_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 import 'add_glass_apparatus_screen.dart';
 
@@ -100,8 +101,8 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
 
   int _compareName(GlassApparatusModel a, GlassApparatusModel b) {
     return a.normalizedName.toLowerCase().compareTo(
-          b.normalizedName.toLowerCase(),
-        );
+      b.normalizedName.toLowerCase(),
+    );
   }
 
   List<GlassApparatusModel> _sortApparatus(
@@ -156,17 +157,17 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
   List<_ApparatusCategoryGroup> _buildCategoryGroups(
     List<GlassApparatusModel> apparatus,
   ) {
-    final customCategories = apparatus
-        .map((item) => item.normalizedCategory)
-        .where((category) => !GlassApparatusModel.categories.contains(category))
-        .toSet()
-        .toList()
-      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    final customCategories =
+        apparatus
+            .map((item) => item.normalizedCategory)
+            .where(
+              (category) => !GlassApparatusModel.categories.contains(category),
+            )
+            .toSet()
+            .toList()
+          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-    final categories = [
-      ...GlassApparatusModel.categories,
-      ...customCategories,
-    ];
+    final categories = [...GlassApparatusModel.categories, ...customCategories];
 
     if (_sortOption == GlassApparatusSortOption.categoryAsc) {
       categories.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
@@ -182,16 +183,19 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
   }
 
   Widget _buildSearchBar({bool dense = false}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return TextField(
       controller: _searchController,
-      style: const TextStyle(color: Colors.white),
+      style: TextStyle(color: colorScheme.onSurface),
       onChanged: (_) {
         setState(() {});
       },
       decoration: InputDecoration(
         hintText: 'Search by name, category, size, location, or in-charge',
-        hintStyle: const TextStyle(color: Colors.white54),
-        prefixIcon: const Icon(Icons.search_rounded, color: Colors.white70),
+        hintStyle: TextStyle(color: palette.subtleText),
+        prefixIcon: Icon(Icons.search_rounded, color: palette.mutedText),
         suffixIcon: _searchController.text.trim().isEmpty
             ? null
             : IconButton(
@@ -199,10 +203,10 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
                   _searchController.clear();
                   setState(() {});
                 },
-                icon: const Icon(Icons.close_rounded, color: Colors.white54),
+                icon: Icon(Icons.close_rounded, color: palette.subtleText),
               ),
         filled: true,
-        fillColor: const Color(0xFF111827),
+        fillColor: palette.panel,
         contentPadding: EdgeInsets.symmetric(
           horizontal: 16,
           vertical: dense ? 11 : 14,
@@ -216,6 +220,9 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
   }
 
   Widget _buildConditionFilters({bool dense = false}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -232,16 +239,14 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
                 });
               },
               labelStyle: TextStyle(
-                color: isSelected ? Colors.white : Colors.white70,
+                color: isSelected ? colorScheme.primary : palette.mutedText,
                 fontSize: dense ? 12.0 : 12.5,
                 fontWeight: FontWeight.w700,
               ),
-              backgroundColor: const Color(0xFF111827),
-              selectedColor: const Color(0xFF14B8A6),
+              backgroundColor: palette.panel,
+              selectedColor: palette.selected,
               side: BorderSide(
-                color: isSelected
-                    ? const Color(0xFF14B8A6)
-                    : Colors.white.withValues(alpha: 0.08),
+                color: isSelected ? colorScheme.primary : palette.border,
               ),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(999),
@@ -255,20 +260,23 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
   }
 
   Widget _buildSortDropdown({bool dense = false}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       height: dense ? 46 : null,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<GlassApparatusSortOption>(
           value: _sortOption,
           isExpanded: true,
-          dropdownColor: const Color(0xFF111827),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: palette.panel,
+          style: TextStyle(color: colorScheme.onSurface),
           items: GlassApparatusSortOption.values.map((option) {
             return DropdownMenuItem<GlassApparatusSortOption>(
               value: option,
@@ -276,7 +284,7 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
                 'Sort: ${_sortLabel(option)}',
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: Colors.white,
+                  color: colorScheme.onSurface,
                   fontSize: dense ? 12.5 : 13,
                 ),
               ),
@@ -300,108 +308,110 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
     return SafeArea(
       child: ResponsivePageContainer(
         child: StreamBuilder<List<GlassApparatusModel>>(
-        stream: apparatusService.getApparatus(),
-        builder: (context, snapshot) {
-          if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
-            return const _ApparatusAccessState(
-              title: FirestoreAccessGuard.userMessage,
-            );
-          }
+          stream: apparatusService.getApparatus(),
+          builder: (context, snapshot) {
+            if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+              return const _ApparatusAccessState(
+                title: FirestoreAccessGuard.userMessage,
+              );
+            }
 
-          if (snapshot.hasError) {
-            return _ApparatusAccessState(
-              title: FirestoreAccessGuard.messageFor(snapshot.error),
-            );
-          }
+            if (snapshot.hasError) {
+              return _ApparatusAccessState(
+                title: FirestoreAccessGuard.messageFor(snapshot.error),
+              );
+            }
 
-          if (!snapshot.hasData) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF14B8A6)),
-            );
-          }
+            if (!snapshot.hasData) {
+              return const Center(
+                child: CircularProgressIndicator(color: Color(0xFF14B8A6)),
+              );
+            }
 
-          final apparatus = snapshot.data ?? [];
-          final filteredApparatus = _applyFilters(apparatus);
-          final sortedApparatus = _sortApparatus(filteredApparatus);
-          final categoryGroups = _buildCategoryGroups(sortedApparatus);
+            final apparatus = snapshot.data ?? [];
+            final filteredApparatus = _applyFilters(apparatus);
+            final sortedApparatus = _sortApparatus(filteredApparatus);
+            final categoryGroups = _buildCategoryGroups(sortedApparatus);
 
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              final isDesktop = constraints.maxWidth >= 900;
-              final pagePadding = isDesktop ? 12.0 : 16.0;
-              final sectionGap = isDesktop ? 10.0 : 14.0;
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final isDesktop = constraints.maxWidth >= 900;
+                final pagePadding = isDesktop ? 12.0 : 16.0;
+                final sectionGap = isDesktop ? 10.0 : 14.0;
 
-              return Padding(
-                padding: EdgeInsets.all(pagePadding),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                _ApparatusHeaderCard(
-                  apparatusCount: apparatus.length,
-                  totalQuantity: apparatus.fold<int>(
-                    0,
-                    (total, item) => total + item.quantity,
-                  ),
-                  onAddApparatus: _openAddApparatus,
-                  dense: isDesktop,
-                ),
-                SizedBox(height: sectionGap),
-                if (isDesktop)
-                  Row(
+                return Padding(
+                  padding: EdgeInsets.all(pagePadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        flex: 2,
-                        child: _buildSearchBar(dense: true),
+                      _ApparatusHeaderCard(
+                        apparatusCount: apparatus.length,
+                        totalQuantity: apparatus.fold<int>(
+                          0,
+                          (total, item) => total + item.quantity,
+                        ),
+                        onAddApparatus: _openAddApparatus,
+                        dense: isDesktop,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(height: sectionGap),
+                      if (isDesktop)
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: _buildSearchBar(dense: true),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 3,
+                              child: _buildConditionFilters(dense: true),
+                            ),
+                            const SizedBox(width: 12),
+                            SizedBox(
+                              width: 220,
+                              child: _buildSortDropdown(dense: true),
+                            ),
+                          ],
+                        )
+                      else ...[
+                        _buildSearchBar(),
+                        const SizedBox(height: 12),
+                        _buildConditionFilters(),
+                        const SizedBox(height: 12),
+                        _buildSortDropdown(),
+                      ],
+                      SizedBox(height: sectionGap),
+                      if (apparatus.isEmpty) ...[
+                        const _ApparatusEmptyState(),
+                        SizedBox(height: sectionGap),
+                      ] else if (filteredApparatus.isEmpty) ...[
+                        const _ApparatusFilteredEmptyState(),
+                        SizedBox(height: sectionGap),
+                      ],
                       Expanded(
-                        flex: 3,
-                        child: _buildConditionFilters(dense: true),
-                      ),
-                      const SizedBox(width: 12),
-                      SizedBox(
-                        width: 220,
-                        child: _buildSortDropdown(dense: true),
+                        child: ListView.builder(
+                          itemCount: categoryGroups.length,
+                          itemBuilder: (context, index) {
+                            final group = categoryGroups[index];
+                            return Padding(
+                              padding: EdgeInsets.only(
+                                bottom: isDesktop ? 8 : 12,
+                              ),
+                              child: _ApparatusCategorySection(
+                                group: group,
+                                dense: isDesktop,
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ],
-                  )
-                else ...[
-                  _buildSearchBar(),
-                  const SizedBox(height: 12),
-                  _buildConditionFilters(),
-                  const SizedBox(height: 12),
-                  _buildSortDropdown(),
-                ],
-                SizedBox(height: sectionGap),
-                if (apparatus.isEmpty) ...[
-                  const _ApparatusEmptyState(),
-                  SizedBox(height: sectionGap),
-                ] else if (filteredApparatus.isEmpty) ...[
-                  const _ApparatusFilteredEmptyState(),
-                  SizedBox(height: sectionGap),
-                ],
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: categoryGroups.length,
-                    itemBuilder: (context, index) {
-                      final group = categoryGroups[index];
-                      return Padding(
-                        padding: EdgeInsets.only(bottom: isDesktop ? 8 : 12),
-                        child: _ApparatusCategorySection(
-                          group: group,
-                          dense: isDesktop,
-                        ),
-                      );
-                    },
                   ),
-                ),
-              ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+                );
+              },
+            );
+          },
+        ),
       ),
     );
   }
@@ -414,14 +424,16 @@ class _ApparatusAccessState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
           title,
           textAlign: TextAlign.center,
-          style: const TextStyle(
-            color: Colors.white70,
+          style: TextStyle(
+            color: palette.mutedText,
             fontSize: 14,
             height: 1.45,
           ),
@@ -446,16 +458,24 @@ class _ApparatusHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(dense ? 14 : 18),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 3)),
-        ],
+        border: Border.all(color: palette.border),
+        boxShadow: Theme.of(context).brightness == Brightness.dark
+            ? const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 8,
+                  offset: Offset(0, 3),
+                ),
+              ]
+            : null,
       ),
       child: dense
           ? Row(
@@ -499,13 +519,16 @@ class _ApparatusHeaderCopy extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Glass Apparatus',
           style: TextStyle(
-            color: Colors.white,
+            color: colorScheme.onSurface,
             fontSize: 18,
             fontWeight: FontWeight.w800,
           ),
@@ -515,8 +538,8 @@ class _ApparatusHeaderCopy extends StatelessWidget {
           apparatusCount == 0
               ? 'Track shared glassware by category, count, condition, and location.'
               : '$apparatusCount records with $totalQuantity total pieces in this lab.',
-          style: const TextStyle(
-            color: Colors.white60,
+          style: TextStyle(
+            color: palette.subtleText,
             fontSize: 13,
             height: 1.35,
           ),
@@ -554,17 +577,18 @@ class _ApparatusEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: palette.border),
       ),
-      child: const Text(
+      child: Text(
         'No glass apparatus added yet. Add the first record to start organizing shared glassware.',
-        style: TextStyle(color: Colors.white70, fontSize: 13, height: 1.4),
+        style: TextStyle(color: palette.mutedText, fontSize: 13, height: 1.4),
       ),
     );
   }
@@ -575,18 +599,19 @@ class _ApparatusFilteredEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: palette.border),
       ),
-      child: const Text(
+      child: Text(
         'No glass apparatus matches current filters.',
         style: TextStyle(
-          color: Colors.white70,
+          color: palette.mutedText,
           fontSize: 13.2,
           fontWeight: FontWeight.w600,
           height: 1.4,
@@ -600,18 +625,18 @@ class _ApparatusCategorySection extends StatelessWidget {
   final _ApparatusCategoryGroup group;
   final bool dense;
 
-  const _ApparatusCategorySection({
-    required this.group,
-    this.dense = false,
-  });
+  const _ApparatusCategorySection({required this.group, this.dense = false});
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -624,8 +649,8 @@ class _ApparatusCategorySection extends StatelessWidget {
             dense ? 10 : 12,
             dense ? 8 : 12,
           ),
-          iconColor: Colors.white70,
-          collapsedIconColor: Colors.white54,
+          iconColor: palette.mutedText,
+          collapsedIconColor: palette.subtleText,
           leading: SizedBox(
             height: dense ? 32 : 40,
             width: dense ? 32 : 40,
@@ -640,25 +665,28 @@ class _ApparatusCategorySection extends StatelessWidget {
           ),
           title: Text(
             group.category,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: colorScheme.onSurface,
               fontWeight: FontWeight.w800,
               fontSize: 14,
             ),
           ),
           subtitle: Text(
             '${group.count} ${group.count == 1 ? 'record' : 'records'} - ${group.totalQuantity} pieces',
-            style: const TextStyle(color: Colors.white60, fontSize: 12.4),
+            style: TextStyle(color: palette.subtleText, fontSize: 12.4),
           ),
           children: group.apparatus.isEmpty
-              ? const [
+              ? [
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Padding(
-                      padding: EdgeInsets.only(top: 4),
+                      padding: const EdgeInsets.only(top: 4),
                       child: Text(
                         'No records in this category yet.',
-                        style: TextStyle(color: Colors.white54, fontSize: 12.8),
+                        style: TextStyle(
+                          color: palette.subtleText,
+                          fontSize: 12.8,
+                        ),
                       ),
                     ),
                   ),
@@ -668,10 +696,7 @@ class _ApparatusCategorySection extends StatelessWidget {
                   ...group.apparatus.map((item) {
                     return Padding(
                       padding: EdgeInsets.only(top: dense ? 6 : 10),
-                      child: _ApparatusCard(
-                        apparatus: item,
-                        dense: dense,
-                      ),
+                      child: _ApparatusCard(apparatus: item, dense: dense),
                     );
                   }),
                 ],
@@ -684,15 +709,16 @@ class _ApparatusCategorySection extends StatelessWidget {
 class _ApparatusDesktopHeader extends StatelessWidget {
   const _ApparatusDesktopHeader();
 
-  Widget _header(String label, {int flex = 1}) {
+  Widget _header(BuildContext context, String label, {int flex = 1}) {
+    final palette = context.labmate;
     return Expanded(
       flex: flex,
       child: Text(
         label,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: const TextStyle(
-          color: Colors.white38,
+        style: TextStyle(
+          color: palette.subtleText,
           fontSize: 10.8,
           fontWeight: FontWeight.w800,
         ),
@@ -706,19 +732,19 @@ class _ApparatusDesktopHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(58, 2, 34, 0),
       child: Row(
         children: [
-          _header('Name', flex: 3),
+          _header(context, 'Name', flex: 3),
           const SizedBox(width: 10),
-          _header('Category', flex: 2),
+          _header(context, 'Category', flex: 2),
           const SizedBox(width: 10),
-          _header('Size'),
+          _header(context, 'Size'),
           const SizedBox(width: 10),
-          _header('Qty'),
+          _header(context, 'Qty'),
           const SizedBox(width: 10),
-          _header('Condition', flex: 2),
+          _header(context, 'Condition', flex: 2),
           const SizedBox(width: 10),
-          _header('Location', flex: 2),
+          _header(context, 'Location', flex: 2),
           const SizedBox(width: 10),
-          _header('In-charge', flex: 2),
+          _header(context, 'In-charge', flex: 2),
         ],
       ),
     );
@@ -729,13 +755,17 @@ class _ApparatusCard extends StatelessWidget {
   final GlassApparatusModel apparatus;
   final bool dense;
 
-  const _ApparatusCard({
-    required this.apparatus,
-    this.dense = false,
-  });
+  const _ApparatusCard({required this.apparatus, this.dense = false});
 
-  Widget _desktopText(String value, {int flex = 1, bool strong = false}) {
+  Widget _desktopText(
+    BuildContext context,
+    String value, {
+    int flex = 1,
+    bool strong = false,
+  }) {
     final displayValue = value.trim().isEmpty ? 'Not set' : value.trim();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Expanded(
       flex: flex,
@@ -744,7 +774,7 @@ class _ApparatusCard extends StatelessWidget {
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          color: strong ? Colors.white : Colors.white70,
+          color: strong ? colorScheme.onSurface : palette.mutedText,
           fontSize: strong ? 13.4 : 12.4,
           height: 1.25,
           fontWeight: strong ? FontWeight.w800 : FontWeight.w600,
@@ -754,8 +784,9 @@ class _ApparatusCard extends StatelessWidget {
   }
 
   Widget _buildDesktopCard(BuildContext context) {
+    final palette = context.labmate;
     return Material(
-      color: const Color(0xFF111827),
+      color: palette.panelAlt,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -776,8 +807,9 @@ class _ApparatusCard extends StatelessWidget {
                 height: 38,
                 width: 38,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panel,
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: palette.border),
                 ),
                 child: Icon(
                   _iconForCategory(apparatus.normalizedCategory),
@@ -786,13 +818,18 @@ class _ApparatusCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              _desktopText(apparatus.normalizedName, flex: 3, strong: true),
+              _desktopText(
+                context,
+                apparatus.normalizedName,
+                flex: 3,
+                strong: true,
+              ),
               const SizedBox(width: 10),
-              _desktopText(apparatus.normalizedCategory, flex: 2),
+              _desktopText(context, apparatus.normalizedCategory, flex: 2),
               const SizedBox(width: 10),
-              _desktopText(apparatus.displaySize),
+              _desktopText(context, apparatus.displaySize),
               const SizedBox(width: 10),
-              _desktopText(apparatus.quantity.toString()),
+              _desktopText(context, apparatus.quantity.toString()),
               const SizedBox(width: 10),
               Expanded(
                 flex: 2,
@@ -804,11 +841,11 @@ class _ApparatusCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 10),
-              _desktopText(apparatus.location, flex: 2),
+              _desktopText(context, apparatus.location, flex: 2),
               const SizedBox(width: 10),
-              _desktopText(apparatus.incharge, flex: 2),
+              _desktopText(context, apparatus.incharge, flex: 2),
               const SizedBox(width: 8),
-              const Icon(Icons.edit_outlined, color: Colors.white38, size: 18),
+              Icon(Icons.edit_outlined, color: palette.subtleText, size: 18),
             ],
           ),
         ),
@@ -819,9 +856,11 @@ class _ApparatusCard extends StatelessWidget {
   Widget _buildMobileCard(BuildContext context) {
     final location = apparatus.location.trim();
     final incharge = apparatus.incharge.trim();
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Material(
-      color: const Color(0xFF111827),
+      color: palette.panel,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -843,8 +882,9 @@ class _ApparatusCard extends StatelessWidget {
                 height: 48,
                 width: 48,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1E293B),
+                  color: palette.panelAlt,
                   borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: palette.border),
                 ),
                 child: Icon(
                   _iconForCategory(apparatus.normalizedCategory),
@@ -859,8 +899,8 @@ class _ApparatusCard extends StatelessWidget {
                   children: [
                     Text(
                       apparatus.normalizedName,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
                         fontSize: 14.5,
                         fontWeight: FontWeight.w800,
                         height: 1.25,
@@ -885,8 +925,8 @@ class _ApparatusCard extends StatelessWidget {
                           if (location.isNotEmpty) location,
                           if (incharge.isNotEmpty) 'In-charge: $incharge',
                         ].join(' - '),
-                        style: const TextStyle(
-                          color: Colors.white60,
+                        style: TextStyle(
+                          color: palette.subtleText,
                           fontSize: 12.5,
                           height: 1.35,
                         ),
@@ -896,7 +936,7 @@ class _ApparatusCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              const Icon(Icons.edit_outlined, color: Colors.white38, size: 18),
+              Icon(Icons.edit_outlined, color: palette.subtleText, size: 18),
             ],
           ),
         ),
@@ -917,16 +957,18 @@ class _InfoChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.06),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.border),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Colors.white70,
+        style: TextStyle(
+          color: palette.mutedText,
           fontSize: 11.8,
           fontWeight: FontWeight.w700,
         ),
