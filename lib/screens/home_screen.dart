@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/add_action_sheet.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/responsive_page_container.dart';
@@ -129,18 +130,17 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
-          title: const Text('Sign Out?', style: TextStyle(color: Colors.white)),
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          title: const Text('Sign Out?'),
           content: const Text(
             'This will sign you out of Firebase and clear the current lab session on this device.',
-            style: TextStyle(color: Colors.white70, height: 1.4),
+            style: TextStyle(height: 1.4),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
               child: const Text(
                 'Cancel',
-                style: TextStyle(color: Colors.white70),
               ),
             ),
             TextButton(
@@ -270,21 +270,21 @@ class _HomeScreenState extends State<HomeScreen> {
                         activeHomeOverlay = null;
                       });
                     },
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back),
                   )
                 : null,
             title: Text(
               appBarTitle,
-              style: const TextStyle(
+              style: TextStyle(
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
             actions: [
               PopupMenuButton<_HomeOverflowAction>(
                 tooltip: 'More options',
-                icon: const Icon(Icons.more_vert_rounded, color: Colors.white),
-                color: const Color(0xFF1E293B),
+                icon: const Icon(Icons.more_vert_rounded),
+                color: Theme.of(context).colorScheme.surface,
                 onSelected: (action) {
                   switch (action) {
                     case _HomeOverflowAction.importInventory:
@@ -394,9 +394,9 @@ class _DesktopHomeSidebar extends StatelessWidget {
     return Container(
       width: 224,
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: context.labmate.sidebar,
         border: Border(
-          right: BorderSide(color: Colors.white.withOpacity(0.06)),
+          right: BorderSide(color: context.labmate.border),
         ),
       ),
       child: SafeArea(
@@ -405,12 +405,12 @@ class _DesktopHomeSidebar extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
                 child: Text(
                   'Labmate',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: context.colorScheme.onSurface,
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                   ),
@@ -491,7 +491,7 @@ class _DesktopSidebarItem extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 6),
       child: Material(
-        color: isSelected ? const Color(0x2214B8A6) : Colors.transparent,
+        color: isSelected ? context.labmate.selected : Colors.transparent,
         borderRadius: BorderRadius.circular(14),
         child: InkWell(
           borderRadius: BorderRadius.circular(14),
@@ -504,14 +504,16 @@ class _DesktopSidebarItem extends StatelessWidget {
                   icon,
                   size: 20,
                   color: isSelected
-                      ? const Color(0xFF5EEAD4)
-                      : Colors.white60,
+                      ? context.colorScheme.primary
+                      : context.labmate.subtleText,
                 ),
                 const SizedBox(width: 10),
                 Text(
                   label,
                   style: TextStyle(
-                    color: isSelected ? Colors.white : Colors.white70,
+                    color: isSelected
+                        ? context.colorScheme.onSurface
+                        : context.labmate.mutedText,
                     fontSize: 13,
                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                   ),
@@ -544,8 +546,8 @@ class _OverflowMenuItem extends StatelessWidget {
         const SizedBox(width: 12),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 13.5,
             fontWeight: FontWeight.w600,
           ),

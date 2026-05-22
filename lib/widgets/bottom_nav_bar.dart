@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/labmate_theme.dart';
 
 class BottomNavBar extends StatelessWidget {
   final int currentIndex;
@@ -14,7 +15,7 @@ class BottomNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return BottomAppBar(
       height: 76,
-      color: const Color(0xFF111827),
+      color: context.labmate.sidebar,
       shape: const CircularNotchedRectangle(),
       notchMargin: 8,
       padding: const EdgeInsets.symmetric(horizontal: 6),
@@ -72,7 +73,8 @@ class _BottomNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = selected ? const Color(0xFF14B8A6) : Colors.white60;
+    final color =
+        selected ? context.colorScheme.primary : context.labmate.subtleText;
 
     return Expanded(
       child: InkWell(

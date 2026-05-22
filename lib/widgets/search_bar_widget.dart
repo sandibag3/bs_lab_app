@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/labmate_theme.dart';
 
 class SearchBarWidget extends StatelessWidget {
   final VoidCallback? onTap;
@@ -10,36 +11,40 @@ class SearchBarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return GestureDetector(
       onTap: onTap,
       child: AbsorbPointer(
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: palette.panel,
             borderRadius: BorderRadius.circular(18),
-            boxShadow: const [
+            border: Border.all(color: palette.border),
+            boxShadow: [
               BoxShadow(
-                color: Colors.black26,
+                color: Colors.black.withOpacity(0.08),
                 blurRadius: 8,
                 offset: Offset(0, 3),
               ),
             ],
           ),
           child: TextField(
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: colorScheme.onSurface),
             decoration: InputDecoration(
               hintText: 'Search chemical by name, CAS, or functional group',
-              hintStyle: const TextStyle(color: Colors.white54),
-              prefixIcon: const Icon(
+              hintStyle: TextStyle(color: palette.subtleText),
+              prefixIcon: Icon(
                 Icons.search_rounded,
-                color: Color(0xFF14B8A6),
+                color: colorScheme.primary,
               ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(18),
                 borderSide: BorderSide.none,
               ),
               filled: true,
-              fillColor: const Color(0xFF1E293B),
+              fillColor: palette.panel,
             ),
           ),
         ),

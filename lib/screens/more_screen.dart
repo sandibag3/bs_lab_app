@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../theme/labmate_theme.dart';
 import 'app_settings_screen.dart';
 import 'edit_profile_screen.dart';
 import 'import_inventory_screen.dart';
@@ -19,16 +20,16 @@ class MoreScreen extends StatelessWidget {
   }
 
   Widget buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12, top: 4),
-      child: Text(
-        title,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 17,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+    return Builder(
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12, top: 4),
+          child: Text(
+            title,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+        );
+      },
     );
   }
 
@@ -41,10 +42,13 @@ class MoreScreen extends StatelessWidget {
     Color accentColor = const Color(0xFF14B8A6),
     bool showChevron = true,
   }) {
+    final theme = Theme.of(context);
+    final palette = context.labmate;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(18),
         child: InkWell(
           borderRadius: BorderRadius.circular(18),
@@ -64,8 +68,8 @@ class MoreScreen extends StatelessWidget {
                     children: [
                       Text(
                         title,
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: theme.colorScheme.onSurface,
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
                         ),
@@ -73,8 +77,8 @@ class MoreScreen extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         subtitle,
-                        style: const TextStyle(
-                          color: Colors.white60,
+                        style: TextStyle(
+                          color: palette.subtleText,
                           fontSize: 12.5,
                           height: 1.35,
                         ),
@@ -83,10 +87,10 @@ class MoreScreen extends StatelessWidget {
                   ),
                 ),
                 if (showChevron)
-                  const Icon(
+                  Icon(
                     Icons.arrow_forward_ios_rounded,
                     size: 16,
-                    color: Colors.white38,
+                    color: palette.subtleText,
                   ),
               ],
             ),
@@ -101,19 +105,16 @@ class MoreScreen extends StatelessWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
-          backgroundColor: const Color(0xFF1E293B),
-          title: const Text('Sign Out?', style: TextStyle(color: Colors.white)),
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          title: const Text('Sign Out?'),
           content: const Text(
             'This will sign you out of Firebase and clear the current lab session on this device.',
-            style: TextStyle(color: Colors.white70, height: 1.4),
+            style: TextStyle(height: 1.4),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text(
-                'Cancel',
-                style: TextStyle(color: Colors.white70),
-              ),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
@@ -156,7 +157,6 @@ class MoreScreen extends StatelessWidget {
             appBar: AppBar(
               title: const Text(
                 'Personal Information',
-                style: TextStyle(color: Colors.white),
               ),
             ),
             body: EditProfileScreen(appState: appState),

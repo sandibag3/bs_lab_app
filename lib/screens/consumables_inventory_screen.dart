@@ -9,6 +9,7 @@ import '../app_state.dart';
 import '../services/activity_service.dart';
 import '../services/consumables_inventory_service.dart';
 import '../services/firestore_access_guard.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 
 class ConsumablesInventoryScreen extends StatefulWidget {
@@ -781,12 +782,14 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
     required BuildContext context,
     required _ConsumableCategoryGroup categoryGroup,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     final totalQuantityLabel = categoryGroup.totalQuantity == null
         ? 'Mixed'
         : _formatQuantityNumber(categoryGroup.totalQuantity!);
 
     return Material(
-      color: const Color(0xFF1E293B),
+      color: palette.panel,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
@@ -796,7 +799,7 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: palette.border),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -808,8 +811,8 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
                       categoryGroup.category,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
                         fontSize: 16,
                         fontWeight: FontWeight.w800,
                         height: 1.2,
@@ -817,9 +820,9 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  const Icon(
+                  Icon(
                     Icons.chevron_right_rounded,
-                    color: Colors.white38,
+                    color: palette.subtleText,
                   ),
                 ],
               ),
@@ -827,8 +830,8 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
               Text(
                 '${categoryGroup.variants.length} '
                 '${categoryGroup.variants.length == 1 ? 'variant' : 'variants'}',
-                style: const TextStyle(
-                  color: Colors.white70,
+                style: TextStyle(
+                  color: palette.mutedText,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -854,6 +857,8 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
     required _ConsumableVariantItem variantItem,
     Widget? selectionControl,
   }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     final item = variantItem.item;
     final data = item.primaryDoc.data();
     final quantity = item.quantityText;
@@ -878,7 +883,7 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
     final quickQuantityLabel = quantity.isEmpty ? '0' : quantity;
 
     return Material(
-      color: const Color(0xFF1E293B),
+      color: palette.panel,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
@@ -887,7 +892,7 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: palette.border),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -909,8 +914,8 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
                       children: [
                         Text(
                           variantItem.variant,
-                          style: const TextStyle(
-                            color: Colors.white,
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
                             fontSize: 15.5,
                             fontWeight: FontWeight.w700,
                           ),
@@ -920,8 +925,8 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
                           const SizedBox(height: 4),
                           Text(
                             variantItem.consumableType,
-                            style: const TextStyle(
-                              color: Colors.white54,
+                            style: TextStyle(
+                              color: palette.subtleText,
                               fontSize: 12.5,
                             ),
                           ),
@@ -956,8 +961,8 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
                         Expanded(
                           child: Text(
                             quantity.isEmpty ? 'Quantity not set' : quantity,
-                            style: const TextStyle(
-                              color: Colors.white70,
+                            style: TextStyle(
+                              color: palette.mutedText,
                               fontSize: 13,
                             ),
                           ),
@@ -984,10 +989,10 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
                     ),
                     if (!canQuickAdjust) ...[
                       const SizedBox(height: 6),
-                      const Text(
+                      Text(
                         'Quick +/- needs a numeric quantity.',
                         style: TextStyle(
-                          color: Colors.white38,
+                          color: palette.subtleText,
                           fontSize: 11.5,
                         ),
                       ),
@@ -1007,24 +1012,24 @@ class _ConsumablesInventoryScreenState extends State<ConsumablesInventoryScreen>
                     const SizedBox(height: 12),
                     Text(
                       'Ordered by: ${orderedBy.isEmpty ? '-' : orderedBy}',
-                      style: const TextStyle(
-                        color: Colors.white60,
+                      style: TextStyle(
+                        color: palette.subtleText,
                         fontSize: 12.5,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Received by: ${receivedBy.isEmpty ? '-' : receivedBy}',
-                      style: const TextStyle(
-                        color: Colors.white60,
+                      style: TextStyle(
+                        color: palette.subtleText,
                         fontSize: 12.5,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Delivered on: ${_formatDate(deliveredAt)}',
-                      style: const TextStyle(
-                        color: Colors.white60,
+                      style: TextStyle(
+                        color: palette.subtleText,
                         fontSize: 12.5,
                       ),
                     ),
@@ -2027,16 +2032,19 @@ class _InfoChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.06),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.border),
       ),
       child: Text(
         label,
-        style: const TextStyle(
-          color: Colors.white70,
+        style: TextStyle(
+          color: palette.mutedText,
           fontSize: 12,
           fontWeight: FontWeight.w600,
         ),
@@ -2087,11 +2095,13 @@ class _QuickStockControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF0F172A),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08)),
+        border: Border.all(color: palette.border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2110,8 +2120,8 @@ class _QuickStockControls extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: context.colorScheme.onSurface,
                   fontSize: 12.5,
                   fontWeight: FontWeight.w700,
                 ),

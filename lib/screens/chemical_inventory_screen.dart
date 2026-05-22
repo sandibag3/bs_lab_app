@@ -8,6 +8,7 @@ import '../app_state.dart';
 import '../models/chemical_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/inventory_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 import 'add_new_chemical_screen.dart';
 import 'chemical_detail_screen.dart';
@@ -1075,6 +1076,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     final representativeInventoryId = _representativeInventoryId(bottles);
     final int total = bottles.length;
     final isDesktop = MediaQuery.sizeOf(context).width >= 900;
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
     final cardRadius = isDesktop ? 14.0 : 18.0;
     final cardPadding = isDesktop ? 10.0 : 14.0;
 
@@ -1123,13 +1126,14 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
           vertical: isDesktop ? 4 : 5,
         ),
         decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.06),
+          color: palette.panelAlt,
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: palette.border),
         ),
         child: Text(
           text,
           style: TextStyle(
-            color: Colors.white70,
+            color: palette.mutedText,
             fontSize: isDesktop ? 11.6 : 12.2,
           ),
         ),
@@ -1140,7 +1144,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
       key: ValueKey(representativeInventoryId),
       margin: EdgeInsets.only(bottom: isDesktop ? 8 : 14),
       child: Material(
-        color: const Color(0xFF1B2435),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(cardRadius),
         child: InkWell(
           borderRadius: BorderRadius.circular(cardRadius),
@@ -1225,8 +1229,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                               ),
                               child: Text(
                                 main.label,
-                                style: const TextStyle(
-                                  color: Color(0xFF14B8A6),
+                                style: TextStyle(
+                                  color: colorScheme.primary,
                                   fontWeight: FontWeight.bold,
                                   fontSize: 12,
                                 ),
@@ -1239,7 +1243,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                                 maxLines: isDesktop ? 1 : 2,
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: colorScheme.onSurface,
                                   fontSize: isDesktop ? 14.2 : 15.5,
                                   fontWeight: FontWeight.bold,
                                   height: 1.25,
@@ -1256,9 +1260,9 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                               ),
                             ),
                             const SizedBox(width: 6),
-                            const Icon(
+                            Icon(
                               Icons.chevron_right_rounded,
-                              color: Colors.white38,
+                              color: palette.subtleText,
                               size: 18,
                             ),
                           ],
@@ -1314,26 +1318,30 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   }
 
   Widget buildSortDropdown({bool dense = false}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return SizedBox(
       height: dense ? 42 : null,
       child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: palette.border),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<InventorySortOption>(
           value: sortOption,
-          dropdownColor: const Color(0xFF1E293B),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: palette.panel,
+          style: TextStyle(color: colorScheme.onSurface),
           isExpanded: true,
           items: InventorySortOption.values.map((option) {
             return DropdownMenuItem(
               value: option,
               child: Text(
                 'Sort: ${sortLabel(option)}',
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
               ),
             );
           }).toList(),
@@ -1350,6 +1358,9 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   }
 
   Widget buildAvailabilityChips({bool dense = false}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -1362,10 +1373,10 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
               child: ChoiceChip(
                 label: Text(filter),
                 selected: isSelected,
-                selectedColor: const Color(0xFF14B8A6),
-                backgroundColor: const Color(0xFF1E293B),
+                selectedColor: palette.selected,
+                backgroundColor: palette.panel,
                 labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : Colors.white70,
+                  color: isSelected ? colorScheme.primary : palette.mutedText,
                   fontSize: dense ? 12 : null,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1389,30 +1400,33 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   }
 
   Widget buildLocationDropdown({bool dense = false}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return SizedBox(
       height: dense ? 42 : null,
       child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: palette.border),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String?>(
           value: selectedLocationFilter,
-          dropdownColor: const Color(0xFF1E293B),
-          style: const TextStyle(color: Colors.white),
+          dropdownColor: palette.panel,
+          style: TextStyle(color: colorScheme.onSurface),
           isExpanded: true,
           hint: const Text(
             'Filter: Location',
-            style: TextStyle(color: Colors.white70),
           ),
           items: [
-            const DropdownMenuItem<String?>(
+            DropdownMenuItem<String?>(
               value: null,
               child: Text(
                 'Filter: All Locations',
-                style: TextStyle(color: Colors.white),
+                style: TextStyle(color: colorScheme.onSurface),
               ),
             ),
             ...locationFilters.map((location) {
@@ -1420,7 +1434,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                 value: location,
                 child: Text(
                   location,
-                  style: const TextStyle(color: Colors.white),
+                  style: TextStyle(color: colorScheme.onSurface),
                 ),
               );
             }),
@@ -1469,12 +1483,14 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   }
 
   Widget _buildDesktopToolbar(Widget searchField) {
+    final palette = context.labmate;
+
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: palette.panelAlt,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
+        border: Border.all(color: palette.border),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -1498,6 +1514,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     required IconData icon,
     required VoidCallback? onPressed,
   }) {
+    final palette = context.labmate;
+
     return SizedBox(
       height: 36,
       child: OutlinedButton.icon(
@@ -1505,9 +1523,9 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
         icon: Icon(icon, size: 16),
         label: Text(label),
         style: OutlinedButton.styleFrom(
-          foregroundColor: Colors.white70,
-          disabledForegroundColor: Colors.white30,
-          side: BorderSide(color: Colors.white.withOpacity(0.12)),
+          foregroundColor: palette.mutedText,
+          disabledForegroundColor: palette.subtleText.withOpacity(0.55),
+          side: BorderSide(color: palette.border),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           textStyle: const TextStyle(
             fontSize: 12,
@@ -1522,6 +1540,9 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   }
 
   Widget _buildSelectedOnlyToggle() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return SizedBox(
       height: 36,
       child: FilterChip(
@@ -1536,17 +1557,17 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
               ? Icons.filter_alt_rounded
               : Icons.filter_alt_outlined,
           size: 16,
-          color: showSelectedOnly ? Colors.white : Colors.white70,
+          color: showSelectedOnly ? colorScheme.primary : palette.mutedText,
         ),
         label: const Text('Selected only'),
-        selectedColor: const Color(0xFF14B8A6),
-        backgroundColor: Colors.white.withOpacity(0.04),
+        selectedColor: palette.selected,
+        backgroundColor: palette.panel,
         labelStyle: TextStyle(
-          color: showSelectedOnly ? Colors.white : Colors.white70,
+          color: showSelectedOnly ? colorScheme.primary : palette.mutedText,
           fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
-        side: BorderSide(color: Colors.white.withOpacity(0.12)),
+        side: BorderSide(color: palette.border),
         visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
         materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
         shape: RoundedRectangleBorder(
@@ -1573,6 +1594,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     return ValueListenableBuilder<Set<String>>(
       valueListenable: selectedInventoryIdsNotifier,
       builder: (context, selectedIds, _) {
+        final palette = context.labmate;
         final selectedCount = selectedIds.length;
         final visibleCount = groupedChemicals.length;
         final visibleIds = _visibleRepresentativeInventoryIds(
@@ -1587,9 +1609,9 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF111827),
+            color: palette.panelAlt,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.08)),
+            border: Border.all(color: palette.border),
           ),
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -1600,8 +1622,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
                   decoration: BoxDecoration(
                     color: selectedCount == 0
-                        ? Colors.white.withOpacity(0.04)
-                        : const Color(0x2214B8A6),
+                        ? palette.panel
+                        : palette.selected,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
@@ -1610,8 +1632,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                         : selectionSummary,
                     style: TextStyle(
                       color: selectedCount == 0
-                          ? Colors.white70
-                          : const Color(0xFF5EEAD4),
+                          ? palette.mutedText
+                          : context.colorScheme.primary,
                       fontSize: 12.5,
                       fontWeight: FontWeight.w800,
                     ),

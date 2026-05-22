@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 
 class AppSettingsScreen extends StatelessWidget {
@@ -34,30 +35,33 @@ class AppSettingsScreen extends StatelessWidget {
     required String title,
     required List<Widget> children,
   }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 15, 16, 8),
-            child: Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
+    return Builder(
+      builder: (context) {
+        final theme = Theme.of(context);
+        final palette = context.labmate;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          decoration: BoxDecoration(
+            color: palette.panel,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: palette.border),
           ),
-          ...children,
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 15, 16, 8),
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleMedium,
+                ),
+              ),
+              ...children,
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -79,14 +83,11 @@ class AppSettingsScreen extends StatelessWidget {
           activeColor: const Color(0xFF14B8A6),
           title: Text(
             title,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
+            style: Theme.of(context).textTheme.titleSmall,
           ),
           subtitle: Text(
             subtitle,
-            style: const TextStyle(color: Colors.white60, fontSize: 12.5),
+            style: Theme.of(context).textTheme.bodySmall,
           ),
         );
       },
@@ -100,45 +101,47 @@ class AppSettingsScreen extends StatelessWidget {
     VoidCallback? onTap,
     Widget? trailing,
   }) {
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        child: Row(
-          children: [
-            Icon(icon, color: const Color(0xFF5EEAD4), size: 20),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                    ),
+    return Builder(
+      builder: (context) {
+        final theme = Theme.of(context);
+        final palette = context.labmate;
+
+        return InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+            child: Row(
+              children: [
+                Icon(icon, color: context.colorScheme.primary, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: palette.subtleText,
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 3),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                      color: Colors.white60,
-                      fontSize: 12.5,
-                      height: 1.3,
-                    ),
-                  ),
+                ),
+                if (trailing != null) ...[
+                  const SizedBox(width: 12),
+                  trailing,
                 ],
-              ),
+              ],
             ),
-            if (trailing != null) ...[
-              const SizedBox(width: 12),
-              trailing,
-            ],
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 
@@ -156,7 +159,6 @@ class AppSettingsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text(
           'Settings',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800),
         ),
       ),
       body: SafeArea(
@@ -197,17 +199,9 @@ class AppSettingsScreen extends StatelessWidget {
                         activeColor: const Color(0xFF14B8A6),
                         title: const Text(
                           'Compact desktop mode',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                          ),
                         ),
                         subtitle: const Text(
                           'Saved locally. Wider layout wiring coming soon.',
-                          style: TextStyle(
-                            color: Colors.white60,
-                            fontSize: 12.5,
-                          ),
                         ),
                       );
                     },

@@ -18,6 +18,7 @@ import '../services/firestore_access_guard.dart';
 import '../services/inventory_service.dart';
 import '../services/order_service.dart';
 import '../services/requirement_service.dart';
+import '../theme/labmate_theme.dart';
 import '../widgets/newly_arrived_section.dart';
 import '../widgets/search_bar_widget.dart';
 import 'attendance_screen.dart';
@@ -187,38 +188,44 @@ class HomeDashboardTab extends StatelessWidget {
   }
 
   Widget _buildAccessNotice(String message) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withOpacity(0.06)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Padding(
-            padding: EdgeInsets.only(top: 2),
-            child: Icon(
-              Icons.lock_outline_rounded,
-              color: Color(0xFFF59E0B),
-              size: 18,
-            ),
+    return Builder(
+      builder: (context) {
+        final palette = context.labmate;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: palette.panel,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: palette.border),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              message,
-              style: const TextStyle(
-                color: Colors.white70,
-                fontSize: 12.8,
-                height: 1.4,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Icon(
+                  Icons.lock_outline_rounded,
+                  color: palette.warning,
+                  size: 18,
+                ),
               ),
-            ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 12.8,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -730,8 +737,11 @@ class _DesktopDashboardSearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Material(
-      color: const Color(0xFF1E293B),
+      color: palette.panel,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -741,19 +751,19 @@ class _DesktopDashboardSearchBar extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 13),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.white.withOpacity(0.06)),
+            border: Border.all(color: palette.border),
           ),
-          child: const Row(
+          child: Row(
             children: [
-              Icon(Icons.search_rounded, color: Color(0xFF5EEAD4), size: 19),
-              SizedBox(width: 10),
+              Icon(Icons.search_rounded, color: colorScheme.primary, size: 19),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   'Search chemical by name, CAS, or functional group',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white54,
+                    color: palette.subtleText,
                     fontSize: 13,
                     height: 1.2,
                   ),
@@ -1125,27 +1135,27 @@ class _UpcomingEventsPreview extends StatelessWidget {
   Widget build(BuildContext context) {
     final isDesktopLayout = MediaQuery.sizeOf(context).width >= 900;
     final eventItemHeight = isDesktopLayout ? 36.0 : _eventItemHeight;
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return Container(
       padding: isDesktopLayout
           ? const EdgeInsets.fromLTRB(12, 10, 12, 10)
           : const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: palette.panel,
         borderRadius: BorderRadius.circular(20),
-        border: isDesktopLayout
-            ? Border.all(color: Colors.white.withOpacity(0.06))
-            : null,
+        border: isDesktopLayout ? Border.all(color: palette.border) : null,
       ),
       child: Column(
         children: [
           Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Upcoming Events',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: colorScheme.onSurface,
                     fontSize: 15.5,
                     fontWeight: FontWeight.w800,
                   ),
@@ -1154,7 +1164,7 @@ class _UpcomingEventsPreview extends StatelessWidget {
               TextButton(
                 onPressed: onViewAll,
                 style: TextButton.styleFrom(
-                  foregroundColor: const Color(0xFFF59E0B),
+                  foregroundColor: palette.warning,
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   minimumSize: const Size(0, 34),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1171,14 +1181,14 @@ class _UpcomingEventsPreview extends StatelessWidget {
             stream: EventService().getEvents(),
             builder: (context, snapshot) {
               if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
                       FirestoreAccessGuard.userMessage,
                       style: TextStyle(
-                        color: Colors.white60,
+                        color: palette.subtleText,
                         fontSize: 12.8,
                         height: 1.4,
                       ),
@@ -1194,8 +1204,8 @@ class _UpcomingEventsPreview extends StatelessWidget {
                     alignment: Alignment.centerLeft,
                     child: Text(
                       FirestoreAccessGuard.messageFor(snapshot.error),
-                      style: const TextStyle(
-                        color: Colors.white60,
+                      style: TextStyle(
+                        color: palette.subtleText,
                         fontSize: 12.8,
                         height: 1.4,
                       ),
@@ -1211,20 +1221,20 @@ class _UpcomingEventsPreview extends StatelessWidget {
                 return SizedBox(
                   height: eventItemHeight,
                   child: Center(
-                    child: CircularProgressIndicator(color: Color(0xFF14B8A6)),
+                    child: CircularProgressIndicator(color: colorScheme.primary),
                   ),
                 );
               }
 
               if (upcomingEvents.isEmpty) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
                       'No upcoming events for this lab yet.',
                       style: TextStyle(
-                        color: Colors.white60,
+                        color: palette.subtleText,
                         fontSize: 12.8,
                         height: 1.4,
                       ),
@@ -1263,6 +1273,8 @@ class _UpcomingEventTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+
     return Container(
       height: height,
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -1271,8 +1283,8 @@ class _UpcomingEventTile extends StatelessWidget {
           Container(
             height: 8,
             width: 8,
-            decoration: const BoxDecoration(
-              color: Color(0xFFF59E0B),
+            decoration: BoxDecoration(
+              color: palette.warning,
               shape: BoxShape.circle,
             ),
           ),
@@ -1286,8 +1298,8 @@ class _UpcomingEventTile extends StatelessWidget {
                   title,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: context.colorScheme.onSurface,
                     fontSize: 13.2,
                     fontWeight: FontWeight.w700,
                   ),
@@ -1297,8 +1309,8 @@ class _UpcomingEventTile extends StatelessWidget {
                   detail,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: Colors.white60,
+                  style: TextStyle(
+                    color: palette.subtleText,
                     fontSize: 12,
                     height: 1.2,
                   ),
@@ -1635,6 +1647,9 @@ class _HomeToolCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final isCompact = constraints.maxHeight <= 130;
@@ -1645,7 +1660,7 @@ class _HomeToolCard extends StatelessWidget {
         final labelFontSize = isCompact ? 10.5 : 11.0;
 
         return Material(
-          color: const Color(0xFF1E293B),
+          color: palette.panel,
           borderRadius: cardRadius,
           elevation: 1,
           child: InkWell(
@@ -1687,7 +1702,7 @@ class _HomeToolCard extends StatelessWidget {
                               color: const Color(0xFFFB7185),
                               borderRadius: BorderRadius.circular(999),
                               border: Border.all(
-                                color: const Color(0xFF1E293B),
+                                color: palette.panel,
                                 width: 2,
                               ),
                             ),
@@ -1710,15 +1725,15 @@ class _HomeToolCard extends StatelessWidget {
                             height: 18,
                             width: 18,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0F172A),
+                              color: palette.panelAlt,
                               borderRadius: BorderRadius.circular(999),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.12),
+                                color: palette.border,
                               ),
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.lock_rounded,
-                              color: Colors.white54,
+                              color: palette.subtleText,
                               size: 11,
                             ),
                           ),
@@ -1734,7 +1749,7 @@ class _HomeToolCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: labelFontSize,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: colorScheme.onSurface,
                       height: 1.2,
                     ),
                   ),
@@ -1765,8 +1780,11 @@ class _WorkflowEntryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Material(
-      color: const Color(0xFF1E293B),
+      color: palette.panel,
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
@@ -1791,8 +1809,8 @@ class _WorkflowEntryCard extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
                         fontSize: 15.5,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1800,8 +1818,8 @@ class _WorkflowEntryCard extends StatelessWidget {
                     const SizedBox(height: 6),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        color: Colors.white60,
+                      style: TextStyle(
+                        color: palette.subtleText,
                         fontSize: 12.5,
                         height: 1.4,
                       ),
@@ -1812,7 +1830,7 @@ class _WorkflowEntryCard extends StatelessWidget {
               const SizedBox(width: 12),
               Icon(
                 Icons.arrow_forward_ios_rounded,
-                color: Colors.white.withOpacity(0.6),
+                color: palette.subtleText,
                 size: 16,
               ),
             ],
@@ -1838,8 +1856,11 @@ class _LabActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
     return Material(
-      color: const Color(0xFF1E293B),
+      color: palette.panel,
       borderRadius: BorderRadius.circular(18),
       child: InkWell(
         borderRadius: BorderRadius.circular(18),
@@ -1849,8 +1870,8 @@ class _LabActionTile extends StatelessWidget {
           child: Row(
             children: [
               CircleAvatar(
-                backgroundColor: const Color(0x2214B8A6),
-                child: Icon(icon, color: const Color(0xFF14B8A6)),
+                backgroundColor: palette.selected,
+                child: Icon(icon, color: colorScheme.primary),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -1859,8 +1880,8 @@ class _LabActionTile extends StatelessWidget {
                   children: [
                     Text(
                       title,
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
                         fontSize: 15,
                         fontWeight: FontWeight.w700,
                       ),
@@ -1868,8 +1889,8 @@ class _LabActionTile extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       subtitle,
-                      style: const TextStyle(
-                        color: Colors.white60,
+                      style: TextStyle(
+                        color: palette.subtleText,
                         fontSize: 12.5,
                         height: 1.35,
                       ),
@@ -1877,10 +1898,10 @@ class _LabActionTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
+              Icon(
                 Icons.arrow_forward_ios_rounded,
                 size: 16,
-                color: Colors.white38,
+                color: palette.subtleText,
               ),
             ],
           ),

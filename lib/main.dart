@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'auth_gate.dart';
 import 'app_state.dart';
 import 'firebase_options.dart';
+import 'theme/labmate_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,37 +34,8 @@ class BSLabApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           title: 'Labmate',
           themeMode: appState.themeMode,
-          theme: ThemeData(
-            useMaterial3: true,
-            brightness: Brightness.light,
-            scaffoldBackgroundColor: const Color(0xFFF8FAFC),
-            fontFamily: 'Roboto',
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF0F766E),
-              secondary: Color(0xFF0284C7),
-              surface: Colors.white,
-            ),
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-              foregroundColor: Color(0xFF0F172A),
-            ),
-          ),
-          darkTheme: ThemeData(
-            useMaterial3: true,
-            brightness: Brightness.dark,
-            scaffoldBackgroundColor: const Color(0xFF0F172A),
-            fontFamily: 'Roboto',
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF14B8A6),
-              secondary: Color(0xFF38BDF8),
-              surface: Color(0xFF1E293B),
-            ),
-            appBarTheme: const AppBarTheme(
-              backgroundColor: Colors.transparent,
-              elevation: 0,
-            ),
-          ),
+          theme: LabmateTheme.light,
+          darkTheme: LabmateTheme.dark,
           home: AuthGate(appState: appState),
         );
       },
