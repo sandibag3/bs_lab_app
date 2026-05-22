@@ -418,7 +418,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                             'Turn attendance tracking on or off for this lab.',
                                             style: TextStyle(
                                               color: palette.mutedText,
-                                              fontSize: 12.5,
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500,
                                               height: 1.35,
                                             ),
                                           ),
@@ -483,7 +484,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                   'Use this permanent QR during check-in setup.',
                                   style: TextStyle(
                                     color: palette.mutedText,
-                                    fontSize: 12.8,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
                                     height: 1.35,
                                   ),
                                 ),
@@ -560,7 +562,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                           attendanceQrSecret,
                                           style: TextStyle(
                                             color: palette.mutedText,
-                                            fontSize: 12.5,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w500,
                                             height: 1.35,
                                           ),
                                         ),
@@ -594,7 +597,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                   'Add lab Wi-Fi names that will later be used for attendance verification.',
                                   style: TextStyle(
                                     color: palette.mutedText,
-                                    fontSize: 12.8,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
                                     height: 1.35,
                                   ),
                                 ),
@@ -610,7 +614,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                         decoration: InputDecoration(
                                           hintText: 'Add Wi-Fi SSID',
                                           hintStyle: TextStyle(
-                                            color: palette.subtleText,
+                                            color: palette.mutedText,
+                                            fontWeight: FontWeight.w500,
                                           ),
                                           filled: true,
                                           fillColor: palette.panelAlt,
@@ -656,8 +661,9 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                   Text(
                                     'No Wi-Fi SSIDs added yet.',
                                     style: TextStyle(
-                                      color: palette.subtleText,
-                                      fontSize: 13,
+                                      color: palette.mutedText,
+                                      fontSize: 13.2,
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   )
                                 else
@@ -715,7 +721,7 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                                   )
                                                 : Icon(
                                                     Icons.close_rounded,
-                                                    color: palette.subtleText,
+                                                    color: palette.mutedText,
                                                   ),
                                             tooltip: 'Remove SSID',
                                           ),
@@ -759,7 +765,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                         ),
                                         style: TextStyle(
                                           color: palette.mutedText,
-                                          fontSize: 13,
+                                          fontSize: 13.2,
+                                          fontWeight: FontWeight.w500,
                                           height: 1.4,
                                         ),
                                       );
@@ -786,8 +793,9 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                       return Text(
                                         'No attendance records for today yet.',
                                         style: TextStyle(
-                                          color: palette.subtleText,
-                                          fontSize: 13,
+                                          color: palette.mutedText,
+                                          fontSize: 13.2,
+                                          fontWeight: FontWeight.w500,
                                         ),
                                       );
                                     }
@@ -847,7 +855,9 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                                           style: TextStyle(
                                                             color: palette
                                                                 .mutedText,
-                                                            fontSize: 12.4,
+                                                            fontSize: 12.8,
+                                                            fontWeight:
+                                                                FontWeight.w500,
                                                           ),
                                                         ),
                                                       ],
@@ -884,7 +894,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                                 'Check-in: ${_formatTimestamp(record.checkInAt)}',
                                                 style: TextStyle(
                                                   color: palette.mutedText,
-                                                  fontSize: 12.5,
+                                                  fontSize: 12.8,
+                                                  fontWeight: FontWeight.w500,
                                                 ),
                                               ),
                                               if (record.checkOutAt !=
@@ -894,7 +905,8 @@ class _AttendanceAdminScreenState extends State<AttendanceAdminScreen> {
                                                   'Check-out: ${_formatTimestamp(record.checkOutAt)}',
                                                   style: TextStyle(
                                                     color: palette.mutedText,
-                                                    fontSize: 12.5,
+                                                    fontSize: 12.8,
+                                                    fontWeight: FontWeight.w500,
                                                   ),
                                                 ),
                                               ],

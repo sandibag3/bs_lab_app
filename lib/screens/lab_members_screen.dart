@@ -145,7 +145,11 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                     dropdownColor: palette.panel,
                     decoration: InputDecoration(
                       labelText: 'Role',
-                      labelStyle: TextStyle(color: palette.subtleText),
+                      labelStyle: TextStyle(
+                        color: palette.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                       filled: true,
                       fillColor: palette.panelAlt,
                       border: OutlineInputBorder(
@@ -302,7 +306,7 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
             'Current Lab',
             style: TextStyle(
               color: palette.mutedText,
-              fontSize: 12.5,
+              fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -320,7 +324,8 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
             helperText,
             style: TextStyle(
               color: palette.mutedText,
-              fontSize: 13,
+              fontSize: 13.2,
+              fontWeight: FontWeight.w500,
               height: 1.4,
             ),
           ),
@@ -367,7 +372,12 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
       ),
       child: Text(
         'No membership records were found for this lab yet.',
-        style: TextStyle(color: palette.mutedText, fontSize: 13, height: 1.4),
+        style: TextStyle(
+          color: palette.mutedText,
+          fontSize: 13.2,
+          fontWeight: FontWeight.w500,
+          height: 1.4,
+        ),
       ),
     );
   }
@@ -518,7 +528,12 @@ class _MemberTile extends StatelessWidget {
       padding: const EdgeInsets.only(top: 6),
       child: Text(
         '$label: $value',
-        style: TextStyle(color: palette.subtleText, fontSize: 12.5),
+        style: TextStyle(
+          color: palette.mutedText,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          height: 1.35,
+        ),
       ),
     );
   }
@@ -632,7 +647,7 @@ class _MemberBadge extends StatelessWidget {
         label,
         style: TextStyle(
           color: color == null ? palette.mutedText : Colors.white,
-          fontSize: 11.5,
+          fontSize: 12,
           fontWeight: FontWeight.w700,
         ),
       ),

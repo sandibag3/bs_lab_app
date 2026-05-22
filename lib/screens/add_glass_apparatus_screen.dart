@@ -93,7 +93,11 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     final palette = context.labmate;
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: palette.subtleText),
+      labelStyle: TextStyle(
+        color: palette.mutedText,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
       filled: true,
       fillColor: palette.panel,
       border: OutlineInputBorder(
@@ -145,8 +149,9 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
           Text(
             subtitle,
             style: TextStyle(
-              color: palette.subtleText,
-              fontSize: 12.5,
+              color: palette.mutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               height: 1.4,
             ),
           ),

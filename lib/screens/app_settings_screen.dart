@@ -7,10 +7,7 @@ import '../widgets/responsive_page_container.dart';
 class AppSettingsScreen extends StatelessWidget {
   final AppState appState;
 
-  const AppSettingsScreen({
-    super.key,
-    required this.appState,
-  });
+  const AppSettingsScreen({super.key, required this.appState});
 
   String get _platformLabel {
     if (kIsWeb) return 'Web';
@@ -31,10 +28,7 @@ class AppSettingsScreen extends StatelessWidget {
     }
   }
 
-  Widget _section({
-    required String title,
-    required List<Widget> children,
-  }) {
+  Widget _section({required String title, required List<Widget> children}) {
     return Builder(
       builder: (context) {
         final theme = Theme.of(context);
@@ -52,10 +46,7 @@ class AppSettingsScreen extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 15, 16, 8),
-                child: Text(
-                  title,
-                  style: theme.textTheme.titleMedium,
-                ),
+                child: Text(title, style: theme.textTheme.titleMedium),
               ),
               ...children,
             ],
@@ -81,10 +72,7 @@ class AppSettingsScreen extends StatelessWidget {
             appState.saveThemeMode(themeMode);
           },
           activeColor: const Color(0xFF14B8A6),
-          title: Text(
-            title,
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
+          title: Text(title, style: Theme.of(context).textTheme.titleSmall),
           subtitle: Text(
             subtitle,
             style: Theme.of(context).textTheme.bodySmall,
@@ -118,25 +106,20 @@ class AppSettingsScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        title,
-                        style: theme.textTheme.titleSmall,
-                      ),
+                      Text(title, style: theme.textTheme.titleSmall),
                       const SizedBox(height: 3),
                       Text(
                         subtitle,
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: palette.subtleText,
+                          color: palette.mutedText,
+                          fontWeight: FontWeight.w500,
                           height: 1.3,
                         ),
                       ),
                     ],
                   ),
                 ),
-                if (trailing != null) ...[
-                  const SizedBox(width: 12),
-                  trailing,
-                ],
+                if (trailing != null) ...[const SizedBox(width: 12), trailing],
               ],
             ),
           ),
@@ -156,11 +139,7 @@ class AppSettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(
-          'Settings',
-        ),
-      ),
+      appBar: AppBar(title: const Text('Settings')),
       body: SafeArea(
         child: ResponsivePageContainer(
           maxWidth: 860,
@@ -197,9 +176,7 @@ class AppSettingsScreen extends StatelessWidget {
                         value: appState.compactDesktopMode,
                         onChanged: appState.saveCompactDesktopMode,
                         activeColor: const Color(0xFF14B8A6),
-                        title: const Text(
-                          'Compact desktop mode',
-                        ),
+                        title: const Text('Compact desktop mode'),
                         subtitle: const Text(
                           'Saved locally. Wider layout wiring coming soon.',
                         ),

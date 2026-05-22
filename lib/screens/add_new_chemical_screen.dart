@@ -406,7 +406,11 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: palette.subtleText),
+      labelStyle: TextStyle(
+        color: palette.mutedText,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
       filled: true,
       fillColor: palette.panel,
       border: OutlineInputBorder(
@@ -427,7 +431,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           'Functional Groups',
           style: TextStyle(
             color: palette.mutedText,
-            fontSize: 14,
+            fontSize: 14.5,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -557,6 +561,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                           'Prefilled from delivered order. Name, CAS, brand, quantity, ordered by, and arrival date come from the order. Formula and molecular weight can be fetched from CAS.',
                           style: TextStyle(
                             color: palette.mutedText,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
                             height: 1.4,
                           ),
                         ),
@@ -609,6 +615,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                           'Existing chemical found. Label ${labelController.text.trim()} will be reused and this entry will be saved as bottle ${existingBottleCount + 1}.',
                           style: TextStyle(
                             color: colorScheme.onSurface,
+                            fontSize: 13.2,
+                            fontWeight: FontWeight.w500,
                             height: 1.4,
                           ),
                         ),
@@ -872,8 +880,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                             ? 'CAS already exists in inventory. Same label is reused, and this confirm step adds a new bottle under that chemical.'
                             : 'CAS is new to inventory. Category-based label generation is active. Functional category is prioritized over carbon-count category.',
                         style: TextStyle(
-                          color: palette.subtleText,
-                          fontSize: 12.5,
+                          color: palette.mutedText,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
                           height: 1.4,
                         ),
                       ),

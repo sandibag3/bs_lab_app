@@ -222,7 +222,11 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
 
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: palette.subtleText),
+      labelStyle: TextStyle(
+        color: palette.mutedText,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
       filled: true,
       fillColor: palette.panel,
       suffixIcon: suffixIcon,
@@ -590,7 +594,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                               height: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : Icon(Icons.search, color: palette.subtleText),
+                          : Icon(Icons.search, color: palette.mutedText),
                     ),
                   ),
                   validator: (value) {
@@ -751,6 +755,8 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                             'Will save as: ${selectedConsumableType!}',
                             style: TextStyle(
                               color: palette.mutedText,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
                               height: 1.35,
                             ),
                           ),
@@ -868,8 +874,10 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                     Text(
                       'Approval and fund allocation will be handled later by PI.',
                       style: TextStyle(
-                        color: palette.subtleText,
-                        fontSize: 12.5,
+                        color: palette.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        height: 1.35,
                       ),
                     ),
                   ],

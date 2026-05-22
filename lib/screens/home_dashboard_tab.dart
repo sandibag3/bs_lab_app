@@ -493,8 +493,8 @@ class HomeDashboardTab extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 19,
-                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w800,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
@@ -504,7 +504,7 @@ class HomeDashboardTab extends StatelessWidget {
                                       overflow: TextOverflow.ellipsis,
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 13.4,
+                                        fontSize: 14,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
@@ -534,7 +534,7 @@ class HomeDashboardTab extends StatelessWidget {
                                       appState.currentRoleLabel,
                                       style: const TextStyle(
                                         color: Colors.white,
-                                        fontSize: 11.5,
+                                        fontSize: 12,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
@@ -1158,8 +1158,8 @@ class _UpcomingEventsPreview extends StatelessWidget {
                   'Upcoming Events',
                   style: TextStyle(
                     color: colorScheme.onSurface,
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -1190,8 +1190,9 @@ class _UpcomingEventsPreview extends StatelessWidget {
                     child: Text(
                       FirestoreAccessGuard.userMessage,
                       style: TextStyle(
-                        color: palette.subtleText,
-                        fontSize: 12.8,
+                        color: palette.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                         height: 1.4,
                       ),
                     ),
@@ -1207,8 +1208,9 @@ class _UpcomingEventsPreview extends StatelessWidget {
                     child: Text(
                       FirestoreAccessGuard.messageFor(snapshot.error),
                       style: TextStyle(
-                        color: palette.subtleText,
-                        fontSize: 12.8,
+                        color: palette.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                         height: 1.4,
                       ),
                     ),
@@ -1238,8 +1240,9 @@ class _UpcomingEventsPreview extends StatelessWidget {
                     child: Text(
                       'No upcoming events for this lab yet.',
                       style: TextStyle(
-                        color: palette.subtleText,
-                        fontSize: 12.8,
+                        color: palette.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                         height: 1.4,
                       ),
                     ),
@@ -1304,7 +1307,7 @@ class _UpcomingEventTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: context.colorScheme.onSurface,
-                    fontSize: 13.2,
+                    fontSize: 13.5,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -1314,8 +1317,9 @@ class _UpcomingEventTile extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: palette.subtleText,
-                    fontSize: 12,
+                    color: palette.mutedText,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w500,
                     height: 1.2,
                   ),
                 ),
@@ -1661,7 +1665,7 @@ class _HomeToolCard extends StatelessWidget {
         final iconBoxSize = isCompact ? 36.0 : 42.0;
         final iconSize = isCompact ? 20.0 : 22.0;
         final verticalPadding = isCompact ? 8.0 : 10.0;
-        final labelFontSize = isCompact ? 10.5 : 11.0;
+        final labelFontSize = isCompact ? 11.5 : 12.5;
 
         return Material(
           color: palette.panel,
@@ -1715,7 +1719,7 @@ class _HomeToolCard extends StatelessWidget {
                               badgeCount > 99 ? '99+' : '$badgeCount',
                               style: const TextStyle(
                                 color: Colors.white,
-                                fontSize: 10.5,
+                                fontSize: 11,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
@@ -1750,7 +1754,7 @@ class _HomeToolCard extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: labelFontSize,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: colorScheme.onSurface,
                       height: 1.2,
                     ),
@@ -1813,7 +1817,7 @@ class _WorkflowEntryCard extends StatelessWidget {
                       title,
                       style: TextStyle(
                         color: colorScheme.onSurface,
-                        fontSize: 15.5,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1821,8 +1825,9 @@ class _WorkflowEntryCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: TextStyle(
-                        color: palette.subtleText,
-                        fontSize: 12.5,
+                        color: palette.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                         height: 1.4,
                       ),
                     ),
@@ -1884,7 +1889,7 @@ class _LabActionTile extends StatelessWidget {
                       title,
                       style: TextStyle(
                         color: colorScheme.onSurface,
-                        fontSize: 15,
+                        fontSize: 15.5,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1892,8 +1897,9 @@ class _LabActionTile extends StatelessWidget {
                     Text(
                       subtitle,
                       style: TextStyle(
-                        color: palette.subtleText,
-                        fontSize: 12.5,
+                        color: palette.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                         height: 1.35,
                       ),
                     ),

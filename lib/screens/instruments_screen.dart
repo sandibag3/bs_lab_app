@@ -720,7 +720,7 @@ class _InstrumentCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: palette.subtleText,
-              fontSize: 10.8,
+              fontSize: 11.3,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -731,9 +731,9 @@ class _InstrumentCard extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: colorScheme.onSurface,
-              fontSize: 12.2,
+              fontSize: 12.8,
               height: 1.25,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -782,7 +782,7 @@ class _InstrumentCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: colorScheme.onSurface,
-                    fontSize: 14.2,
+                    fontSize: 14.8,
                     fontWeight: FontWeight.w800,
                     height: 1.22,
                   ),
@@ -860,8 +860,8 @@ class _InstrumentCard extends StatelessWidget {
                       instrument.normalizedName,
                       style: TextStyle(
                         color: colorScheme.onSurface,
-                        fontSize: 15.2,
-                        fontWeight: FontWeight.w700,
+                        fontSize: 15.6,
+                        fontWeight: FontWeight.w800,
                         height: 1.25,
                       ),
                     ),
@@ -873,7 +873,8 @@ class _InstrumentCard extends StatelessWidget {
                         'Brand: $brand',
                         style: TextStyle(
                           color: palette.mutedText,
-                          fontSize: 12.8,
+                          fontSize: 13.2,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -882,7 +883,8 @@ class _InstrumentCard extends StatelessWidget {
                       'Instrument in-charge: ${incharge.isEmpty ? 'Not assigned' : incharge}',
                       style: TextStyle(
                         color: palette.mutedText,
-                        fontSize: 12.8,
+                        fontSize: 13.2,
+                        fontWeight: FontWeight.w500,
                         height: 1.35,
                       ),
                     ),
@@ -891,8 +893,9 @@ class _InstrumentCard extends StatelessWidget {
                       Text(
                         'Arrived on: $arrivedOn',
                         style: TextStyle(
-                          color: palette.subtleText,
-                          fontSize: 12.2,
+                          color: palette.mutedText,
+                          fontSize: 12.6,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -958,7 +961,7 @@ class _InstrumentStatusBadge extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: _textColor(),
-          fontSize: 11.8,
+          fontSize: 12.2,
           fontWeight: FontWeight.w700,
         ),
       ),

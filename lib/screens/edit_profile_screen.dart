@@ -271,7 +271,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final palette = context.labmate;
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: palette.subtleText),
+      labelStyle: TextStyle(
+        color: palette.mutedText,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
       filled: true,
       fillColor: palette.panel,
       border: OutlineInputBorder(
@@ -523,8 +527,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: palette.subtleText,
-                            fontSize: 12.5,
+                            color: palette.mutedText,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -533,8 +538,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               ? 'Built-in scientific avatars work without file upload.'
                               : 'Choose an image now, or pick a built-in scientific avatar below.',
                           style: TextStyle(
-                            color: palette.subtleText,
-                            fontSize: 11.5,
+                            color: palette.mutedText,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w500,
+                            height: 1.35,
                           ),
                         ),
                       ],
@@ -573,8 +580,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   Text(
                     'Pick a built-in lab-themed avatar instead of uploading a real photo.',
                     style: TextStyle(
-                      color: palette.subtleText,
-                      fontSize: 12.5,
+                      color: palette.mutedText,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
                       height: 1.35,
                     ),
                   ),

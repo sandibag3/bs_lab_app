@@ -91,7 +91,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
     final cardHeight = isDesktopLayout ? 82.0 : 104.0;
     final cardWidth = isDesktopLayout ? 220.0 : 240.0;
     final cardPadding = isDesktopLayout ? 11.0 : 14.0;
-    final headingFontSize = isDesktopLayout ? 15.5 : 20.0;
+    final headingFontSize = isDesktopLayout ? 16.0 : 20.0;
     final headerGap = isDesktopLayout ? 8.0 : 12.0;
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
@@ -181,8 +181,8 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                 child: Text(
                   FirestoreAccessGuard.userMessage,
                   style: TextStyle(
-                    color: palette.subtleText,
-                    fontSize: 12.8,
+                    color: palette.mutedText,
+                    fontSize: 13,
                     height: 1.4,
                   ),
                 ),
@@ -201,8 +201,8 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                 child: Text(
                   FirestoreAccessGuard.messageFor(snapshot.error),
                   style: TextStyle(
-                    color: palette.subtleText,
-                    fontSize: 12.8,
+                    color: palette.mutedText,
+                    fontSize: 13,
                     height: 1.4,
                   ),
                 ),
@@ -233,8 +233,8 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                   child: Text(
                     'No newly arrived items this week.',
                     style: TextStyle(
-                      color: palette.subtleText,
-                      fontSize: 12.8,
+                      color: palette.mutedText,
+                      fontSize: 13,
                       height: 1.4,
                     ),
                   ),
@@ -293,8 +293,8 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     color: colorScheme.onSurface,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w700,
+                                    fontSize: 14.5,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
                               ),
@@ -331,8 +331,9 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: palette.subtleText,
-                              fontSize: 12.5,
+                              color: palette.mutedText,
+                              fontSize: 12.8,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                           const Spacer(),
@@ -342,8 +343,8 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: colorScheme.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
@@ -442,7 +443,12 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                 ),
                 child: Text(
                   FirestoreAccessGuard.userMessage,
-                  style: TextStyle(color: palette.mutedText, height: 1.4),
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                  ),
                 ),
               );
             }
@@ -457,7 +463,12 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                 ),
                 child: Text(
                   FirestoreAccessGuard.messageFor(snapshot.error),
-                  style: TextStyle(color: palette.mutedText, height: 1.4),
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                  ),
                 ),
               );
             }
@@ -484,7 +495,11 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                   ),
                   child: Text(
                     'No newly arrived items this week.',
-                    style: TextStyle(color: palette.mutedText),
+                    style: TextStyle(
+                      color: palette.mutedText,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               );
@@ -538,8 +553,8 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     color: colorScheme.onSurface,
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w800,
                                   ),
                                 ),
                               ),
@@ -576,8 +591,9 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: palette.subtleText,
-                              fontSize: 12.5,
+                              color: palette.mutedText,
+                              fontSize: 12.8,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                           const Spacer(),
@@ -587,8 +603,8 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: colorScheme.primary,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 12.5,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],

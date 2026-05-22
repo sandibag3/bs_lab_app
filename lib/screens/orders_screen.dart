@@ -685,8 +685,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: colorScheme.onSurface,
-                    fontWeight: FontWeight.w700,
-                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15.5,
                     height: 1.2,
                   ),
                 ),
@@ -714,8 +714,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   'Qty: ${order.quantity.isEmpty ? "-" : order.quantity}',
                   style: TextStyle(
                     color: palette.mutedText,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -734,8 +734,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   'Ordered: ${_formatShortDate(order.orderedAt.toDate())}',
                   style: TextStyle(
                     color: palette.mutedText,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
@@ -783,8 +783,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   order.displayName,
                   style: TextStyle(
                     color: colorScheme.onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 16.5,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
               ),
@@ -796,52 +796,84 @@ class _OrdersScreenState extends State<OrdersScreen> {
           if (order.isChemical && order.cas.trim().isNotEmpty) ...[
             Text(
               'CAS: ${order.cas}',
-              style: TextStyle(color: palette.mutedText, fontSize: 13),
+              style: TextStyle(
+                color: palette.mutedText,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 4),
           ],
           if (order.packSize.trim().isNotEmpty) ...[
             Text(
               'Pack Size: ${order.packSize}',
-              style: TextStyle(color: palette.mutedText, fontSize: 13),
+              style: TextStyle(
+                color: palette.mutedText,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 4),
           ],
           if (order.brand.trim().isNotEmpty) ...[
             Text(
               'Brand: ${order.brand}',
-              style: TextStyle(color: palette.mutedText, fontSize: 13),
+              style: TextStyle(
+                color: palette.mutedText,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 4),
           ],
           if (order.vendor.trim().isNotEmpty) ...[
             Text(
               'Vendor: ${order.vendor}',
-              style: TextStyle(color: palette.mutedText, fontSize: 13),
+              style: TextStyle(
+                color: palette.mutedText,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
             const SizedBox(height: 4),
           ],
           Text(
             'Quantity: ${order.quantity.isEmpty ? "-" : order.quantity}',
-            style: TextStyle(color: palette.mutedText, fontSize: 13),
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           if (order.modeOfPurchase.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
               'Mode: ${order.modeOfPurchase}',
-              style: TextStyle(color: palette.mutedText, fontSize: 13),
+              style: TextStyle(
+                color: palette.mutedText,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
           const SizedBox(height: 8),
           Text(
             _formatOrderedNote(order),
-            style: TextStyle(color: palette.subtleText, fontSize: 12.5),
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           if (isDelivered) ...[
             const SizedBox(height: 6),
             Text(
               _formatDeliveredNote(order),
-              style: TextStyle(color: palette.subtleText, fontSize: 12.5),
+              style: TextStyle(
+                color: palette.mutedText,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
           const SizedBox(height: 8),

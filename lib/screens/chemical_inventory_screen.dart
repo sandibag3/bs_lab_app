@@ -1138,7 +1138,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
           text,
           style: TextStyle(
             color: palette.mutedText,
-            fontSize: isDesktop ? 11.6 : 12.2,
+            fontSize: isDesktop ? 12.3 : 12.8,
+            fontWeight: FontWeight.w600,
           ),
         ),
       );
@@ -1235,8 +1236,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                                 main.label,
                                 style: TextStyle(
                                   color: colorScheme.primary,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 12.5,
                                 ),
                               ),
                             ),
@@ -1248,8 +1249,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                                 overflow: TextOverflow.ellipsis,
                                 style: TextStyle(
                                   color: colorScheme.onSurface,
-                                  fontSize: isDesktop ? 14.2 : 15.5,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: isDesktop ? 14.8 : 15.8,
+                                  fontWeight: FontWeight.w800,
                                   height: 1.25,
                                 ),
                               ),
@@ -1259,8 +1260,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                               summaryStatus,
                               style: TextStyle(
                                 color: statusColor,
-                                fontWeight: FontWeight.w700,
-                                fontSize: 12.5,
+                                fontWeight: FontWeight.w800,
+                                fontSize: 13,
                               ),
                             ),
                             const SizedBox(width: 6),

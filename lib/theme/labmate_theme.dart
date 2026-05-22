@@ -92,6 +92,8 @@ class LabmateTheme {
   static const Color _darkPanel = Color(0xFF1E293B);
   static const Color _darkPanelAlt = Color(0xFF111827);
   static const Color _darkBorder = Color(0x1FFFFFFF);
+  static const Color _darkMutedText = Color(0xFFD8E0EB);
+  static const Color _darkSubtleText = Color(0xFFB7C3D4);
 
   static const Color _lightPrimary = Color(0xFF2563EB);
   static const Color _lightSecondary = Color(0xFF0891B2);
@@ -99,6 +101,8 @@ class LabmateTheme {
   static const Color _lightPanel = Color(0xFFFFFFFF);
   static const Color _lightPanelAlt = Color(0xFFEFF4FA);
   static const Color _lightBorder = Color(0xFFD7DEE8);
+  static const Color _lightMutedText = Color(0xFF334155);
+  static const Color _lightSubtleText = Color(0xFF475569);
 
   static ThemeData get dark {
     const palette = LabmatePalette(
@@ -108,8 +112,8 @@ class LabmateTheme {
       sidebar: _darkPanelAlt,
       border: _darkBorder,
       selected: Color(0x2214B8A6),
-      mutedText: Colors.white70,
-      subtleText: Colors.white60,
+      mutedText: _darkMutedText,
+      subtleText: _darkSubtleText,
       warning: Color(0xFFF59E0B),
       danger: Color(0xFFFB7185),
       success: Color(0xFF34D399),
@@ -136,8 +140,8 @@ class LabmateTheme {
       sidebar: _lightPanel,
       border: _lightBorder,
       selected: Color(0xFFE0ECFF),
-      mutedText: Color(0xFF334155),
-      subtleText: Color(0xFF64748B),
+      mutedText: _lightMutedText,
+      subtleText: _lightSubtleText,
       warning: Color(0xFFB45309),
       danger: Color(0xFFE11D48),
       success: Color(0xFF059669),
@@ -163,6 +167,11 @@ class LabmateTheme {
   }) {
     final isDark = brightness == Brightness.dark;
     final foreground = colorScheme.onSurface;
+    final textTheme = _buildTextTheme(
+      foreground: foreground,
+      mutedText: palette.mutedText,
+      subtleText: palette.subtleText,
+    );
 
     return ThemeData(
       useMaterial3: true,
@@ -173,34 +182,51 @@ class LabmateTheme {
       dividerColor: palette.border,
       colorScheme: colorScheme,
       extensions: <ThemeExtension<dynamic>>[palette],
-      iconTheme: IconThemeData(color: foreground.withOpacity(0.72)),
+      textTheme: textTheme,
+      primaryTextTheme: textTheme,
+      iconTheme: IconThemeData(color: palette.mutedText),
       appBarTheme: AppBarTheme(
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: foreground,
         iconTheme: IconThemeData(color: foreground),
-        titleTextStyle: TextStyle(
+        titleTextStyle: textTheme.titleLarge?.copyWith(
           color: foreground,
           fontSize: 20,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
         ),
-      ),
-      textTheme: TextTheme(
-        titleLarge: TextStyle(color: foreground, fontWeight: FontWeight.w800),
-        titleMedium: TextStyle(color: foreground, fontWeight: FontWeight.w700),
-        titleSmall: TextStyle(color: foreground, fontWeight: FontWeight.w700),
-        bodyLarge: TextStyle(color: foreground),
-        bodyMedium: TextStyle(color: foreground.withOpacity(0.78)),
-        bodySmall: TextStyle(color: foreground.withOpacity(0.62)),
-        labelLarge: TextStyle(color: foreground, fontWeight: FontWeight.w700),
+        toolbarTextStyle: textTheme.bodyMedium?.copyWith(color: foreground),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: palette.panel,
-        hintStyle: TextStyle(color: palette.subtleText),
-        labelStyle: TextStyle(color: palette.subtleText),
+        hintStyle: textTheme.bodyMedium?.copyWith(
+          color: palette.subtleText,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+        ),
+        labelStyle: textTheme.bodyMedium?.copyWith(
+          color: palette.mutedText,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        floatingLabelStyle: textTheme.bodyMedium?.copyWith(
+          color: colorScheme.primary,
+          fontSize: 13,
+          fontWeight: FontWeight.w700,
+        ),
+        helperStyle: textTheme.bodySmall?.copyWith(
+          color: palette.mutedText,
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
+        errorStyle: textTheme.bodySmall?.copyWith(
+          color: colorScheme.error,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
         prefixIconColor: colorScheme.primary,
-        suffixIconColor: palette.subtleText,
+        suffixIconColor: palette.mutedText,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide(color: palette.border),
@@ -218,7 +244,10 @@ class LabmateTheme {
         style: ElevatedButton.styleFrom(
           backgroundColor: colorScheme.primary,
           foregroundColor: Colors.white,
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          textStyle: textTheme.labelLarge?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -226,9 +255,12 @@ class LabmateTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: foreground.withOpacity(0.78),
+          foregroundColor: foreground,
           side: BorderSide(color: palette.border),
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          textStyle: textTheme.labelLarge?.copyWith(
+            color: foreground,
+            fontWeight: FontWeight.w700,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -237,7 +269,10 @@ class LabmateTheme {
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: colorScheme.primary,
-          textStyle: const TextStyle(fontWeight: FontWeight.w700),
+          textStyle: textTheme.labelLarge?.copyWith(
+            color: colorScheme.primary,
+            fontWeight: FontWeight.w700,
+          ),
         ),
       ),
       checkboxTheme: CheckboxThemeData(
@@ -251,35 +286,89 @@ class LabmateTheme {
       chipTheme: ChipThemeData(
         backgroundColor: palette.panelAlt,
         selectedColor: palette.selected,
-        disabledColor: palette.panelAlt.withOpacity(0.6),
-        labelStyle: TextStyle(color: foreground.withOpacity(0.74)),
-        secondaryLabelStyle: TextStyle(color: foreground),
+        disabledColor: palette.panelAlt.withValues(alpha: 0.72),
+        labelStyle: textTheme.labelMedium?.copyWith(
+          color: palette.mutedText,
+          fontWeight: FontWeight.w600,
+        ),
+        secondaryLabelStyle: textTheme.labelMedium?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w700,
+        ),
         side: BorderSide(color: palette.border),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: palette.panel,
-        titleTextStyle: TextStyle(
+        titleTextStyle: textTheme.headlineSmall?.copyWith(
           color: foreground,
-          fontSize: 20,
-          fontWeight: FontWeight.w800,
+          fontWeight: FontWeight.w700,
         ),
-        contentTextStyle: TextStyle(
-          color: foreground.withOpacity(0.72),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: palette.mutedText,
           height: 1.4,
         ),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: isDark ? const Color(0xFF111827) : const Color(0xFF1E293B),
-        contentTextStyle: const TextStyle(color: Colors.white),
+        backgroundColor: isDark
+            ? const Color(0xFF111827)
+            : const Color(0xFF1E293B),
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
         behavior: SnackBarBehavior.floating,
       ),
       listTileTheme: ListTileThemeData(
-        iconColor: colorScheme.primary,
+        iconColor: palette.mutedText,
         textColor: foreground,
-        titleTextStyle: TextStyle(color: foreground, fontWeight: FontWeight.w700),
-        subtitleTextStyle: TextStyle(color: palette.subtleText),
+        titleTextStyle: textTheme.titleSmall?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w600,
+        ),
+        subtitleTextStyle: textTheme.bodySmall?.copyWith(
+          color: palette.mutedText,
+          fontWeight: FontWeight.w500,
+        ),
       ),
+    );
+  }
+
+  static TextTheme _buildTextTheme({
+    required Color foreground,
+    required Color mutedText,
+    required Color subtleText,
+  }) {
+    return TextTheme(
+      displayLarge: _textStyle(foreground, 36, FontWeight.w700, height: 1.1),
+      displayMedium: _textStyle(foreground, 32, FontWeight.w700, height: 1.12),
+      displaySmall: _textStyle(foreground, 28, FontWeight.w700, height: 1.15),
+      headlineLarge: _textStyle(foreground, 24, FontWeight.w700, height: 1.2),
+      headlineMedium: _textStyle(foreground, 21, FontWeight.w700, height: 1.22),
+      headlineSmall: _textStyle(foreground, 18, FontWeight.w700, height: 1.25),
+      titleLarge: _textStyle(foreground, 20, FontWeight.w700, height: 1.25),
+      titleMedium: _textStyle(foreground, 16, FontWeight.w700, height: 1.28),
+      titleSmall: _textStyle(foreground, 14, FontWeight.w600, height: 1.3),
+      bodyLarge: _textStyle(foreground, 15, FontWeight.w500, height: 1.42),
+      bodyMedium: _textStyle(foreground, 14, FontWeight.w500, height: 1.42),
+      bodySmall: _textStyle(mutedText, 13, FontWeight.w500, height: 1.38),
+      labelLarge: _textStyle(foreground, 14, FontWeight.w700, height: 1.2),
+      labelMedium: _textStyle(mutedText, 12.5, FontWeight.w600, height: 1.2),
+      labelSmall: _textStyle(subtleText, 11.5, FontWeight.w600, height: 1.2),
+    );
+  }
+
+  static TextStyle _textStyle(
+    Color color,
+    double size,
+    FontWeight weight, {
+    double? height,
+  }) {
+    return TextStyle(
+      color: color,
+      fontSize: size,
+      fontWeight: weight,
+      height: height,
     );
   }
 }

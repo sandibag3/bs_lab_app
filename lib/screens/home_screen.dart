@@ -119,9 +119,7 @@ class _HomeScreenState extends State<HomeScreen> {
   void openMore() {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => MoreScreen(appState: widget.appState),
-      ),
+      MaterialPageRoute(builder: (_) => MoreScreen(appState: widget.appState)),
     );
   }
 
@@ -139,9 +137,7 @@ class _HomeScreenState extends State<HomeScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text(
-                'Cancel',
-              ),
+              child: const Text('Cancel'),
             ),
             TextButton(
               onPressed: () => Navigator.pop(context, true),
@@ -276,7 +272,8 @@ class _HomeScreenState extends State<HomeScreen> {
             title: Text(
               appBarTitle,
               style: TextStyle(
-                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
             ),
@@ -362,10 +359,7 @@ class _HomeScreenState extends State<HomeScreen> {
               FloatingActionButtonLocation.centerDocked,
           bottomNavigationBar: useDesktopNavigation
               ? null
-              : BottomNavBar(
-                  currentIndex: selectedIndex,
-                  onTap: changeTab,
-                ),
+              : BottomNavBar(currentIndex: selectedIndex, onTap: changeTab),
         );
       },
     );
@@ -395,9 +389,7 @@ class _DesktopHomeSidebar extends StatelessWidget {
       width: 224,
       decoration: BoxDecoration(
         color: context.labmate.sidebar,
-        border: Border(
-          right: BorderSide(color: context.labmate.border),
-        ),
+        border: Border(right: BorderSide(color: context.labmate.border)),
       ),
       child: SafeArea(
         child: Padding(
@@ -514,7 +506,7 @@ class _DesktopSidebarItem extends StatelessWidget {
                     color: isSelected
                         ? context.colorScheme.onSurface
                         : context.labmate.mutedText,
-                    fontSize: 13,
+                    fontSize: 13.5,
                     fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
                   ),
                 ),

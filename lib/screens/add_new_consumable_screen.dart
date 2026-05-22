@@ -63,7 +63,11 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
 
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: palette.subtleText),
+      labelStyle: TextStyle(
+        color: palette.mutedText,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
       filled: true,
       fillColor: palette.panel,
       border: OutlineInputBorder(
@@ -306,7 +310,12 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
                 ),
                 child: Text(
                   'Prefilled from the delivered consumable order. Review the basic details, edit if needed, and confirm entry to create the consumables inventory record.',
-                  style: TextStyle(color: palette.mutedText, height: 1.4),
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.4,
+                  ),
                 ),
               ),
               const SizedBox(height: 14),
@@ -372,19 +381,27 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
                       'Delivery Details',
                       style: TextStyle(
                         color: colorScheme.onSurface,
-                        fontSize: 15,
+                        fontSize: 15.5,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 10),
                     Text(
                       'Received By: ${order.receivedBy.trim().isEmpty ? '-' : order.receivedBy}',
-                      style: TextStyle(color: palette.mutedText),
+                      style: TextStyle(
+                        color: palette.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                     const SizedBox(height: 6),
                     Text(
                       'Delivered On: ${_formatDate(order.deliveredAt)}',
-                      style: TextStyle(color: palette.mutedText),
+                      style: TextStyle(
+                        color: palette.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ],
                 ),

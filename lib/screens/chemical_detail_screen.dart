@@ -107,7 +107,11 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       ),
       child: Text(
         text,
-        style: TextStyle(color: palette.mutedText, fontSize: 12),
+        style: TextStyle(
+          color: palette.mutedText,
+          fontSize: 12.5,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -138,7 +142,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             'Functional Groups',
             style: TextStyle(
               color: palette.mutedText,
-              fontSize: 13,
+              fontSize: 13.5,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -208,8 +212,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                 Text(
                   label,
                   style: TextStyle(
-                    color: palette.subtleText,
-                    fontSize: 12,
+                    color: palette.mutedText,
+                    fontSize: 12.8,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -218,8 +222,9 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                   displayValue,
                   style: TextStyle(
                     color: colorScheme.onSurface,
-                    fontSize: 14.2,
+                    fontSize: 14.6,
                     height: 1.35,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -305,8 +310,9 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             'Checking structure, formula, molecular weight and identifiers from PubChem',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: palette.subtleText,
-              fontSize: 12.8,
+              color: palette.mutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               height: 1.4,
             ),
           ),
@@ -553,7 +559,11 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                       const SizedBox(height: 4),
                       Text(
                         'CAS: ${c.cas}',
-                        style: TextStyle(color: palette.subtleText),
+                        style: TextStyle(
+                          color: palette.mutedText,
+                          fontSize: 12.8,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -687,8 +697,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: palette.subtleText,
-              fontSize: 10.8,
+              color: palette.mutedText,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -699,7 +709,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: valueColor ?? colorScheme.onSurface,
-              fontSize: 12.4,
+              fontSize: 13,
               height: 1.2,
               fontWeight: FontWeight.w700,
             ),
@@ -788,7 +798,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                 group,
                 style: const TextStyle(
                   color: Color(0xFF14B8A6),
-                  fontSize: 11.5,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -882,8 +892,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             child: Text(
               'Status',
               style: TextStyle(
-                color: palette.subtleText,
-                fontSize: 10.8,
+                color: palette.mutedText,
+                fontSize: 12,
                 fontWeight: FontWeight.w800,
               ),
             ),
@@ -901,8 +911,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       child: Text(
         text,
         style: TextStyle(
-          color: palette.subtleText,
-          fontSize: 10.8,
+          color: palette.mutedText,
+          fontSize: 12,
           fontWeight: FontWeight.w800,
         ),
       ),
@@ -925,7 +935,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: isStrong ? colorScheme.onSurface : palette.mutedText,
-          fontSize: 11.7,
+          fontSize: 12.5,
           fontWeight: isStrong ? FontWeight.w800 : FontWeight.w600,
         ),
       ),
@@ -1051,8 +1061,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
           Text(
             label,
             style: TextStyle(
-              color: palette.subtleText,
-              fontSize: 10.8,
+              color: palette.mutedText,
+              fontSize: 12,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -1062,7 +1072,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             softWrap: true,
             style: TextStyle(
               color: colorScheme.onSurface,
-              fontSize: 11.7,
+              fontSize: 12.6,
               height: 1.25,
               fontWeight: FontWeight.w600,
             ),

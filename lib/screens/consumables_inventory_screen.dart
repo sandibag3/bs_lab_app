@@ -884,8 +884,8 @@ class _ConsumablesInventoryScreenState
                                 variantItem.variant,
                                 style: TextStyle(
                                   color: colorScheme.onSurface,
-                                  fontSize: 15.5,
-                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
                                 ),
                               ),
                               if (variantItem.consumableType.isNotEmpty &&
@@ -895,8 +895,9 @@ class _ConsumablesInventoryScreenState
                                 Text(
                                   variantItem.consumableType,
                                   style: TextStyle(
-                                    color: palette.subtleText,
-                                    fontSize: 12.5,
+                                    color: palette.mutedText,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ],
@@ -917,8 +918,8 @@ class _ConsumablesInventoryScreenState
                               stockBadgeLabel,
                               style: TextStyle(
                                 color: stockBadgeColor,
-                                fontSize: 11.5,
-                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
                               ),
                             ),
                           ),
@@ -932,7 +933,8 @@ class _ConsumablesInventoryScreenState
                             quantity.isEmpty ? 'Quantity not set' : quantity,
                             style: TextStyle(
                               color: palette.mutedText,
-                              fontSize: 13,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
@@ -961,8 +963,9 @@ class _ConsumablesInventoryScreenState
                       Text(
                         'Quick +/- needs a numeric quantity.',
                         style: TextStyle(
-                          color: palette.subtleText,
-                          fontSize: 11.5,
+                          color: palette.mutedText,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                     ],
@@ -982,24 +985,27 @@ class _ConsumablesInventoryScreenState
                     Text(
                       'Ordered by: ${orderedBy.isEmpty ? '-' : orderedBy}',
                       style: TextStyle(
-                        color: palette.subtleText,
-                        fontSize: 12.5,
+                        color: palette.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Received by: ${receivedBy.isEmpty ? '-' : receivedBy}',
                       style: TextStyle(
-                        color: palette.subtleText,
-                        fontSize: 12.5,
+                        color: palette.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Delivered on: ${_formatDate(deliveredAt)}',
                       style: TextStyle(
-                        color: palette.subtleText,
-                        fontSize: 12.5,
+                        color: palette.mutedText,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 14),

@@ -47,7 +47,11 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
 
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: palette.subtleText),
+      labelStyle: TextStyle(
+        color: palette.mutedText,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
       filled: true,
       fillColor: palette.panelAlt,
       border: OutlineInputBorder(
@@ -361,7 +365,7 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
                   widget.appState.currentRoleLabel,
                   style: TextStyle(
                     color: colorScheme.onSurface,
-                    fontSize: 11.5,
+                    fontSize: 12,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -398,8 +402,8 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
           Text(
             label,
             style: TextStyle(
-              color: palette.subtleText,
-              fontSize: 12,
+              color: palette.mutedText,
+              fontSize: 12.8,
               fontWeight: FontWeight.w600,
             ),
           ),

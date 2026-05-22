@@ -211,7 +211,11 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
         children: [
           Text(
             label,
-            style: TextStyle(color: palette.subtleText, fontSize: 11.8),
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 12.6,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
@@ -339,7 +343,12 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
       ),
       child: Text(
         message,
-        style: TextStyle(color: palette.subtleText, fontSize: 13, height: 1.4),
+        style: TextStyle(
+          color: palette.mutedText,
+          fontSize: 13.2,
+          fontWeight: FontWeight.w500,
+          height: 1.4,
+        ),
       ),
     );
   }
@@ -389,26 +398,39 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           const SizedBox(height: 8),
           Text(
             'Service date: ${_formatDate(record.serviceDate)}',
-            style: TextStyle(color: palette.mutedText, fontSize: 12.8),
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'Contact: ${_displayValue(record.serviceInchargeContactNo)}',
-            style: TextStyle(color: palette.mutedText, fontSize: 12.8),
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'Details: ${_displayValue(record.serviceDetails)}',
             style: TextStyle(
               color: palette.mutedText,
-              fontSize: 12.8,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               height: 1.4,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             'Added on: ${_formatDate(record.createdAt)}',
-            style: TextStyle(color: palette.subtleText, fontSize: 12),
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 12.6,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -443,14 +465,19 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           const SizedBox(height: 8),
           Text(
             'Service date: ${_formatDate(record.serviceDate)}',
-            style: TextStyle(color: palette.mutedText, fontSize: 12.8),
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'Details: ${_displayValue(record.serviceDetails)}',
             style: TextStyle(
               color: palette.mutedText,
-              fontSize: 12.8,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               height: 1.4,
             ),
           ),
@@ -485,14 +512,19 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           const SizedBox(height: 8),
           Text(
             'Contact: ${_displayValue(record.instrumentInchargeContactNo)}',
-            style: TextStyle(color: palette.mutedText, fontSize: 12.8),
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'Tenure: ${_formatTenure(record.tenureFrom, record.tenureTo)}',
             style: TextStyle(
               color: palette.mutedText,
-              fontSize: 12.8,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               height: 1.4,
             ),
           ),
@@ -502,7 +534,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
               'Notes: ${record.notes.trim()}',
               style: TextStyle(
                 color: palette.mutedText,
-                fontSize: 12.8,
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
                 height: 1.4,
               ),
             ),
@@ -510,7 +543,11 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
           const SizedBox(height: 6),
           Text(
             'Added on: ${_formatDate(record.createdAt)}',
-            style: TextStyle(color: palette.subtleText, fontSize: 12),
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 12.6,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -547,14 +584,19 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
             'Tenure: ${_formatTenure(record.tenureFrom, record.tenureTo)}',
             style: TextStyle(
               color: palette.mutedText,
-              fontSize: 12.8,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               height: 1.4,
             ),
           ),
           const SizedBox(height: 6),
           Text(
             'Contact: ${_displayValue(record.instrumentInchargeContactNo)}',
-            style: TextStyle(color: palette.mutedText, fontSize: 12.8),
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -1047,8 +1089,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: palette.subtleText,
-              fontSize: 11,
+              color: palette.mutedText,
+              fontSize: 12,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -1228,8 +1270,8 @@ class _InstrumentDetailScreenState extends State<InstrumentDetailScreen> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: palette.subtleText,
-                    fontSize: 12.8,
+                    color: palette.mutedText,
+                    fontSize: 13.2,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1797,7 +1839,7 @@ class _InstrumentStatusBadge extends StatelessWidget {
         status,
         style: TextStyle(
           color: _textColor(),
-          fontSize: 11.8,
+          fontSize: 12.2,
           fontWeight: FontWeight.w700,
         ),
       ),

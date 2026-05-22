@@ -64,7 +64,7 @@ class DashboardCard extends StatelessWidget {
                           badgeCount > 99 ? '99+' : '$badgeCount',
                           style: const TextStyle(
                             color: Colors.white,
-                            fontSize: 10.5,
+                            fontSize: 11,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -79,8 +79,8 @@ class DashboardCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 11.5,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
                   color: colorScheme.onSurface,
                   height: 1.2,
                 ),

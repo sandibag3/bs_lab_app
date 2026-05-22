@@ -125,7 +125,11 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
 
     return InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: palette.subtleText),
+      labelStyle: TextStyle(
+        color: palette.mutedText,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
       filled: true,
       fillColor: palette.panelAlt,
       border: OutlineInputBorder(
@@ -297,8 +301,9 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
           Text(
             subtitle,
             style: TextStyle(
-              color: palette.subtleText,
-              fontSize: 12.5,
+              color: palette.mutedText,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
               height: 1.4,
             ),
           ),
@@ -334,7 +339,11 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
                 children: [
                   Text(
                     label,
-                    style: TextStyle(color: palette.mutedText, fontSize: 12),
+                    style: TextStyle(
+                      color: palette.mutedText,
+                      fontSize: 12.8,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                   const SizedBox(height: 6),
                   Text(
@@ -703,7 +712,8 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
                                 : '$totalPhotos photo${totalPhotos == 1 ? '' : 's'} selected',
                             style: TextStyle(
                               color: palette.mutedText,
-                              fontSize: 12.8,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
@@ -726,8 +736,9 @@ class _AddInstrumentScreenState extends State<AddInstrumentScreen> {
                         child: Text(
                           'Selected photos will appear here before save.',
                           style: TextStyle(
-                            color: palette.subtleText,
-                            fontSize: 12.8,
+                            color: palette.mutedText,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
                             height: 1.4,
                           ),
                         ),
@@ -864,7 +875,7 @@ class _InstrumentPhotoPreviewTile extends StatelessWidget {
                       ? Center(
                           child: Icon(
                             Icons.image_not_supported_outlined,
-                            color: palette.subtleText,
+                            color: palette.mutedText,
                           ),
                         )
                       : Image(
@@ -874,7 +885,7 @@ class _InstrumentPhotoPreviewTile extends StatelessWidget {
                             return Center(
                               child: Icon(
                                 Icons.image_not_supported_outlined,
-                                color: palette.subtleText,
+                                color: palette.mutedText,
                               ),
                             );
                           },
@@ -908,7 +919,7 @@ class _InstrumentPhotoPreviewTile extends StatelessWidget {
             label,
             style: TextStyle(
               color: palette.mutedText,
-              fontSize: 11.8,
+              fontSize: 12.4,
               fontWeight: FontWeight.w600,
             ),
           ),

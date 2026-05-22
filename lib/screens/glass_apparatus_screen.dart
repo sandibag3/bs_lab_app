@@ -775,9 +775,9 @@ class _ApparatusCard extends StatelessWidget {
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
           color: strong ? colorScheme.onSurface : palette.mutedText,
-          fontSize: strong ? 13.4 : 12.4,
+          fontSize: strong ? 14.0 : 12.8,
           height: 1.25,
-          fontWeight: strong ? FontWeight.w800 : FontWeight.w600,
+          fontWeight: strong ? FontWeight.w800 : FontWeight.w700,
         ),
       ),
     );
@@ -901,7 +901,7 @@ class _ApparatusCard extends StatelessWidget {
                       apparatus.normalizedName,
                       style: TextStyle(
                         color: colorScheme.onSurface,
-                        fontSize: 14.5,
+                        fontSize: 15,
                         fontWeight: FontWeight.w800,
                         height: 1.25,
                       ),
@@ -926,8 +926,9 @@ class _ApparatusCard extends StatelessWidget {
                           if (incharge.isNotEmpty) 'In-charge: $incharge',
                         ].join(' - '),
                         style: TextStyle(
-                          color: palette.subtleText,
-                          fontSize: 12.5,
+                          color: palette.mutedText,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
                           height: 1.35,
                         ),
                       ),
@@ -969,7 +970,7 @@ class _InfoChip extends StatelessWidget {
         label,
         style: TextStyle(
           color: palette.mutedText,
-          fontSize: 11.8,
+          fontSize: 12.3,
           fontWeight: FontWeight.w700,
         ),
       ),
@@ -1021,7 +1022,7 @@ class _ConditionChip extends StatelessWidget {
         condition,
         style: TextStyle(
           color: _textColor(),
-          fontSize: 11.8,
+          fontSize: 12.2,
           fontWeight: FontWeight.w800,
         ),
       ),

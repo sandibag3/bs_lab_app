@@ -180,7 +180,7 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
       labelStyle: TextStyle(
         color: isSelected ? Colors.white : palette.mutedText,
         fontWeight: FontWeight.w700,
-        fontSize: 12.5,
+        fontSize: 12.8,
       ),
       onSelected: (_) {
         setState(() {
@@ -207,7 +207,7 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
             'Filters',
             style: TextStyle(
               color: colorScheme.onSurface,
-              fontSize: 14.5,
+              fontSize: 15,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -219,7 +219,7 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
               OutlinedButton.icon(
                 onPressed: _pickDate,
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
+                  foregroundColor: colorScheme.onSurface,
                   side: const BorderSide(color: Color(0xFF38BDF8)),
                 ),
                 icon: const Icon(Icons.calendar_today_rounded, size: 16),
@@ -288,7 +288,7 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
             label,
             style: TextStyle(
               color: palette.mutedText,
-              fontSize: 12,
+              fontSize: 12.6,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -336,7 +336,8 @@ class _AttendanceLogbookScreenState extends State<AttendanceLogbookScreen> {
                           : record.userEmail.trim(),
                       style: TextStyle(
                         color: palette.mutedText,
-                        fontSize: 12.6,
+                        fontSize: 12.8,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
