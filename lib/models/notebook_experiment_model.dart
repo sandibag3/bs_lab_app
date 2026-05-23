@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'reaction_component_model.dart';
+
 class NotebookExperimentModel {
   final String id;
   final String experimentCode;
@@ -22,6 +24,7 @@ class NotebookExperimentModel {
   final String yieldText;
   final String characterization;
   final String conclusion;
+  final List<ReactionComponentModel> reactionComponents;
   final String status;
   final String ownerUid;
   final String ownerEmail;
@@ -54,6 +57,7 @@ class NotebookExperimentModel {
     required this.yieldText,
     required this.characterization,
     required this.conclusion,
+    required this.reactionComponents,
     required this.status,
     required this.ownerUid,
     required this.ownerEmail,
@@ -85,6 +89,30 @@ class NotebookExperimentModel {
       return fallbackTimestamp;
     }
 
+    List<ReactionComponentModel> readReactionComponents() {
+      final value = data['reactionComponents'];
+      if (value is! Iterable) {
+        return const <ReactionComponentModel>[];
+      }
+
+      return value
+          .map((item) {
+            if (item is Map<String, dynamic>) {
+              return ReactionComponentModel.fromMap(item);
+            }
+
+            if (item is Map) {
+              return ReactionComponentModel.fromMap(
+                item.map((key, value) => MapEntry(key.toString(), value)),
+              );
+            }
+
+            return null;
+          })
+          .whereType<ReactionComponentModel>()
+          .toList(growable: false);
+    }
+
     return NotebookExperimentModel(
       id: id,
       experimentCode: (data['experimentCode'] ?? '').toString(),
@@ -107,6 +135,7 @@ class NotebookExperimentModel {
       yieldText: (data['yieldText'] ?? '').toString(),
       characterization: (data['characterization'] ?? '').toString(),
       conclusion: (data['conclusion'] ?? '').toString(),
+      reactionComponents: readReactionComponents(),
       status: (data['status'] ?? '').toString(),
       ownerUid: (data['ownerUid'] ?? '').toString(),
       ownerEmail: (data['ownerEmail'] ?? '').toString(),
@@ -165,6 +194,9 @@ class NotebookExperimentModel {
       'yieldText': yieldText,
       'characterization': characterization,
       'conclusion': conclusion,
+      'reactionComponents': reactionComponents
+          .map((item) => item.toMap())
+          .toList(),
       'status': status,
       'ownerUid': ownerUid,
       'ownerEmail': ownerEmail,

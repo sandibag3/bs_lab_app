@@ -6,6 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/experiment_note_model.dart';
 import '../models/notebook_experiment_model.dart';
 import '../models/notebook_project_model.dart';
+import '../models/reaction_component_model.dart';
 import 'firestore_access_guard.dart';
 
 const List<String> notebookExperimentStatuses = [
@@ -575,6 +576,9 @@ class LabNotebookService {
         yieldText: '',
         characterization: sourceExperiment.characterization,
         conclusion: '',
+        reactionComponents: sourceExperiment.reactionComponents
+            .map((item) => ReactionComponentModel.fromMap(item.toMap()))
+            .toList(growable: false),
         status: notebookExperimentStatuses.first,
         ownerUid: cleanNotebookOwnerUid,
         ownerEmail: sourceExperiment.ownerEmail,

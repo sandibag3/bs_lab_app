@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/notebook_experiment_model.dart';
 import '../models/notebook_project_model.dart';
+import '../models/reaction_component_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/lab_notebook_service.dart';
 import '../theme/labmate_theme.dart';
@@ -61,6 +62,9 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
   DateTime _selectedDate = DateTime.now();
   String _selectedStatus = notebookExperimentStatuses.first;
   bool _isSaving = false;
+  final List<_ReactionComponentDraft> _reactionComponentDrafts =
+      <_ReactionComponentDraft>[];
+  int _nextReactionComponentDraftId = 0;
 
   bool get _isDuplicateDraftMode =>
       widget.isDuplicateDraft && widget.initialExperiment != null;
@@ -116,6 +120,49 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     _yieldController.clear();
     _conclusionController.clear();
     _selectedStatus = notebookExperimentStatuses.first;
+    for (final component in initialExperiment.reactionComponents) {
+      _reactionComponentDrafts.add(_createReactionComponentDraft(component));
+    }
+  }
+
+  _ReactionComponentDraft _createReactionComponentDraft([
+    ReactionComponentModel? initialComponent,
+  ]) {
+    final draft = _ReactionComponentDraft(
+      id: 'component_${_nextReactionComponentDraftId++}',
+      componentName: initialComponent?.componentName ?? '',
+      role: initialComponent?.role ?? reactionComponentRoles.first,
+      formulaOrNotes: initialComponent?.formulaOrNotes ?? '',
+      mmol: initialComponent?.mmol ?? '',
+      equiv: initialComponent?.equiv ?? '',
+      amount: initialComponent?.amount ?? '',
+      unit: initialComponent?.unit ?? reactionComponentUnits.first,
+      supplierOrSource: initialComponent?.supplierOrSource ?? '',
+      remarks: initialComponent?.remarks ?? '',
+    );
+    return draft;
+  }
+
+  void _addReactionComponentRow([ReactionComponentModel? initialComponent]) {
+    setState(() {
+      _reactionComponentDrafts.add(
+        _createReactionComponentDraft(initialComponent),
+      );
+    });
+  }
+
+  void _removeReactionComponentRow(String draftId) {
+    setState(() {
+      final index = _reactionComponentDrafts.indexWhere(
+        (draft) => draft.id == draftId,
+      );
+      if (index < 0) {
+        return;
+      }
+
+      final draft = _reactionComponentDrafts.removeAt(index);
+      draft.dispose();
+    });
   }
 
   Color _statusColor(String status) {
@@ -256,6 +303,482 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     );
   }
 
+  InputDecoration _reactionComponentInputDecoration(
+    BuildContext context, {
+    required String hint,
+  }) {
+    final palette = context.labmate;
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: palette.subtleText, fontSize: 11.6),
+      isDense: true,
+      filled: true,
+      fillColor: palette.panelAlt,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      errorStyle: const TextStyle(fontSize: 10.8),
+    );
+  }
+
+  Widget _buildReactionComponentTextField({
+    required TextEditingController controller,
+    required String hint,
+    String? Function(String?)? validator,
+  }) {
+    return Builder(
+      builder: (context) => TextFormField(
+        controller: controller,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
+          fontSize: 12.2,
+        ),
+        decoration: _reactionComponentInputDecoration(context, hint: hint),
+        validator: validator,
+      ),
+    );
+  }
+
+  Widget _buildReactionComponentRoleField(_ReactionComponentDraft draft) {
+    return Builder(
+      builder: (context) => DropdownButtonFormField<String>(
+        key: ValueKey('role_${draft.id}_${draft.role}'),
+        initialValue: reactionComponentRoles.contains(draft.role)
+            ? draft.role
+            : reactionComponentRoles.first,
+        dropdownColor: context.labmate.panelAlt,
+        isExpanded: true,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
+          fontSize: 12.2,
+        ),
+        decoration: _reactionComponentInputDecoration(context, hint: 'Role'),
+        items: reactionComponentRoles.map((role) {
+          return DropdownMenuItem<String>(value: role, child: Text(role));
+        }).toList(),
+        onChanged: (value) {
+          if (value == null) {
+            return;
+          }
+
+          setState(() {
+            draft.role = value;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildReactionComponentUnitField(_ReactionComponentDraft draft) {
+    return Builder(
+      builder: (context) => DropdownButtonFormField<String>(
+        key: ValueKey('unit_${draft.id}_${draft.unit}'),
+        initialValue: reactionComponentUnits.contains(draft.unit)
+            ? draft.unit
+            : reactionComponentUnits.first,
+        dropdownColor: context.labmate.panelAlt,
+        isExpanded: true,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
+          fontSize: 12.2,
+        ),
+        decoration: _reactionComponentInputDecoration(context, hint: 'Unit'),
+        items: reactionComponentUnits.map((unit) {
+          return DropdownMenuItem<String>(value: unit, child: Text(unit));
+        }).toList(),
+        onChanged: (value) {
+          if (value == null) {
+            return;
+          }
+
+          setState(() {
+            draft.unit = value;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildReactionTableToolbar() {
+    return Builder(
+      builder: (context) {
+        final palette = context.labmate;
+        final colorScheme = context.colorScheme;
+
+        return Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Planner rows',
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 12.8,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Capture stoichiometry and sourcing details component by component.',
+                    style: TextStyle(
+                      color: palette.subtleText,
+                      fontSize: 11.3,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 10),
+            _DraftBadge(
+              icon: Icons.table_rows_rounded,
+              label: '${_reactionComponentDrafts.length}',
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: () => _addReactionComponentRow(),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: colorScheme.onSurface,
+                side: BorderSide(color: palette.border),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 11,
+                ),
+              ),
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: const Text(
+                'Add Row',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildReactionTableEmptyState() {
+    return Builder(
+      builder: (context) {
+        final palette = context.labmate;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: palette.panelAlt,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: palette.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'No reaction components added yet.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 12.8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Add rows for starting materials, reagents, solvents, products, or any other component you want to track.',
+                style: TextStyle(
+                  color: palette.mutedText,
+                  fontSize: 11.8,
+                  height: 1.38,
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: () => _addReactionComponentRow(),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                  side: BorderSide(color: palette.border),
+                ),
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text(
+                  'Add first row',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildReactionTableSection() {
+    return _buildSection(
+      title: 'Reaction Table',
+      subtitle: 'Structured component planner for the reaction setup',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isDesktopTable = constraints.maxWidth >= 860;
+
+          if (_reactionComponentDrafts.isEmpty) {
+            return _buildReactionTableEmptyState();
+          }
+
+          return Column(
+            children: [
+              _buildReactionTableToolbar(),
+              const SizedBox(height: 10),
+              isDesktopTable
+                  ? _buildDesktopReactionTable()
+                  : _buildMobileReactionTable(),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildDesktopReactionTable() {
+    return Builder(
+      builder: (context) {
+        final palette = context.labmate;
+
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Container(
+            width: 1150,
+            decoration: BoxDecoration(
+              color: palette.panelAlt,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: palette.border),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: palette.border)),
+                  ),
+                  child: const Row(
+                    children: [
+                      _DesktopReactionHeaderCell('Component', 160),
+                      _DesktopReactionHeaderCell('Role', 124),
+                      _DesktopReactionHeaderCell('Formula / Notes', 150),
+                      _DesktopReactionHeaderCell('mmol', 76),
+                      _DesktopReactionHeaderCell('Equiv', 76),
+                      _DesktopReactionHeaderCell('Amount', 86),
+                      _DesktopReactionHeaderCell('Unit', 86),
+                      _DesktopReactionHeaderCell('Supplier / Source', 150),
+                      _DesktopReactionHeaderCell('Remarks', 150),
+                      _DesktopReactionHeaderCell('', 46),
+                    ],
+                  ),
+                ),
+                ..._reactionComponentDrafts.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final draft = entry.value;
+                  final isLast = index == _reactionComponentDrafts.length - 1;
+
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      border: isLast
+                          ? null
+                          : Border(bottom: BorderSide(color: palette.border)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _DesktopReactionFieldCell(
+                          width: 160,
+                          child: _buildReactionComponentTextField(
+                            controller: draft.componentNameController,
+                            hint: 'Component name',
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Required';
+                              }
+                              return null;
+                            },
+                          ),
+                        ),
+                        _DesktopReactionFieldCell(
+                          width: 124,
+                          child: _buildReactionComponentRoleField(draft),
+                        ),
+                        _DesktopReactionFieldCell(
+                          width: 150,
+                          child: _buildReactionComponentTextField(
+                            controller: draft.formulaOrNotesController,
+                            hint: 'Formula or notes',
+                          ),
+                        ),
+                        _DesktopReactionFieldCell(
+                          width: 76,
+                          child: _buildReactionComponentTextField(
+                            controller: draft.mmolController,
+                            hint: 'mmol',
+                          ),
+                        ),
+                        _DesktopReactionFieldCell(
+                          width: 76,
+                          child: _buildReactionComponentTextField(
+                            controller: draft.equivController,
+                            hint: 'Equiv',
+                          ),
+                        ),
+                        _DesktopReactionFieldCell(
+                          width: 86,
+                          child: _buildReactionComponentTextField(
+                            controller: draft.amountController,
+                            hint: 'Amount',
+                          ),
+                        ),
+                        _DesktopReactionFieldCell(
+                          width: 86,
+                          child: _buildReactionComponentUnitField(draft),
+                        ),
+                        _DesktopReactionFieldCell(
+                          width: 150,
+                          child: _buildReactionComponentTextField(
+                            controller: draft.supplierOrSourceController,
+                            hint: 'Supplier or source',
+                          ),
+                        ),
+                        _DesktopReactionFieldCell(
+                          width: 150,
+                          child: _buildReactionComponentTextField(
+                            controller: draft.remarksController,
+                            hint: 'Remarks',
+                          ),
+                        ),
+                        SizedBox(
+                          width: 46,
+                          child: IconButton(
+                            onPressed: () =>
+                                _removeReactionComponentRow(draft.id),
+                            tooltip: 'Remove row',
+                            icon: const Icon(
+                              Icons.delete_outline_rounded,
+                              size: 18,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMobileReactionTable() {
+    return Column(
+      children: _reactionComponentDrafts.map((draft) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Builder(
+            builder: (context) {
+              final palette = context.labmate;
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: palette.panelAlt,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: palette.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            draft.componentNameController.text.trim().isEmpty
+                                ? 'Reaction component'
+                                : draft.componentNameController.text.trim(),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
+                              fontSize: 12.8,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () =>
+                              _removeReactionComponentRow(draft.id),
+                          tooltip: 'Remove row',
+                          icon: const Icon(
+                            Icons.delete_outline_rounded,
+                            size: 18,
+                          ),
+                        ),
+                      ],
+                    ),
+                    _buildAdaptiveFields(
+                      [
+                        _buildReactionComponentTextField(
+                          controller: draft.componentNameController,
+                          hint: 'Component name',
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Component name is required.';
+                            }
+                            return null;
+                          },
+                        ),
+                        _buildReactionComponentRoleField(draft),
+                        _buildReactionComponentTextField(
+                          controller: draft.formulaOrNotesController,
+                          hint: 'Formula or notes',
+                        ),
+                        _buildReactionComponentTextField(
+                          controller: draft.mmolController,
+                          hint: 'mmol',
+                        ),
+                        _buildReactionComponentTextField(
+                          controller: draft.equivController,
+                          hint: 'Equiv',
+                        ),
+                        _buildReactionComponentTextField(
+                          controller: draft.amountController,
+                          hint: 'Amount',
+                        ),
+                        _buildReactionComponentUnitField(draft),
+                        _buildReactionComponentTextField(
+                          controller: draft.supplierOrSourceController,
+                          hint: 'Supplier or source',
+                        ),
+                        _buildReactionComponentTextField(
+                          controller: draft.remarksController,
+                          hint: 'Remarks',
+                        ),
+                      ],
+                      maxColumns: 2,
+                      minItemWidth: 180,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   String _createdByValue() {
     final userId = widget.appState.authenticatedUserId.trim();
     if (userId.isNotEmpty) {
@@ -329,6 +852,10 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     final now = Timestamp.now();
 
     try {
+      final reactionComponents = _reactionComponentDrafts
+          .map((draft) => draft.toModel())
+          .toList(growable: false);
+
       final experiment = NotebookExperimentModel(
         id: '',
         experimentCode: _experimentCodeController.text.trim(),
@@ -351,6 +878,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
         yieldText: _yieldController.text.trim(),
         characterization: _characterizationController.text.trim(),
         conclusion: _conclusionController.text.trim(),
+        reactionComponents: reactionComponents,
         status: _selectedStatus,
         ownerUid: ownerUid,
         ownerEmail: ownerEmail,
@@ -1052,6 +1580,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
               children: [
                 _buildReactionSetupSection(),
                 const SizedBox(height: 10),
+                _buildReactionTableSection(),
+                const SizedBox(height: 10),
                 _buildResultsSection(),
               ],
             ),
@@ -1069,6 +1599,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
         _buildSchemePlaceholder(),
         const SizedBox(height: 10),
         _buildReactionSetupSection(),
+        const SizedBox(height: 10),
+        _buildReactionTableSection(),
         const SizedBox(height: 10),
         _buildResultsSection(),
         const SizedBox(height: 12),
@@ -1099,6 +1631,9 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     _yieldController.dispose();
     _characterizationController.dispose();
     _conclusionController.dispose();
+    for (final draft in _reactionComponentDrafts) {
+      draft.dispose();
+    }
     super.dispose();
   }
 
@@ -1250,5 +1785,97 @@ class _DraftBadge extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _DesktopReactionHeaderCell extends StatelessWidget {
+  final String label;
+  final double width;
+
+  const _DesktopReactionHeaderCell(this.label, this.width);
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: width,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: context.labmate.subtleText,
+          fontSize: 10.8,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
+class _DesktopReactionFieldCell extends StatelessWidget {
+  final double width;
+  final Widget child;
+
+  const _DesktopReactionFieldCell({required this.width, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(width: width, child: child);
+  }
+}
+
+class _ReactionComponentDraft {
+  final String id;
+  final TextEditingController componentNameController;
+  final TextEditingController formulaOrNotesController;
+  final TextEditingController mmolController;
+  final TextEditingController equivController;
+  final TextEditingController amountController;
+  final TextEditingController supplierOrSourceController;
+  final TextEditingController remarksController;
+  String role;
+  String unit;
+
+  _ReactionComponentDraft({
+    required this.id,
+    required String componentName,
+    required this.role,
+    required String formulaOrNotes,
+    required String mmol,
+    required String equiv,
+    required String amount,
+    required this.unit,
+    required String supplierOrSource,
+    required String remarks,
+  }) : componentNameController = TextEditingController(text: componentName),
+       formulaOrNotesController = TextEditingController(text: formulaOrNotes),
+       mmolController = TextEditingController(text: mmol),
+       equivController = TextEditingController(text: equiv),
+       amountController = TextEditingController(text: amount),
+       supplierOrSourceController = TextEditingController(
+         text: supplierOrSource,
+       ),
+       remarksController = TextEditingController(text: remarks);
+
+  ReactionComponentModel toModel() {
+    return ReactionComponentModel(
+      componentName: componentNameController.text.trim(),
+      role: role.trim(),
+      formulaOrNotes: formulaOrNotesController.text.trim(),
+      mmol: mmolController.text.trim(),
+      equiv: equivController.text.trim(),
+      amount: amountController.text.trim(),
+      unit: unit.trim(),
+      supplierOrSource: supplierOrSourceController.text.trim(),
+      remarks: remarksController.text.trim(),
+    );
+  }
+
+  void dispose() {
+    componentNameController.dispose();
+    formulaOrNotesController.dispose();
+    mmolController.dispose();
+    equivController.dispose();
+    amountController.dispose();
+    supplierOrSourceController.dispose();
+    remarksController.dispose();
   }
 }
