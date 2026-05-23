@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
+import '../models/experiment_edit_history_model.dart';
 import '../models/notebook_experiment_model.dart';
 import '../models/notebook_project_model.dart';
 import '../models/reaction_component_model.dart';
@@ -13,17 +14,23 @@ import '../widgets/responsive_page_container.dart';
 class AddExperimentScreen extends StatefulWidget {
   final AppState appState;
   final NotebookProjectModel project;
+  final String? notebookOwnerUid;
+  final String? notebookOwnerEmail;
   final NotebookExperimentModel? initialExperiment;
   final String? initialExperimentCode;
   final bool isDuplicateDraft;
+  final bool isEditMode;
 
   const AddExperimentScreen({
     super.key,
     required this.appState,
     required this.project,
+    this.notebookOwnerUid,
+    this.notebookOwnerEmail,
     this.initialExperiment,
     this.initialExperimentCode,
     this.isDuplicateDraft = false,
+    this.isEditMode = false,
   });
 
   @override
@@ -66,16 +73,84 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
       <_ReactionComponentDraft>[];
   int _nextReactionComponentDraftId = 0;
 
+  bool get _hasInitialExperiment => widget.initialExperiment != null;
+  bool get _isEditMode => widget.isEditMode && _hasInitialExperiment;
   bool get _isDuplicateDraftMode =>
-      widget.isDuplicateDraft && widget.initialExperiment != null;
-  String get _saveButtonLabel =>
-      _isDuplicateDraftMode ? 'Save duplicated experiment' : 'Save Experiment';
-  String get _draftTitle => _isDuplicateDraftMode
-      ? 'Duplicate experiment draft'
-      : 'New experiment draft';
+      !_isEditMode && widget.isDuplicateDraft && _hasInitialExperiment;
+  String get _saveButtonLabel {
+    if (_isEditMode) {
+      return 'Save experiment changes';
+    }
+
+    return _isDuplicateDraftMode
+        ? 'Save duplicated experiment'
+        : 'Save Experiment';
+  }
+
+  String get _draftTitle {
+    if (_isEditMode) {
+      return 'Edit experiment';
+    }
+
+    return _isDuplicateDraftMode
+        ? 'Duplicate experiment draft'
+        : 'New experiment draft';
+  }
+
   String get _duplicateSourceCode {
     final sourceCode = widget.initialExperiment?.experimentCode.trim() ?? '';
     return sourceCode.isEmpty ? 'source experiment' : sourceCode;
+  }
+
+  String get _effectiveNotebookOwnerUid {
+    final explicitOwnerUid = (widget.notebookOwnerUid ?? '').trim();
+    if (explicitOwnerUid.isNotEmpty) {
+      return explicitOwnerUid;
+    }
+
+    final initialOwnerUid = widget.initialExperiment?.ownerUid.trim() ?? '';
+    if (initialOwnerUid.isNotEmpty) {
+      return initialOwnerUid;
+    }
+
+    return widget.appState.authenticatedUserId.trim();
+  }
+
+  String get _effectiveNotebookOwnerEmail {
+    final explicitOwnerEmail = (widget.notebookOwnerEmail ?? '').trim();
+    if (explicitOwnerEmail.isNotEmpty) {
+      return explicitOwnerEmail;
+    }
+
+    final initialOwnerEmail = widget.initialExperiment?.ownerEmail.trim() ?? '';
+    if (initialOwnerEmail.isNotEmpty) {
+      return initialOwnerEmail;
+    }
+
+    final authenticatedEmail = widget.appState.authenticatedUserEmail.trim();
+    if (authenticatedEmail.isNotEmpty) {
+      return authenticatedEmail;
+    }
+
+    return widget.project.ownerEmail.trim();
+  }
+
+  String get _effectiveLabId {
+    final initialLabId = widget.initialExperiment?.labId.trim() ?? '';
+    if (initialLabId.isNotEmpty) {
+      return initialLabId;
+    }
+
+    return widget.appState.resolveWriteLabId(widget.project.labId);
+  }
+
+  String get _effectiveProjectId {
+    final initialProjectId = widget.initialExperiment?.projectId.trim() ?? '';
+    if (initialProjectId.isNotEmpty) {
+      return initialProjectId;
+    }
+
+    return widget.project.id.trim();
   }
 
   @override
@@ -93,12 +168,19 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
 
   void _applyInitialDraft() {
     final initialExperiment = widget.initialExperiment;
-    if (!_isDuplicateDraftMode || initialExperiment == null) {
+    if ((!_isDuplicateDraftMode && !_isEditMode) || initialExperiment == null) {
       return;
     }
 
-    _experimentCodeController.text = (widget.initialExperimentCode ?? '')
-        .trim();
+    if (_isEditMode) {
+      _selectedDate = initialExperiment.date.toDate();
+      _experimentCodeController.text = initialExperiment.experimentCode.trim();
+    } else {
+      _experimentCodeController.text = (widget.initialExperimentCode ?? '')
+          .trim();
+    }
+
+    _syncDateField();
     _titleController.text = initialExperiment.title.trim();
     _aimController.text = initialExperiment.aim.trim();
     _reactionTitleController.text = initialExperiment.reactionTitle.trim();
@@ -116,10 +198,22 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     _purificationController.text = initialExperiment.purification.trim();
     _characterizationController.text = initialExperiment.characterization
         .trim();
-    _observationsController.clear();
-    _yieldController.clear();
-    _conclusionController.clear();
-    _selectedStatus = notebookExperimentStatuses.first;
+
+    if (_isEditMode) {
+      _observationsController.text = initialExperiment.observations.trim();
+      _yieldController.text = initialExperiment.yieldText.trim();
+      _conclusionController.text = initialExperiment.conclusion.trim();
+      final initialStatus = initialExperiment.status.trim();
+      _selectedStatus = notebookExperimentStatuses.contains(initialStatus)
+          ? initialStatus
+          : notebookExperimentStatuses.first;
+    } else {
+      _observationsController.clear();
+      _yieldController.clear();
+      _conclusionController.clear();
+      _selectedStatus = notebookExperimentStatuses.first;
+    }
+
     for (final component in initialExperiment.reactionComponents) {
       _reactionComponentDrafts.add(_createReactionComponentDraft(component));
     }
@@ -894,12 +988,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
   }
 
   String _ownerEmailValue() {
-    final authenticatedEmail = widget.appState.authenticatedUserEmail.trim();
-    if (authenticatedEmail.isNotEmpty) {
-      return authenticatedEmail;
-    }
-
-    return widget.project.ownerEmail.trim();
+    return _effectiveNotebookOwnerEmail;
   }
 
   Future<void> _pickDate() async {
@@ -933,13 +1022,43 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
       return;
     }
 
-    final labId = widget.appState.resolveWriteLabId(widget.project.labId);
-    final ownerUid = widget.appState.authenticatedUserId.trim();
+    final labId = _effectiveLabId;
+    final ownerUid = _effectiveNotebookOwnerUid;
     final ownerEmail = _ownerEmailValue();
+    final projectId = _effectiveProjectId;
+    final initialExperiment = widget.initialExperiment;
+    final experimentId = initialExperiment?.id.trim() ?? '';
     if (labId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Select a lab before adding experiments.'),
+        ),
+      );
+      return;
+    }
+
+    if (projectId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Project context is missing for this experiment.'),
+        ),
+      );
+      return;
+    }
+
+    if (ownerUid.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Notebook owner context is missing for this save.'),
+        ),
+      );
+      return;
+    }
+
+    if (_isEditMode && experimentId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Existing experiment id is missing for edit mode.'),
         ),
       );
       return;
@@ -956,43 +1075,119 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
           .map((draft) => draft.toModel())
           .toList(growable: false);
 
-      final experiment = NotebookExperimentModel(
-        id: '',
-        experimentCode: _experimentCodeController.text.trim(),
-        title: _titleController.text.trim(),
-        date: Timestamp.fromDate(_selectedDate),
-        aim: _aimController.text.trim(),
-        reactionTitle: _reactionTitleController.text.trim(),
-        startingMaterial: _startingMaterialController.text.trim(),
-        reagents: _reagentsController.text.trim(),
-        catalyst: _catalystController.text.trim(),
-        solvent: _solventController.text.trim(),
-        temperature: _temperatureController.text.trim(),
-        time: _timeController.text.trim(),
-        atmosphere: _atmosphereController.text.trim(),
-        scale: _scaleController.text.trim(),
-        procedure: _procedureController.text.trim(),
-        observations: _observationsController.text.trim(),
-        workup: _workupController.text.trim(),
-        purification: _purificationController.text.trim(),
-        yieldText: _yieldController.text.trim(),
-        characterization: _characterizationController.text.trim(),
-        conclusion: _conclusionController.text.trim(),
-        reactionComponents: reactionComponents,
-        status: _selectedStatus,
-        ownerUid: ownerUid,
-        ownerEmail: ownerEmail,
-        createdBy: _createdByValue(),
-        userEmail: ownerEmail,
-        createdAt: now,
-        updatedAt: now,
-        labId: labId,
-        projectId: widget.project.id,
-      );
+      final experiment = _isEditMode && initialExperiment != null
+          ? NotebookExperimentModel(
+              id: experimentId,
+              experimentCode: _experimentCodeController.text.trim(),
+              title: _titleController.text.trim(),
+              date: Timestamp.fromDate(_selectedDate),
+              aim: _aimController.text.trim(),
+              reactionTitle: _reactionTitleController.text.trim(),
+              startingMaterial: _startingMaterialController.text.trim(),
+              reagents: _reagentsController.text.trim(),
+              catalyst: _catalystController.text.trim(),
+              solvent: _solventController.text.trim(),
+              temperature: _temperatureController.text.trim(),
+              time: _timeController.text.trim(),
+              atmosphere: _atmosphereController.text.trim(),
+              scale: _scaleController.text.trim(),
+              procedure: _procedureController.text.trim(),
+              observations: _observationsController.text.trim(),
+              workup: _workupController.text.trim(),
+              purification: _purificationController.text.trim(),
+              yieldText: _yieldController.text.trim(),
+              characterization: _characterizationController.text.trim(),
+              conclusion: _conclusionController.text.trim(),
+              reactionComponents: reactionComponents,
+              editHistory: <ExperimentEditHistoryModel>[
+                ...initialExperiment.editHistory,
+                ExperimentEditHistoryModel(
+                  editedAt: now,
+                  editedByUid: ownerUid,
+                  editedByEmail: ownerEmail,
+                  summary: 'Experiment updated',
+                ),
+              ],
+              status: _selectedStatus,
+              ownerUid: initialExperiment.ownerUid.trim().isEmpty
+                  ? ownerUid
+                  : initialExperiment.ownerUid,
+              ownerEmail: initialExperiment.ownerEmail.trim().isEmpty
+                  ? ownerEmail
+                  : initialExperiment.ownerEmail,
+              createdBy: initialExperiment.createdBy,
+              userEmail: initialExperiment.userEmail,
+              createdAt: initialExperiment.createdAt,
+              updatedAt: now,
+              labId: initialExperiment.labId.trim().isEmpty
+                  ? labId
+                  : initialExperiment.labId,
+              projectId: initialExperiment.projectId.trim().isEmpty
+                  ? projectId
+                  : initialExperiment.projectId,
+            )
+          : NotebookExperimentModel(
+              id: '',
+              experimentCode: _experimentCodeController.text.trim(),
+              title: _titleController.text.trim(),
+              date: Timestamp.fromDate(_selectedDate),
+              aim: _aimController.text.trim(),
+              reactionTitle: _reactionTitleController.text.trim(),
+              startingMaterial: _startingMaterialController.text.trim(),
+              reagents: _reagentsController.text.trim(),
+              catalyst: _catalystController.text.trim(),
+              solvent: _solventController.text.trim(),
+              temperature: _temperatureController.text.trim(),
+              time: _timeController.text.trim(),
+              atmosphere: _atmosphereController.text.trim(),
+              scale: _scaleController.text.trim(),
+              procedure: _procedureController.text.trim(),
+              observations: _observationsController.text.trim(),
+              workup: _workupController.text.trim(),
+              purification: _purificationController.text.trim(),
+              yieldText: _yieldController.text.trim(),
+              characterization: _characterizationController.text.trim(),
+              conclusion: _conclusionController.text.trim(),
+              reactionComponents: reactionComponents,
+              editHistory: const <ExperimentEditHistoryModel>[],
+              status: _selectedStatus,
+              ownerUid: ownerUid,
+              ownerEmail: ownerEmail,
+              createdBy: _createdByValue(),
+              userEmail: ownerEmail,
+              createdAt: now,
+              updatedAt: now,
+              labId: labId,
+              projectId: projectId,
+            );
 
-      final experimentId = await _labNotebookService.addExperiment(
-        experiment: experiment,
-      );
+      if (_isEditMode && initialExperiment != null) {
+        await _labNotebookService.updateExperiment(
+          experiment: experiment,
+          notebookOwnerUid: ownerUid,
+        );
+      } else {
+        final createdExperimentId = await _labNotebookService.addExperiment(
+          experiment: experiment,
+          notebookOwnerUid: ownerUid,
+        );
+
+        if (!mounted) {
+          return;
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _isDuplicateDraftMode
+                  ? 'Duplicated experiment saved.'
+                  : 'Experiment saved successfully.',
+            ),
+          ),
+        );
+        Navigator.pop(context, createdExperimentId);
+        return;
+      }
 
       if (!mounted) {
         return;
@@ -1001,8 +1196,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            _isDuplicateDraftMode
-                ? 'Duplicated experiment saved.'
+            _isEditMode
+                ? 'Experiment updated.'
                 : 'Experiment saved successfully.',
           ),
         ),
@@ -1069,10 +1264,12 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
               children: [
                 _DraftBadge(
                   icon: Icons.edit_note_rounded,
-                  label: _isDuplicateDraftMode
+                  label: _isEditMode
+                      ? 'Edit Mode'
+                      : _isDuplicateDraftMode
                       ? 'Duplicate Draft'
                       : 'New Experiment Draft',
-                  accent: Color(0xFF5EEAD4),
+                  accent: const Color(0xFF5EEAD4),
                 ),
                 _DraftBadge(
                   icon: Icons.folder_open_rounded,
@@ -1160,7 +1357,9 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Text(
-                        _isDuplicateDraftMode
+                        _isEditMode
+                            ? 'Review the current experiment details, then save to update the existing record.'
+                            : _isDuplicateDraftMode
                             ? 'Review the copied setup, adjust any details, then save the new experiment.'
                             : 'Required: experiment code, title, date, and status.',
                         style: TextStyle(
@@ -1177,13 +1376,15 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
   }
 
   Widget _buildDuplicateInfoBanner() {
-    if (!_isDuplicateDraftMode) {
+    if (!_isDuplicateDraftMode && !_isEditMode) {
       return const SizedBox.shrink();
     }
 
     return Builder(
       builder: (context) {
         final palette = context.labmate;
+        final sourceCode =
+            widget.initialExperiment?.experimentCode.trim() ?? '';
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
@@ -1197,15 +1398,17 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Icon(
-                Icons.copy_all_rounded,
+              Icon(
+                _isEditMode ? Icons.history_rounded : Icons.copy_all_rounded,
                 color: Color(0xFF5EEAD4),
                 size: 18,
               ),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  'Copied setup from [$_duplicateSourceCode]. Notes and results are not copied.',
+                  _isEditMode
+                      ? 'Editing [${sourceCode.isEmpty ? 'experiment' : sourceCode}]. Saving updates this experiment and adds a history entry.'
+                      : 'Copied setup from [$_duplicateSourceCode]. Notes and results are not copied.',
                   style: TextStyle(
                     color: palette.mutedText,
                     fontSize: 12.3,
@@ -1273,7 +1476,9 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          _isDuplicateDraftMode
+                          _isEditMode
+                              ? 'Project and existing experiment details'
+                              : _isDuplicateDraftMode
                               ? 'Project and copied setup'
                               : 'Project and required fields',
                           style: TextStyle(
@@ -1750,7 +1955,9 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
-          _isDuplicateDraftMode
+          _isEditMode
+              ? 'Edit Experiment'
+              : _isDuplicateDraftMode
               ? 'Duplicate Experiment Draft'
               : 'New Experiment',
         ),
@@ -1771,7 +1978,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                               child: Column(
                                 children: [
                                   _buildHeaderBar(isWide: isWide),
-                                  if (_isDuplicateDraftMode) ...[
+                                  if (_isDuplicateDraftMode || _isEditMode) ...[
                                     const SizedBox(height: 10),
                                     _buildDuplicateInfoBanner(),
                                   ],

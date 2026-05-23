@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/experiment_edit_history_model.dart';
 import '../models/experiment_note_model.dart';
 import '../models/notebook_experiment_model.dart';
 import '../models/notebook_project_model.dart';
@@ -408,6 +409,36 @@ class LabNotebookService {
     });
   }
 
+  Future<void> updateExperiment({
+    required NotebookExperimentModel experiment,
+    String? notebookOwnerUid,
+  }) async {
+    final cleanLabId = experiment.labId.trim();
+    final cleanNotebookOwnerUid = resolveNotebookOwnerUid(
+      notebookOwnerUid ?? experiment.ownerUid,
+    );
+    final cleanProjectId = experiment.projectId.trim();
+    final cleanExperimentId = experiment.id.trim();
+
+    if (cleanLabId.isEmpty ||
+        cleanNotebookOwnerUid.isEmpty ||
+        cleanProjectId.isEmpty ||
+        cleanExperimentId.isEmpty) {
+      throw Exception('Experiment context is missing.');
+    }
+
+    _ensureOwnerWriteAccess(cleanNotebookOwnerUid);
+
+    await _runGuarded(() async {
+      await _experimentRef(
+        cleanLabId,
+        cleanNotebookOwnerUid,
+        cleanProjectId,
+        cleanExperimentId,
+      ).update(experiment.toMap());
+    });
+  }
+
   Future<String> addExperimentNote({
     required String labId,
     required String projectId,
@@ -579,6 +610,7 @@ class LabNotebookService {
         reactionComponents: sourceExperiment.reactionComponents
             .map((item) => ReactionComponentModel.fromMap(item.toMap()))
             .toList(growable: false),
+        editHistory: const <ExperimentEditHistoryModel>[],
         status: notebookExperimentStatuses.first,
         ownerUid: cleanNotebookOwnerUid,
         ownerEmail: sourceExperiment.ownerEmail,

@@ -58,8 +58,12 @@ class NotebookProjectDetailScreen extends StatelessWidget {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) =>
-            AddExperimentScreen(appState: appState, project: project),
+        builder: (_) => AddExperimentScreen(
+          appState: appState,
+          project: project,
+          notebookOwnerUid: notebookOwnerUid,
+          notebookOwnerEmail: project.ownerEmail,
+        ),
       ),
     );
   }

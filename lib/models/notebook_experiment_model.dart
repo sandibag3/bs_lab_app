@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'experiment_edit_history_model.dart';
 import 'reaction_component_model.dart';
 
 class NotebookExperimentModel {
@@ -25,6 +26,7 @@ class NotebookExperimentModel {
   final String characterization;
   final String conclusion;
   final List<ReactionComponentModel> reactionComponents;
+  final List<ExperimentEditHistoryModel> editHistory;
   final String status;
   final String ownerUid;
   final String ownerEmail;
@@ -58,6 +60,7 @@ class NotebookExperimentModel {
     required this.characterization,
     required this.conclusion,
     required this.reactionComponents,
+    required this.editHistory,
     required this.status,
     required this.ownerUid,
     required this.ownerEmail,
@@ -113,6 +116,33 @@ class NotebookExperimentModel {
           .toList(growable: false);
     }
 
+    List<ExperimentEditHistoryModel> readEditHistory() {
+      final value = data['editHistory'];
+      if (value is! Iterable) {
+        return const <ExperimentEditHistoryModel>[];
+      }
+
+      final editHistory = value
+          .map((item) {
+            if (item is Map<String, dynamic>) {
+              return ExperimentEditHistoryModel.fromMap(item);
+            }
+
+            if (item is Map) {
+              return ExperimentEditHistoryModel.fromMap(
+                item.map((key, value) => MapEntry(key.toString(), value)),
+              );
+            }
+
+            return null;
+          })
+          .whereType<ExperimentEditHistoryModel>()
+          .toList(growable: false);
+
+      editHistory.sort((a, b) => b.editedAt.compareTo(a.editedAt));
+      return editHistory;
+    }
+
     return NotebookExperimentModel(
       id: id,
       experimentCode: (data['experimentCode'] ?? '').toString(),
@@ -136,6 +166,7 @@ class NotebookExperimentModel {
       characterization: (data['characterization'] ?? '').toString(),
       conclusion: (data['conclusion'] ?? '').toString(),
       reactionComponents: readReactionComponents(),
+      editHistory: readEditHistory(),
       status: (data['status'] ?? '').toString(),
       ownerUid: (data['ownerUid'] ?? '').toString(),
       ownerEmail: (data['ownerEmail'] ?? '').toString(),
@@ -197,6 +228,7 @@ class NotebookExperimentModel {
       'reactionComponents': reactionComponents
           .map((item) => item.toMap())
           .toList(),
+      'editHistory': editHistory.map((item) => item.toMap()).toList(),
       'status': status,
       'ownerUid': ownerUid,
       'ownerEmail': ownerEmail,

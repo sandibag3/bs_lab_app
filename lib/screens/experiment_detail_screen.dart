@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
+import '../models/experiment_edit_history_model.dart';
 import '../models/experiment_note_model.dart';
 import '../models/notebook_experiment_model.dart';
 import '../models/notebook_project_model.dart';
@@ -44,11 +45,32 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
   bool _isSavingNote = false;
   bool _isUpdatingStatus = false;
   bool _isDuplicating = false;
+  bool _isOpeningEdit = false;
 
   String get _labId => widget.appState.resolveWriteLabId(widget.project.labId);
-  bool get _canEditNotebook =>
-      !widget.isReadOnly &&
-      widget.appState.authenticatedUserId.trim().isNotEmpty;
+  String get _currentUserUid => widget.appState.authenticatedUserId.trim();
+
+  bool _canEditExperiment(NotebookExperimentModel? experiment) {
+    if (_currentUserUid.isEmpty) {
+      return false;
+    }
+
+    final routeNotebookOwnerUid = widget.notebookOwnerUid.trim();
+    if (routeNotebookOwnerUid.isNotEmpty) {
+      return routeNotebookOwnerUid == _currentUserUid;
+    }
+
+    final experimentOwnerUid = experiment?.ownerUid.trim() ?? '';
+    if (experimentOwnerUid.isNotEmpty) {
+      return experimentOwnerUid == _currentUserUid;
+    }
+
+    return !widget.isReadOnly;
+  }
+
+  bool _isEffectivelyReadOnly(NotebookExperimentModel? experiment) {
+    return !_canEditExperiment(experiment);
+  }
 
   String _formatDate(Timestamp timestamp) {
     final date = timestamp.toDate();
@@ -100,7 +122,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
   }
 
   Future<void> _updateStatus(String status) async {
-    if (_isUpdatingStatus || !_canEditNotebook) {
+    if (_isUpdatingStatus || !_canEditExperiment(null)) {
       return;
     }
 
@@ -142,7 +164,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
   }
 
   Future<void> _addNote() async {
-    if (_isSavingNote || !_canEditNotebook) {
+    if (_isSavingNote || !_canEditExperiment(null)) {
       return;
     }
 
@@ -213,7 +235,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
   }
 
   Future<void> _openDuplicateDraft(NotebookExperimentModel experiment) async {
-    if (_isDuplicating || !_canEditNotebook) {
+    if (_isDuplicating || !_canEditExperiment(experiment)) {
       return;
     }
 
@@ -250,6 +272,10 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
           builder: (_) => AddExperimentScreen(
             appState: widget.appState,
             project: widget.project,
+            notebookOwnerUid: widget.notebookOwnerUid,
+            notebookOwnerEmail: experiment.ownerEmail.trim().isEmpty
+                ? widget.project.ownerEmail
+                : experiment.ownerEmail,
             initialExperiment: experiment,
             initialExperimentCode: duplicateCode,
             isDuplicateDraft: true,
@@ -292,6 +318,49 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     }
   }
 
+  Future<void> _openEditDraft(NotebookExperimentModel experiment) async {
+    if (_isOpeningEdit || !_canEditExperiment(experiment)) {
+      return;
+    }
+
+    setState(() {
+      _isOpeningEdit = true;
+    });
+
+    try {
+      final updatedExperimentId = await Navigator.of(context).push<String>(
+        MaterialPageRoute(
+          builder: (_) => AddExperimentScreen(
+            appState: widget.appState,
+            project: widget.project,
+            notebookOwnerUid: widget.notebookOwnerUid,
+            notebookOwnerEmail: experiment.ownerEmail.trim().isEmpty
+                ? widget.project.ownerEmail
+                : experiment.ownerEmail,
+            initialExperiment: experiment,
+            isEditMode: true,
+          ),
+        ),
+      );
+
+      if (!mounted ||
+          updatedExperimentId == null ||
+          updatedExperimentId.trim().isEmpty) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Experiment updated.')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isOpeningEdit = false;
+        });
+      }
+    }
+  }
+
   Stream<List<ExperimentNoteModel>> _notesStream() {
     return _labNotebookService.getExperimentNotes(
       labId: _labId,
@@ -301,12 +370,94 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     );
   }
 
+  Widget _buildEditHistoryPanel(
+    NotebookExperimentModel experiment, {
+    required bool compact,
+  }) {
+    final history = experiment.editHistory;
+
+    return Builder(
+      builder: (context) {
+        final palette = context.labmate;
+        final colorScheme = context.colorScheme;
+
+        return Container(
+          width: double.infinity,
+          padding: EdgeInsets.all(compact ? 12 : 13),
+          decoration: BoxDecoration(
+            color: palette.panel,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: palette.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Edit History',
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: compact ? 13.2 : 13.6,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                'Latest changes to this experiment record',
+                style: TextStyle(
+                  color: palette.subtleText,
+                  fontSize: compact ? 11.1 : 11.4,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 10),
+              if (history.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: palette.panelAlt,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: palette.border),
+                  ),
+                  child: Text(
+                    'No edit history yet.',
+                    style: TextStyle(
+                      color: palette.mutedText,
+                      fontSize: 11.8,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                )
+              else
+                ...history.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final item = entry.value;
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: index == history.length - 1 ? 0 : 8,
+                    ),
+                    child: _EditHistoryEntryTile(
+                      item: item,
+                      formatDateTime: _formatDateTime,
+                      compact: compact,
+                    ),
+                  );
+                }),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildHeaderBar(
     NotebookExperimentModel experiment, {
     required bool isWide,
   }) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
+    final canEditExperiment = _canEditExperiment(experiment);
+    final isReadOnlyView = _isEffectivelyReadOnly(experiment);
     final safeStatus = notebookExperimentStatuses.contains(experiment.status)
         ? experiment.status
         : notebookExperimentStatuses.first;
@@ -325,42 +476,58 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     final reactionSubtitle = experiment.reactionTitle.trim().isEmpty
         ? experiment.aim.trim()
         : experiment.reactionTitle.trim();
-    final duplicateButton = !_canEditNotebook
-        ? null
-        : SizedBox(
-            width: isWide ? 132 : double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _isDuplicating
-                  ? null
-                  : () => _openDuplicateDraft(experiment),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: colorScheme.onSurface,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 11,
-                ),
-                side: BorderSide(color: palette.border),
-              ),
-              icon: _isDuplicating
-                  ? const SizedBox(
-                      height: 15,
-                      width: 15,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.copy_all_rounded, size: 16),
-              label: Text(
-                _isDuplicating ? 'Preparing' : 'Duplicate',
-                style: const TextStyle(
-                  fontSize: 12.2,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          );
+    final editButton = SizedBox(
+      width: isWide ? 132 : double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: !canEditExperiment || _isOpeningEdit
+            ? null
+            : () => _openEditDraft(experiment),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: colorScheme.onSurface,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          side: BorderSide(color: palette.border),
+        ),
+        icon: _isOpeningEdit
+            ? const SizedBox(
+                height: 15,
+                width: 15,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.edit_rounded, size: 16),
+        label: Text(
+          _isOpeningEdit ? 'Opening' : 'Edit',
+          style: const TextStyle(fontSize: 12.2, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+    final duplicateButton = SizedBox(
+      width: isWide ? 132 : double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: !canEditExperiment || _isDuplicating
+            ? null
+            : () => _openDuplicateDraft(experiment),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: colorScheme.onSurface,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          side: BorderSide(color: palette.border),
+        ),
+        icon: _isDuplicating
+            ? const SizedBox(
+                height: 15,
+                width: 15,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.copy_all_rounded, size: 16),
+        label: Text(
+          _isDuplicating ? 'Preparing' : 'Duplicate',
+          style: const TextStyle(fontSize: 12.2, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
 
     final leftBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
         Wrap(
           spacing: 8,
@@ -379,10 +546,10 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
               ),
             _HeaderBadge(
               label: widget.notebookOwnerLabel,
-              icon: widget.isReadOnly
+              icon: isReadOnlyView
                   ? Icons.visibility_outlined
                   : Icons.person_outline_rounded,
-              accent: widget.isReadOnly ? const Color(0xFFFBBF24) : null,
+              accent: isReadOnlyView ? const Color(0xFFFBBF24) : null,
             ),
           ],
         ),
@@ -415,7 +582,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
 
     final rightBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisAlignment: MainAxisAlignment.start,
       children: [
         Row(
           children: [
@@ -492,7 +659,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
               ),
             );
           }).toList(),
-          onChanged: _isUpdatingStatus || !_canEditNotebook
+          onChanged: _isUpdatingStatus || !canEditExperiment
               ? null
               : (value) {
                   if (value == null || value == experiment.status) {
@@ -501,39 +668,53 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                   _updateStatus(value);
                 },
         ),
-        if (duplicateButton != null) ...[
+        if (canEditExperiment) ...[
           const SizedBox(height: 8),
-          duplicateButton,
+          if (isWide)
+            Row(
+              children: [
+                Expanded(child: editButton),
+                const SizedBox(width: 8),
+                Expanded(child: duplicateButton),
+              ],
+            )
+          else
+            Column(
+              children: [
+                editButton,
+                const SizedBox(height: 8),
+                duplicateButton,
+              ],
+            ),
         ],
       ],
     );
 
-    return SizedBox(
-      height: isWide ? 108 : null,
-      child: Container(
-        width: double.infinity,
-        padding: EdgeInsets.symmetric(
-          horizontal: isWide ? 14 : 13,
-          vertical: isWide ? 10 : 13,
-        ),
-        decoration: BoxDecoration(
-          color: palette.panel,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: palette.border),
-        ),
-        child: isWide
-            ? Row(
-                children: [
-                  Expanded(child: leftBlock),
-                  const SizedBox(width: 14),
-                  SizedBox(width: 330, child: rightBlock),
-                ],
-              )
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [leftBlock, const SizedBox(height: 12), rightBlock],
-              ),
+    return Container(
+      width: double.infinity,
+      constraints: BoxConstraints(minHeight: isWide ? 156 : 0),
+      padding: EdgeInsets.symmetric(
+        horizontal: isWide ? 14 : 13,
+        vertical: isWide ? 12 : 13,
       ),
+      decoration: BoxDecoration(
+        color: palette.panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.border),
+      ),
+      child: isWide
+          ? Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(child: leftBlock),
+                const SizedBox(width: 14),
+                SizedBox(width: 372, child: rightBlock),
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [leftBlock, const SizedBox(height: 12), rightBlock],
+            ),
     );
   }
 
@@ -545,6 +726,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     NotebookExperimentModel experiment,
     double width,
   ) {
+    final canEditExperiment = _canEditExperiment(experiment);
     final infoPanel = ExperimentInfoPanel(
       project: widget.project,
       experiment: experiment,
@@ -553,9 +735,12 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
       compact: true,
     );
     final reactionPanel = ReactionDetailsPanel(experiment: experiment);
-    final recordPanel = CharacterizationPanel(
-      experiment: experiment,
-      compact: true,
+    final recordPanel = Column(
+      children: [
+        CharacterizationPanel(experiment: experiment, compact: true),
+        const SizedBox(height: 10),
+        _buildEditHistoryPanel(experiment, compact: true),
+      ],
     );
     final notesPanel = ExperimentNotesPanel(
       noteController: _noteController,
@@ -566,7 +751,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
       expandList: true,
       compact: true,
       docked: true,
-      canAddNote: _canEditNotebook,
+      canAddNote: canEditExperiment,
       readOnlyMessage:
           'Read-only view: you are viewing another member\'s notebook.',
     );
@@ -608,6 +793,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
   }
 
   Widget _buildMobileWorkspace(NotebookExperimentModel experiment) {
+    final canEditExperiment = _canEditExperiment(experiment);
     return DefaultTabController(
       length: 4,
       child: Column(
@@ -666,6 +852,8 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                       experiment: experiment,
                       compact: true,
                     ),
+                    const SizedBox(height: 10),
+                    _buildEditHistoryPanel(experiment, compact: true),
                   ],
                 ),
                 ExperimentNotesPanel(
@@ -676,7 +864,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                   formatDateTime: _formatDateTime,
                   expandList: true,
                   compact: true,
-                  canAddNote: _canEditNotebook,
+                  canAddNote: canEditExperiment,
                   readOnlyMessage:
                       'Read-only view: you are viewing another member\'s notebook.',
                 ),
@@ -761,7 +949,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                     },
                   );
 
-                  if (!widget.isReadOnly) {
+                  if (!_isEffectivelyReadOnly(experiment)) {
                     return content;
                   }
 
@@ -870,6 +1058,73 @@ class _HeaderMetric extends StatelessWidget {
             style: TextStyle(
               color: colorScheme.onSurface,
               fontSize: 12.2,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EditHistoryEntryTile extends StatelessWidget {
+  final ExperimentEditHistoryModel item;
+  final String Function(Timestamp timestamp) formatDateTime;
+  final bool compact;
+
+  const _EditHistoryEntryTile({
+    required this.item,
+    required this.formatDateTime,
+    required this.compact,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(compact ? 10 : 11),
+      decoration: BoxDecoration(
+        color: palette.panelAlt,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  item.summary.trim().isEmpty
+                      ? 'Experiment updated'
+                      : item.summary,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: compact ? 12.0 : 12.2,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                formatDateTime(item.editedAt),
+                style: TextStyle(
+                  color: palette.subtleText,
+                  fontSize: compact ? 10.6 : 10.8,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          Text(
+            item.editorLabel,
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: compact ? 11.2 : 11.4,
               fontWeight: FontWeight.w600,
             ),
           ),
