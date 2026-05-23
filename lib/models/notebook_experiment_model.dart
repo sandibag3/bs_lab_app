@@ -15,6 +15,8 @@ class NotebookExperimentModel {
   final String catalyst;
   final String solvent;
   final String temperature;
+  final String startTime;
+  final String endTime;
   final String time;
   final String atmosphere;
   final String scale;
@@ -49,6 +51,8 @@ class NotebookExperimentModel {
     required this.catalyst,
     required this.solvent,
     required this.temperature,
+    required this.startTime,
+    required this.endTime,
     required this.time,
     required this.atmosphere,
     required this.scale,
@@ -155,6 +159,8 @@ class NotebookExperimentModel {
       catalyst: (data['catalyst'] ?? '').toString(),
       solvent: (data['solvent'] ?? '').toString(),
       temperature: (data['temperature'] ?? '').toString(),
+      startTime: (data['startTime'] ?? '').toString(),
+      endTime: (data['endTime'] ?? '').toString(),
       time: (data['time'] ?? '').toString(),
       atmosphere: (data['atmosphere'] ?? '').toString(),
       scale: (data['scale'] ?? '').toString(),
@@ -215,6 +221,8 @@ class NotebookExperimentModel {
       'catalyst': catalyst,
       'solvent': solvent,
       'temperature': temperature,
+      'startTime': startTime,
+      'endTime': endTime,
       'time': time,
       'atmosphere': atmosphere,
       'scale': scale,

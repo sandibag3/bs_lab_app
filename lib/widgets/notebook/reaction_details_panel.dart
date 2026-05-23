@@ -17,25 +17,40 @@ class ReactionDetailsPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.labmate;
-    final setupRows = [
+    final setupRows = <_ReactionSummaryRow>[
       _ReactionSummaryRow(
         label: 'Reaction Title',
         value: experiment.reactionTitle,
       ),
-      _ReactionSummaryRow(
-        label: 'Starting Material',
-        value: experiment.startingMaterial,
-      ),
-      _ReactionSummaryRow(label: 'Reagents', value: experiment.reagents),
-      _ReactionSummaryRow(label: 'Catalyst', value: experiment.catalyst),
+      if (experiment.startingMaterial.trim().isNotEmpty)
+        _ReactionSummaryRow(
+          label: 'Starting Material',
+          value: experiment.startingMaterial,
+        ),
+      if (experiment.reagents.trim().isNotEmpty)
+        _ReactionSummaryRow(label: 'Reagents', value: experiment.reagents),
+      if (experiment.catalyst.trim().isNotEmpty)
+        _ReactionSummaryRow(label: 'Catalyst', value: experiment.catalyst),
     ];
-    final conditionChips = [
+    final conditionChips = <_ConditionValue>[
       _ConditionValue(label: 'Solvent', value: experiment.solvent),
       _ConditionValue(label: 'Temperature', value: experiment.temperature),
-      _ConditionValue(label: 'Time', value: experiment.time),
+      if (experiment.startTime.trim().isNotEmpty)
+        _ConditionValue(label: 'Start time', value: experiment.startTime),
+      if (experiment.endTime.trim().isNotEmpty)
+        _ConditionValue(label: 'End time', value: experiment.endTime),
+      if (experiment.startTime.trim().isEmpty &&
+          experiment.endTime.trim().isEmpty &&
+          experiment.time.trim().isNotEmpty)
+        _ConditionValue(label: 'Time', value: experiment.time),
       _ConditionValue(label: 'Atmosphere', value: experiment.atmosphere),
       _ConditionValue(label: 'Scale', value: experiment.scale),
     ];
+    final hasLegacySetupFields =
+        experiment.startingMaterial.trim().isNotEmpty ||
+        experiment.reagents.trim().isNotEmpty ||
+        experiment.catalyst.trim().isNotEmpty ||
+        experiment.scale.trim().isNotEmpty;
 
     return Container(
       width: double.infinity,
@@ -62,6 +77,10 @@ class ReactionDetailsPanel extends StatelessWidget {
           const _SectionLabel('Reaction Setup'),
           const SizedBox(height: 8),
           _SetupTable(rows: setupRows, compact: compact),
+          if (hasLegacySetupFields) ...[
+            SizedBox(height: compact ? 8 : 10),
+            _LegacySetupNote(compact: compact),
+          ],
           SizedBox(height: compact ? 10 : 12),
           const _SectionLabel('Reaction Table'),
           const SizedBox(height: 8),
@@ -234,6 +253,51 @@ class _SectionLabel extends StatelessWidget {
         color: palette.subtleText,
         fontSize: 11.2,
         fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
+class _LegacySetupNote extends StatelessWidget {
+  final bool compact;
+
+  const _LegacySetupNote({required this.compact});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(compact ? 10 : 11),
+      decoration: BoxDecoration(
+        color: const Color(0xFF38BDF8).withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: const Color(0xFF38BDF8).withValues(alpha: 0.22),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.archive_outlined,
+            size: 15,
+            color: Color(0xFF7DD3FC),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'These legacy setup text fields are shown for older records. Use the reaction table as the primary planning surface for new experiments.',
+              style: TextStyle(
+                color: palette.mutedText,
+                fontSize: compact ? 11.5 : 11.8,
+                height: 1.36,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

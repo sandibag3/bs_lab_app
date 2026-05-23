@@ -54,6 +54,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
   final TextEditingController _catalystController = TextEditingController();
   final TextEditingController _solventController = TextEditingController();
   final TextEditingController _temperatureController = TextEditingController();
+  final TextEditingController _startTimeController = TextEditingController();
+  final TextEditingController _endTimeController = TextEditingController();
   final TextEditingController _timeController = TextEditingController();
   final TextEditingController _atmosphereController = TextEditingController();
   final TextEditingController _scaleController = TextEditingController();
@@ -100,6 +102,27 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
   String get _duplicateSourceCode {
     final sourceCode = widget.initialExperiment?.experimentCode.trim() ?? '';
     return sourceCode.isEmpty ? 'source experiment' : sourceCode;
+  }
+
+  bool get _showLegacyTimeNotice {
+    if (!_isEditMode) {
+      return false;
+    }
+
+    return _startTimeController.text.trim().isEmpty &&
+        _endTimeController.text.trim().isEmpty &&
+        _timeController.text.trim().isNotEmpty;
+  }
+
+  bool get _preservesLegacySetupFields {
+    if (!_isEditMode) {
+      return false;
+    }
+
+    return _startingMaterialController.text.trim().isNotEmpty ||
+        _reagentsController.text.trim().isNotEmpty ||
+        _catalystController.text.trim().isNotEmpty ||
+        _scaleController.text.trim().isNotEmpty;
   }
 
   String get _effectiveNotebookOwnerUid {
@@ -184,20 +207,31 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     _titleController.text = initialExperiment.title.trim();
     _aimController.text = initialExperiment.aim.trim();
     _reactionTitleController.text = initialExperiment.reactionTitle.trim();
-    _startingMaterialController.text = initialExperiment.startingMaterial
-        .trim();
-    _reagentsController.text = initialExperiment.reagents.trim();
-    _catalystController.text = initialExperiment.catalyst.trim();
     _solventController.text = initialExperiment.solvent.trim();
     _temperatureController.text = initialExperiment.temperature.trim();
-    _timeController.text = initialExperiment.time.trim();
+    _startTimeController.text = initialExperiment.startTime.trim();
+    _endTimeController.text = initialExperiment.endTime.trim();
     _atmosphereController.text = initialExperiment.atmosphere.trim();
-    _scaleController.text = initialExperiment.scale.trim();
     _procedureController.text = initialExperiment.procedure.trim();
     _workupController.text = initialExperiment.workup.trim();
     _purificationController.text = initialExperiment.purification.trim();
     _characterizationController.text = initialExperiment.characterization
         .trim();
+
+    if (_isEditMode) {
+      _startingMaterialController.text = initialExperiment.startingMaterial
+          .trim();
+      _reagentsController.text = initialExperiment.reagents.trim();
+      _catalystController.text = initialExperiment.catalyst.trim();
+      _timeController.text = initialExperiment.time.trim();
+      _scaleController.text = initialExperiment.scale.trim();
+    } else {
+      _startingMaterialController.clear();
+      _reagentsController.clear();
+      _catalystController.clear();
+      _timeController.clear();
+      _scaleController.clear();
+    }
 
     if (_isEditMode) {
       _observationsController.text = initialExperiment.observations.trim();
@@ -423,6 +457,46 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
               ),
               const SizedBox(height: 11),
               child,
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInfoBanner({
+    required IconData icon,
+    required Color accent,
+    required String message,
+  }) {
+    return Builder(
+      builder: (context) {
+        final palette = context.labmate;
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(11),
+          decoration: BoxDecoration(
+            color: accent.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: accent.withValues(alpha: 0.24)),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 16, color: accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 11.8,
+                    height: 1.38,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -1088,6 +1162,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
               catalyst: _catalystController.text.trim(),
               solvent: _solventController.text.trim(),
               temperature: _temperatureController.text.trim(),
+              startTime: _startTimeController.text.trim(),
+              endTime: _endTimeController.text.trim(),
               time: _timeController.text.trim(),
               atmosphere: _atmosphereController.text.trim(),
               scale: _scaleController.text.trim(),
@@ -1138,6 +1214,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
               catalyst: _catalystController.text.trim(),
               solvent: _solventController.text.trim(),
               temperature: _temperatureController.text.trim(),
+              startTime: _startTimeController.text.trim(),
+              endTime: _endTimeController.text.trim(),
               time: _timeController.text.trim(),
               atmosphere: _atmosphereController.text.trim(),
               scale: _scaleController.text.trim(),
@@ -1730,50 +1808,44 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
   }
 
   Widget _buildReactionSetupSection() {
+    final setupFields = <Widget>[
+      _buildTextField(
+        controller: _reactionTitleController,
+        label: 'Reaction Title',
+      ),
+      _buildTextField(controller: _solventController, label: 'Solvent'),
+      _buildTextField(controller: _temperatureController, label: 'Temperature'),
+      _buildTextField(controller: _startTimeController, label: 'Start Time'),
+      _buildTextField(controller: _endTimeController, label: 'End Time'),
+      _buildTextField(controller: _atmosphereController, label: 'Atmosphere'),
+    ];
+
     return _buildSection(
       title: 'Reaction Setup',
-      subtitle: 'Substrates, reagents, and reaction conditions',
+      subtitle:
+          'Core conditions live here. Use the reaction table for materials and stoichiometry.',
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildAdaptiveFields([
-            _buildTextField(
-              controller: _reactionTitleController,
-              label: 'Reaction Title',
+          if (_showLegacyTimeNotice) ...[
+            _buildInfoBanner(
+              icon: Icons.schedule_rounded,
+              accent: const Color(0xFFFBBF24),
+              message:
+                  'Legacy time is preserved as "${_timeController.text.trim()}". Add start/end times when you want to move this experiment to the new format.',
             ),
-            _buildTextField(
-              controller: _startingMaterialController,
-              label: 'Starting Material',
+            const SizedBox(height: 10),
+          ],
+          if (_preservesLegacySetupFields) ...[
+            _buildInfoBanner(
+              icon: Icons.archive_outlined,
+              accent: const Color(0xFF38BDF8),
+              message:
+                  'Older setup text fields are being preserved in the background for compatibility. New material planning should go in the reaction table below.',
             ),
-          ]),
-          const SizedBox(height: 10),
-          _buildTextField(
-            controller: _reagentsController,
-            label: 'Reagents',
-            minLines: 2,
-            maxLines: 3,
-          ),
-          const SizedBox(height: 10),
-          _buildAdaptiveFields(
-            [
-              _buildTextField(
-                controller: _catalystController,
-                label: 'Catalyst',
-              ),
-              _buildTextField(controller: _solventController, label: 'Solvent'),
-              _buildTextField(
-                controller: _temperatureController,
-                label: 'Temperature',
-              ),
-              _buildTextField(controller: _timeController, label: 'Time'),
-              _buildTextField(
-                controller: _atmosphereController,
-                label: 'Atmosphere',
-              ),
-              _buildTextField(controller: _scaleController, label: 'Scale'),
-            ],
-            maxColumns: 3,
-            minItemWidth: 180,
-          ),
+            const SizedBox(height: 10),
+          ],
+          _buildAdaptiveFields(setupFields, maxColumns: 3, minItemWidth: 180),
         ],
       ),
     );
@@ -1926,6 +1998,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     _catalystController.dispose();
     _solventController.dispose();
     _temperatureController.dispose();
+    _startTimeController.dispose();
+    _endTimeController.dispose();
     _timeController.dispose();
     _atmosphereController.dispose();
     _scaleController.dispose();
