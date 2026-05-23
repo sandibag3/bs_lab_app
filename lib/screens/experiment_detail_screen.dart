@@ -13,6 +13,7 @@ import '../widgets/notebook/experiment_info_panel.dart';
 import '../widgets/notebook/experiment_notes_panel.dart';
 import '../widgets/notebook/reaction_details_panel.dart';
 import '../widgets/responsive_page_container.dart';
+import 'add_experiment_screen.dart';
 
 class ExperimentDetailScreen extends StatefulWidget {
   final AppState appState;
@@ -211,7 +212,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     }
   }
 
-  Future<void> _duplicateExperiment(NotebookExperimentModel experiment) async {
+  Future<void> _openDuplicateDraft(NotebookExperimentModel experiment) async {
     if (_isDuplicating || !_canEditNotebook) {
       return;
     }
@@ -232,9 +233,11 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     final messenger = ScaffoldMessenger.of(context);
 
     try {
-      final duplicatedExperimentId = await _labNotebookService
-          .duplicateExperiment(
-            sourceExperiment: experiment,
+      final duplicateCode = await _labNotebookService
+          .getNextDuplicateExperimentCode(
+            labId: _labId,
+            projectId: widget.project.id,
+            originalCode: experiment.experimentCode,
             notebookOwnerUid: widget.notebookOwnerUid,
           );
 
@@ -242,16 +245,30 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
         return;
       }
 
-      messenger.showSnackBar(
-        const SnackBar(content: Text('Experiment duplicated. Opening copy.')),
+      final duplicatedExperimentId = await Navigator.of(context).push<String>(
+        MaterialPageRoute(
+          builder: (_) => AddExperimentScreen(
+            appState: widget.appState,
+            project: widget.project,
+            initialExperiment: experiment,
+            initialExperimentCode: duplicateCode,
+            isDuplicateDraft: true,
+          ),
+        ),
       );
+
+      if (!mounted ||
+          duplicatedExperimentId == null ||
+          duplicatedExperimentId.trim().isEmpty) {
+        return;
+      }
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
           builder: (_) => ExperimentDetailScreen(
             appState: widget.appState,
             project: widget.project,
-            experimentId: duplicatedExperimentId,
+            experimentId: duplicatedExperimentId.trim(),
             notebookOwnerUid: widget.notebookOwnerUid,
             notebookOwnerLabel: widget.notebookOwnerLabel,
             isReadOnly: widget.isReadOnly,
@@ -315,7 +332,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
             child: OutlinedButton.icon(
               onPressed: _isDuplicating
                   ? null
-                  : () => _duplicateExperiment(experiment),
+                  : () => _openDuplicateDraft(experiment),
               style: OutlinedButton.styleFrom(
                 foregroundColor: colorScheme.onSurface,
                 padding: const EdgeInsets.symmetric(
@@ -332,7 +349,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                     )
                   : const Icon(Icons.copy_all_rounded, size: 16),
               label: Text(
-                _isDuplicating ? 'Duplicating' : 'Duplicate',
+                _isDuplicating ? 'Preparing' : 'Duplicate',
                 style: const TextStyle(
                   fontSize: 12.2,
                   fontWeight: FontWeight.w700,

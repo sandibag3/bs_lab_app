@@ -12,11 +12,17 @@ import '../widgets/responsive_page_container.dart';
 class AddExperimentScreen extends StatefulWidget {
   final AppState appState;
   final NotebookProjectModel project;
+  final NotebookExperimentModel? initialExperiment;
+  final String? initialExperimentCode;
+  final bool isDuplicateDraft;
 
   const AddExperimentScreen({
     super.key,
     required this.appState,
     required this.project,
+    this.initialExperiment,
+    this.initialExperimentCode,
+    this.isDuplicateDraft = false,
   });
 
   @override
@@ -56,16 +62,60 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
   String _selectedStatus = notebookExperimentStatuses.first;
   bool _isSaving = false;
 
+  bool get _isDuplicateDraftMode =>
+      widget.isDuplicateDraft && widget.initialExperiment != null;
+  String get _saveButtonLabel =>
+      _isDuplicateDraftMode ? 'Save duplicated experiment' : 'Save Experiment';
+  String get _draftTitle => _isDuplicateDraftMode
+      ? 'Duplicate experiment draft'
+      : 'New experiment draft';
+  String get _duplicateSourceCode {
+    final sourceCode = widget.initialExperiment?.experimentCode.trim() ?? '';
+    return sourceCode.isEmpty ? 'source experiment' : sourceCode;
+  }
+
   @override
   void initState() {
     super.initState();
     _syncDateField();
+    _applyInitialDraft();
   }
 
   void _syncDateField() {
     final day = _selectedDate.day.toString().padLeft(2, '0');
     final month = _selectedDate.month.toString().padLeft(2, '0');
     _dateController.text = '$day/$month/${_selectedDate.year}';
+  }
+
+  void _applyInitialDraft() {
+    final initialExperiment = widget.initialExperiment;
+    if (!_isDuplicateDraftMode || initialExperiment == null) {
+      return;
+    }
+
+    _experimentCodeController.text = (widget.initialExperimentCode ?? '')
+        .trim();
+    _titleController.text = initialExperiment.title.trim();
+    _aimController.text = initialExperiment.aim.trim();
+    _reactionTitleController.text = initialExperiment.reactionTitle.trim();
+    _startingMaterialController.text = initialExperiment.startingMaterial
+        .trim();
+    _reagentsController.text = initialExperiment.reagents.trim();
+    _catalystController.text = initialExperiment.catalyst.trim();
+    _solventController.text = initialExperiment.solvent.trim();
+    _temperatureController.text = initialExperiment.temperature.trim();
+    _timeController.text = initialExperiment.time.trim();
+    _atmosphereController.text = initialExperiment.atmosphere.trim();
+    _scaleController.text = initialExperiment.scale.trim();
+    _procedureController.text = initialExperiment.procedure.trim();
+    _workupController.text = initialExperiment.workup.trim();
+    _purificationController.text = initialExperiment.purification.trim();
+    _characterizationController.text = initialExperiment.characterization
+        .trim();
+    _observationsController.clear();
+    _yieldController.clear();
+    _conclusionController.clear();
+    _selectedStatus = notebookExperimentStatuses.first;
   }
 
   Color _statusColor(String status) {
@@ -220,6 +270,15 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     return widget.appState.authenticatedUserName;
   }
 
+  String _ownerEmailValue() {
+    final authenticatedEmail = widget.appState.authenticatedUserEmail.trim();
+    if (authenticatedEmail.isNotEmpty) {
+      return authenticatedEmail;
+    }
+
+    return widget.project.ownerEmail.trim();
+  }
+
   Future<void> _pickDate() async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -253,7 +312,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
 
     final labId = widget.appState.resolveWriteLabId(widget.project.labId);
     final ownerUid = widget.appState.authenticatedUserId.trim();
-    final ownerEmail = widget.appState.authenticatedUserEmail.trim();
+    final ownerEmail = _ownerEmailValue();
     if (labId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -303,16 +362,24 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
         projectId: widget.project.id,
       );
 
-      await _labNotebookService.addExperiment(experiment: experiment);
+      final experimentId = await _labNotebookService.addExperiment(
+        experiment: experiment,
+      );
 
       if (!mounted) {
         return;
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Experiment saved successfully.')),
+        SnackBar(
+          content: Text(
+            _isDuplicateDraftMode
+                ? 'Duplicated experiment saved.'
+                : 'Experiment saved successfully.',
+          ),
+        ),
       );
-      Navigator.pop(context, true);
+      Navigator.pop(context, experimentId);
     } catch (error) {
       if (!mounted) {
         return;
@@ -372,9 +439,11 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                const _DraftBadge(
+                _DraftBadge(
                   icon: Icons.edit_note_rounded,
-                  label: 'New Experiment Draft',
+                  label: _isDuplicateDraftMode
+                      ? 'Duplicate Draft'
+                      : 'New Experiment Draft',
                   accent: Color(0xFF5EEAD4),
                 ),
                 _DraftBadge(
@@ -385,7 +454,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              projectTitle,
+              _draftTitle,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -396,7 +465,9 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
             ),
             const SizedBox(height: 4),
             Text(
-              labLabel,
+              '$projectTitle • $labLabel',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 color: palette.mutedText,
                 fontSize: 12.0,
@@ -425,8 +496,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                     ),
                   )
                 : const Icon(Icons.save_rounded, size: 18),
-            label: const Text(
-              'Save Experiment',
+            label: Text(
+              _saveButtonLabel,
               style: TextStyle(fontWeight: FontWeight.w700),
             ),
           ),
@@ -461,7 +532,9 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                       child: Text(
-                        'Required: experiment code, title, date, and status.',
+                        _isDuplicateDraftMode
+                            ? 'Review the copied setup, adjust any details, then save the new experiment.'
+                            : 'Required: experiment code, title, date, and status.',
                         style: TextStyle(
                           color: palette.mutedText,
                           fontSize: 12.2,
@@ -470,6 +543,51 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                     ),
                   ],
                 ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDuplicateInfoBanner() {
+    if (!_isDuplicateDraftMode) {
+      return const SizedBox.shrink();
+    }
+
+    return Builder(
+      builder: (context) {
+        final palette = context.labmate;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: const Color(0xFF14B8A6).withValues(alpha: 0.26),
+            ),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Icon(
+                Icons.copy_all_rounded,
+                color: Color(0xFF5EEAD4),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Copied setup from [$_duplicateSourceCode]. Notes and results are not copied.',
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 12.3,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
@@ -527,7 +645,9 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          'Project and required fields',
+                          _isDuplicateDraftMode
+                              ? 'Project and copied setup'
+                              : 'Project and required fields',
                           style: TextStyle(
                             color: palette.subtleText,
                             fontSize: 11.4,
@@ -903,8 +1023,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                 ),
               )
             : const Icon(Icons.save_rounded, size: 18),
-        label: const Text(
-          'Save Experiment',
+        label: Text(
+          _saveButtonLabel,
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
       ),
@@ -993,7 +1113,13 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      appBar: AppBar(title: const Text('New Experiment')),
+      appBar: AppBar(
+        title: Text(
+          _isDuplicateDraftMode
+              ? 'Duplicate Experiment Draft'
+              : 'New Experiment',
+        ),
+      ),
       body: ResponsivePageContainer(
         maxWidth: 1500,
         child: SafeArea(
@@ -1010,6 +1136,10 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                               child: Column(
                                 children: [
                                   _buildHeaderBar(isWide: isWide),
+                                  if (_isDuplicateDraftMode) ...[
+                                    const SizedBox(height: 10),
+                                    _buildDuplicateInfoBanner(),
+                                  ],
                                   const SizedBox(height: 10),
                                   _buildFormWorkspace(isWide),
                                 ],

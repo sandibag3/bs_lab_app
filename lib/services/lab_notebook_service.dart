@@ -96,6 +96,24 @@ class LabNotebookService {
     }
   }
 
+  Future<Set<String>> _existingExperimentCodes({
+    required String labId,
+    required String notebookOwnerUid,
+    required String projectId,
+  }) async {
+    final existingSnapshot = await _experimentsRef(
+      labId,
+      notebookOwnerUid,
+      projectId,
+    ).get();
+
+    return existingSnapshot.docs
+        .map((doc) => (doc.data()['experimentCode'] ?? '').toString().trim())
+        .where((code) => code.isNotEmpty)
+        .map((code) => code.toLowerCase())
+        .toSet();
+  }
+
   CollectionReference<Map<String, dynamic>> _userNotebooksRef(String labId) {
     return _firestore.collection('labs').doc(labId).collection('userNotebooks');
   }
@@ -470,6 +488,34 @@ class LabNotebookService {
     });
   }
 
+  Future<String> getNextDuplicateExperimentCode({
+    required String labId,
+    required String projectId,
+    required String originalCode,
+    String? notebookOwnerUid,
+  }) async {
+    final cleanLabId = labId.trim();
+    final cleanNotebookOwnerUid = resolveNotebookOwnerUid(notebookOwnerUid);
+    final cleanProjectId = projectId.trim();
+
+    if (cleanLabId.isEmpty ||
+        cleanNotebookOwnerUid.isEmpty ||
+        cleanProjectId.isEmpty) {
+      throw Exception('Experiment context is missing.');
+    }
+
+    _ensureOwnerWriteAccess(cleanNotebookOwnerUid);
+
+    return _runGuarded(() async {
+      final existingCodes = await _existingExperimentCodes(
+        labId: cleanLabId,
+        notebookOwnerUid: cleanNotebookOwnerUid,
+        projectId: cleanProjectId,
+      );
+      return _nextDuplicateExperimentCode(originalCode, existingCodes);
+    });
+  }
+
   Future<String> duplicateExperiment({
     required NotebookExperimentModel sourceExperiment,
     String? notebookOwnerUid,
@@ -499,20 +545,17 @@ class LabNotebookService {
         cleanNotebookOwnerUid,
         cleanProjectId,
       );
-      final existingSnapshot = await experimentsRef.get();
-      final existingCodes = existingSnapshot.docs
-          .map((doc) => (doc.data()['experimentCode'] ?? '').toString().trim())
-          .where((code) => code.isNotEmpty)
-          .map((code) => code.toLowerCase())
-          .toSet();
+      final duplicateCode = await getNextDuplicateExperimentCode(
+        labId: cleanLabId,
+        projectId: cleanProjectId,
+        originalCode: sourceExperiment.experimentCode,
+        notebookOwnerUid: cleanNotebookOwnerUid,
+      );
 
       final now = Timestamp.now();
       final duplicatedExperiment = NotebookExperimentModel(
         id: '',
-        experimentCode: _nextDuplicateExperimentCode(
-          sourceExperiment.experimentCode,
-          existingCodes,
-        ),
+        experimentCode: duplicateCode,
         title: sourceExperiment.title,
         date: now,
         aim: sourceExperiment.aim,
