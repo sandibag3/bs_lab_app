@@ -453,7 +453,7 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Container(
-        width: 1060,
+        width: 1080,
         decoration: BoxDecoration(
           color: palette.panelAlt,
           borderRadius: BorderRadius.circular(16),
@@ -470,13 +470,14 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
                 children: [
                   _ReactionTableHeaderCell('Component', 160),
                   _ReactionTableHeaderCell('Role', 120),
-                  _ReactionTableHeaderCell('Formula / Notes', 150),
-                  _ReactionTableHeaderCell('mmol', 74),
                   _ReactionTableHeaderCell('Equiv', 74),
+                  _ReactionTableHeaderCell('mmol', 74),
+                  _ReactionTableHeaderCell('Molecular weight', 112),
                   _ReactionTableHeaderCell('Amount', 84),
                   _ReactionTableHeaderCell('Unit', 80),
-                  _ReactionTableHeaderCell('Supplier / Source', 150),
-                  _ReactionTableHeaderCell('Remarks', 156),
+                  _ReactionTableHeaderCell('Density', 84),
+                  _ReactionTableHeaderCell('Volume', 84),
+                  _ReactionTableHeaderCell('Remarks', 208),
                 ],
               ),
             ),
@@ -505,20 +506,21 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
                       isLimitingReagent: component.isLimitingReagent,
                     ),
                     _ReactionTableValueCell(width: 120, value: component.role),
-                    _ReactionTableValueCell(
-                      width: 150,
-                      value: component.formulaOrNotes,
-                    ),
-                    _ReactionTableValueCell(width: 74, value: component.mmol),
                     _ReactionTableValueCell(width: 74, value: component.equiv),
+                    _ReactionTableValueCell(width: 74, value: component.mmol),
+                    _ReactionTableValueCell(
+                      width: 112,
+                      value: component.molecularWeight,
+                    ),
                     _ReactionTableValueCell(width: 84, value: component.amount),
                     _ReactionTableValueCell(width: 80, value: component.unit),
                     _ReactionTableValueCell(
-                      width: 150,
-                      value: component.supplierOrSource,
+                      width: 84,
+                      value: component.density,
                     ),
+                    _ReactionTableValueCell(width: 84, value: component.volume),
                     _ReactionTableValueCell(
-                      width: 156,
+                      width: 208,
                       value: component.remarks,
                     ),
                   ],
@@ -591,6 +593,21 @@ class _ReactionComponentsMobileCards extends StatelessWidget {
                       compact: compact,
                     ),
                     _ComponentMetaChip(
+                      label: 'Equiv',
+                      value: component.equiv,
+                      compact: compact,
+                    ),
+                    _ComponentMetaChip(
+                      label: 'mmol',
+                      value: component.mmol,
+                      compact: compact,
+                    ),
+                    _ComponentMetaChip(
+                      label: 'Mol. wt.',
+                      value: component.molecularWeight,
+                      compact: compact,
+                    ),
+                    _ComponentMetaChip(
                       label: 'Amount',
                       value: component.amount,
                       compact: compact,
@@ -601,26 +618,18 @@ class _ReactionComponentsMobileCards extends StatelessWidget {
                       compact: compact,
                     ),
                     _ComponentMetaChip(
-                      label: 'mmol',
-                      value: component.mmol,
+                      label: 'Density',
+                      value: component.density,
                       compact: compact,
                     ),
                     _ComponentMetaChip(
-                      label: 'Equiv',
-                      value: component.equiv,
+                      label: 'Volume',
+                      value: component.volume,
                       compact: compact,
                     ),
                   ],
                 ),
                 const SizedBox(height: 8),
-                _ComponentDetailLine(
-                  label: 'Formula / Notes',
-                  value: component.formulaOrNotes,
-                ),
-                _ComponentDetailLine(
-                  label: 'Supplier / Source',
-                  value: component.supplierOrSource,
-                ),
                 _ComponentDetailLine(
                   label: 'Remarks',
                   value: component.remarks,

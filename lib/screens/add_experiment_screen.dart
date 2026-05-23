@@ -264,8 +264,11 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
       formulaOrNotes: initialComponent?.formulaOrNotes ?? '',
       mmol: initialComponent?.mmol ?? '',
       equiv: initialComponent?.equiv ?? '',
+      molecularWeight: initialComponent?.molecularWeight ?? '',
       amount: initialComponent?.amount ?? '',
       unit: initialComponent?.unit ?? reactionComponentUnits.first,
+      density: initialComponent?.density ?? '',
+      volume: initialComponent?.volume ?? '',
       supplierOrSource: initialComponent?.supplierOrSource ?? '',
       remarks: initialComponent?.remarks ?? '',
       isLimitingReagent: initialComponent?.isLimitingReagent ?? false,
@@ -805,7 +808,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Container(
-            width: 1248,
+            width: 1324,
             decoration: BoxDecoration(
               color: palette.panelAlt,
               borderRadius: BorderRadius.circular(16),
@@ -825,12 +828,13 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                     children: [
                       _DesktopReactionHeaderCell('Component', 160),
                       _DesktopReactionHeaderCell('Role', 124),
-                      _DesktopReactionHeaderCell('Formula / Notes', 150),
-                      _DesktopReactionHeaderCell('mmol', 76),
                       _DesktopReactionHeaderCell('Equiv', 76),
+                      _DesktopReactionHeaderCell('mmol', 76),
+                      _DesktopReactionHeaderCell('Molecular weight', 116),
                       _DesktopReactionHeaderCell('Amount', 86),
                       _DesktopReactionHeaderCell('Unit', 86),
-                      _DesktopReactionHeaderCell('Supplier / Source', 150),
+                      _DesktopReactionHeaderCell('Density', 90),
+                      _DesktopReactionHeaderCell('Volume', 90),
                       _DesktopReactionHeaderCell('Remarks', 150),
                       _DesktopReactionHeaderCell('Limit', 98),
                       _DesktopReactionHeaderCell('', 46),
@@ -873,10 +877,10 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                           child: _buildReactionComponentRoleField(draft),
                         ),
                         _DesktopReactionFieldCell(
-                          width: 150,
+                          width: 76,
                           child: _buildReactionComponentTextField(
-                            controller: draft.formulaOrNotesController,
-                            hint: 'Formula or notes',
+                            controller: draft.equivController,
+                            hint: 'Equiv',
                           ),
                         ),
                         _DesktopReactionFieldCell(
@@ -887,10 +891,10 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                           ),
                         ),
                         _DesktopReactionFieldCell(
-                          width: 76,
+                          width: 116,
                           child: _buildReactionComponentTextField(
-                            controller: draft.equivController,
-                            hint: 'Equiv',
+                            controller: draft.molecularWeightController,
+                            hint: 'Mol. wt.',
                           ),
                         ),
                         _DesktopReactionFieldCell(
@@ -905,10 +909,17 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                           child: _buildReactionComponentUnitField(draft),
                         ),
                         _DesktopReactionFieldCell(
-                          width: 150,
+                          width: 90,
                           child: _buildReactionComponentTextField(
-                            controller: draft.supplierOrSourceController,
-                            hint: 'Supplier or source',
+                            controller: draft.densityController,
+                            hint: 'Density',
+                          ),
+                        ),
+                        _DesktopReactionFieldCell(
+                          width: 90,
+                          child: _buildReactionComponentTextField(
+                            controller: draft.volumeController,
+                            hint: 'Volume',
                           ),
                         ),
                         _DesktopReactionFieldCell(
@@ -1009,16 +1020,16 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                         ),
                         _buildReactionComponentRoleField(draft),
                         _buildReactionComponentTextField(
-                          controller: draft.formulaOrNotesController,
-                          hint: 'Formula or notes',
+                          controller: draft.equivController,
+                          hint: 'Equiv',
                         ),
                         _buildReactionComponentTextField(
                           controller: draft.mmolController,
                           hint: 'mmol',
                         ),
                         _buildReactionComponentTextField(
-                          controller: draft.equivController,
-                          hint: 'Equiv',
+                          controller: draft.molecularWeightController,
+                          hint: 'Molecular weight',
                         ),
                         _buildReactionComponentTextField(
                           controller: draft.amountController,
@@ -1026,8 +1037,12 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                         ),
                         _buildReactionComponentUnitField(draft),
                         _buildReactionComponentTextField(
-                          controller: draft.supplierOrSourceController,
-                          hint: 'Supplier or source',
+                          controller: draft.densityController,
+                          hint: 'Density',
+                        ),
+                        _buildReactionComponentTextField(
+                          controller: draft.volumeController,
+                          hint: 'Volume',
                         ),
                         _buildReactionComponentTextField(
                           controller: draft.remarksController,
@@ -2209,7 +2224,10 @@ class _ReactionComponentDraft {
   final TextEditingController formulaOrNotesController;
   final TextEditingController mmolController;
   final TextEditingController equivController;
+  final TextEditingController molecularWeightController;
   final TextEditingController amountController;
+  final TextEditingController densityController;
+  final TextEditingController volumeController;
   final TextEditingController supplierOrSourceController;
   final TextEditingController remarksController;
   String role;
@@ -2223,8 +2241,11 @@ class _ReactionComponentDraft {
     required String formulaOrNotes,
     required String mmol,
     required String equiv,
+    required String molecularWeight,
     required String amount,
     required this.unit,
+    required String density,
+    required String volume,
     required String supplierOrSource,
     required String remarks,
     required this.isLimitingReagent,
@@ -2232,7 +2253,10 @@ class _ReactionComponentDraft {
        formulaOrNotesController = TextEditingController(text: formulaOrNotes),
        mmolController = TextEditingController(text: mmol),
        equivController = TextEditingController(text: equiv),
+       molecularWeightController = TextEditingController(text: molecularWeight),
        amountController = TextEditingController(text: amount),
+       densityController = TextEditingController(text: density),
+       volumeController = TextEditingController(text: volume),
        supplierOrSourceController = TextEditingController(
          text: supplierOrSource,
        ),
@@ -2245,8 +2269,11 @@ class _ReactionComponentDraft {
       formulaOrNotes: formulaOrNotesController.text.trim(),
       mmol: mmolController.text.trim(),
       equiv: equivController.text.trim(),
+      molecularWeight: molecularWeightController.text.trim(),
       amount: amountController.text.trim(),
       unit: unit.trim(),
+      density: densityController.text.trim(),
+      volume: volumeController.text.trim(),
       supplierOrSource: supplierOrSourceController.text.trim(),
       remarks: remarksController.text.trim(),
       isLimitingReagent: isLimitingReagent,
@@ -2258,7 +2285,10 @@ class _ReactionComponentDraft {
     formulaOrNotesController.dispose();
     mmolController.dispose();
     equivController.dispose();
+    molecularWeightController.dispose();
     amountController.dispose();
+    densityController.dispose();
+    volumeController.dispose();
     supplierOrSourceController.dispose();
     remarksController.dispose();
   }

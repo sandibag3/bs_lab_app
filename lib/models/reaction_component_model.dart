@@ -26,8 +26,11 @@ class ReactionComponentModel {
   final String formulaOrNotes;
   final String mmol;
   final String equiv;
+  final String molecularWeight;
   final String amount;
   final String unit;
+  final String density;
+  final String volume;
   final String supplierOrSource;
   final String remarks;
   final bool isLimitingReagent;
@@ -38,8 +41,11 @@ class ReactionComponentModel {
     required this.formulaOrNotes,
     required this.mmol,
     required this.equiv,
+    required this.molecularWeight,
     required this.amount,
     required this.unit,
+    required this.density,
+    required this.volume,
     required this.supplierOrSource,
     required this.remarks,
     required this.isLimitingReagent,
@@ -57,8 +63,11 @@ class ReactionComponentModel {
       formulaOrNotes: (data['formulaOrNotes'] ?? '').toString(),
       mmol: (data['mmol'] ?? '').toString(),
       equiv: (data['equiv'] ?? '').toString(),
+      molecularWeight: (data['molecularWeight'] ?? '').toString(),
       amount: (data['amount'] ?? '').toString(),
       unit: (data['unit'] ?? '').toString(),
+      density: (data['density'] ?? '').toString(),
+      volume: (data['volume'] ?? '').toString(),
       supplierOrSource: (data['supplierOrSource'] ?? '').toString(),
       remarks: (data['remarks'] ?? '').toString(),
       isLimitingReagent: isLimitingReagent,
@@ -72,8 +81,11 @@ class ReactionComponentModel {
       'formulaOrNotes': formulaOrNotes,
       'mmol': mmol,
       'equiv': equiv,
+      'molecularWeight': molecularWeight,
       'amount': amount,
       'unit': unit,
+      'density': density,
+      'volume': volume,
       'supplierOrSource': supplierOrSource,
       'remarks': remarks,
       'isLimitingReagent': isLimitingReagent,
