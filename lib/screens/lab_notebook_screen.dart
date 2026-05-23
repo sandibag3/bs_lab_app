@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_state.dart';
 import '../models/lab_membership_model.dart';
@@ -8,6 +9,7 @@ import '../services/firestore_access_guard.dart';
 import '../services/lab_membership_service.dart';
 import '../services/lab_notebook_service.dart';
 import '../theme/labmate_theme.dart';
+import '../widgets/notebook/notebook_view_mode_selector.dart';
 import '../widgets/responsive_page_container.dart';
 import 'add_notebook_project_screen.dart';
 import 'notebook_project_detail_screen.dart';
@@ -378,148 +380,6 @@ class LabNotebookScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProjectCard(
-    BuildContext context,
-    NotebookProjectModel project, {
-    bool compact = false,
-    required String notebookOwnerUid,
-    required String notebookOwnerLabel,
-    required bool isReadOnly,
-  }) {
-    final description = project.description.trim();
-    final palette = context.labmate;
-    final colorScheme = context.colorScheme;
-
-    return Material(
-      color: palette.panel,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => NotebookProjectDetailScreen(
-                appState: appState,
-                project: project,
-                notebookOwnerUid: notebookOwnerUid,
-                notebookOwnerLabel: notebookOwnerLabel,
-                isReadOnly: isReadOnly,
-              ),
-            ),
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: palette.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    height: 34,
-                    width: 34,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF14B8A6).withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Icon(
-                      Icons.folder_open_rounded,
-                      color: Color(0xFF5EEAD4),
-                      size: 17,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'PROJECT',
-                          style: TextStyle(
-                            color: Color(0xFF5EEAD4),
-                            fontSize: 10.6,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          project.title.trim().isEmpty
-                              ? 'Untitled project'
-                              : project.title.trim(),
-                          maxLines: compact ? 2 : 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: colorScheme.onSurface,
-                            fontSize: 14.2,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 15,
-                    color: palette.subtleText,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(11),
-                decoration: BoxDecoration(
-                  color: palette.panelAlt,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: palette.border),
-                ),
-                child: Text(
-                  description.isEmpty
-                      ? 'No project description yet. Open the project to start building the experiment workspace.'
-                      : description,
-                  maxLines: compact ? 4 : 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: description.isEmpty
-                        ? palette.subtleText
-                        : palette.mutedText,
-                    fontSize: 12.2,
-                    height: 1.38,
-                  ),
-                ),
-              ),
-              const Spacer(),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _NotebookBadge(
-                    icon: Icons.schedule_rounded,
-                    label: _formatDate(project.createdAt),
-                  ),
-                  _NotebookBadge(
-                    icon: Icons.person_outline_rounded,
-                    label: project.ownerLabel,
-                    accent: isReadOnly ? const Color(0xFFFBBF24) : null,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildProjectsPanel(
     BuildContext context,
     List<NotebookProjectModel> projects, {
@@ -527,123 +387,13 @@ class LabNotebookScreen extends StatelessWidget {
     required String notebookOwnerLabel,
     required bool isReadOnly,
   }) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final columns = width >= 1180
-            ? 3
-            : width >= 740
-            ? 2
-            : 1;
-
-        Widget body;
-        if (projects.isEmpty) {
-          body = Center(
-            child: _NotebookNotice(
-              icon: Icons.folder_open_rounded,
-              title: 'No notebook projects yet',
-              message: isReadOnly
-                  ? '$notebookOwnerLabel has not added any notebook projects yet.'
-                  : 'Create your first project to start organizing experiments and reaction notes.',
-              accent: const Color(0xFF14B8A6),
-            ),
-          );
-        } else if (columns == 1) {
-          body = ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemCount: projects.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              return SizedBox(
-                height: 190,
-                child: _buildProjectCard(
-                  context,
-                  projects[index],
-                  notebookOwnerUid: notebookOwnerUid,
-                  notebookOwnerLabel: notebookOwnerLabel,
-                  isReadOnly: isReadOnly,
-                ),
-              );
-            },
-          );
-        } else {
-          body = GridView.builder(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemCount: projects.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: columns == 3 ? 1.32 : 1.26,
-            ),
-            itemBuilder: (context, index) {
-              return _buildProjectCard(
-                context,
-                projects[index],
-                compact: true,
-                notebookOwnerUid: notebookOwnerUid,
-                notebookOwnerLabel: notebookOwnerLabel,
-                isReadOnly: isReadOnly,
-              );
-            },
-          );
-        }
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            color: context.labmate.panel,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: context.labmate.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          isReadOnly
-                              ? '${notebookOwnerLabel.split(' ').first} Notebook'
-                              : 'Projects',
-                          style: TextStyle(
-                            color: context.colorScheme.onSurface,
-                            fontSize: 15.0,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isReadOnly
-                              ? 'Read-only project list'
-                              : 'Open a project to view its experiment workspace',
-                          style: TextStyle(
-                            color: context.labmate.subtleText,
-                            fontSize: 11.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _NotebookBadge(
-                    icon: Icons.folder_copy_rounded,
-                    label: '${projects.length}',
-                    accent: const Color(0xFF5EEAD4),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Expanded(child: body),
-            ],
-          ),
-        );
-      },
+    return _NotebookProjectsPanel(
+      appState: appState,
+      projects: projects,
+      notebookOwnerUid: notebookOwnerUid,
+      notebookOwnerLabel: notebookOwnerLabel,
+      isReadOnly: isReadOnly,
+      formatDate: _formatDate,
     );
   }
 
@@ -1017,6 +767,520 @@ class LabNotebookScreen extends StatelessWidget {
                   isReadOnly: isReadOnly,
                 ),
         ),
+      ),
+    );
+  }
+}
+
+class _NotebookProjectsPanel extends StatefulWidget {
+  final AppState appState;
+  final List<NotebookProjectModel> projects;
+  final String notebookOwnerUid;
+  final String notebookOwnerLabel;
+  final bool isReadOnly;
+  final String Function(Timestamp timestamp) formatDate;
+
+  const _NotebookProjectsPanel({
+    required this.appState,
+    required this.projects,
+    required this.notebookOwnerUid,
+    required this.notebookOwnerLabel,
+    required this.isReadOnly,
+    required this.formatDate,
+  });
+
+  @override
+  State<_NotebookProjectsPanel> createState() => _NotebookProjectsPanelState();
+}
+
+class _NotebookProjectsPanelState extends State<_NotebookProjectsPanel> {
+  static const _prefsKey = 'lab_notebook_project_view_mode';
+
+  NotebookViewMode _viewMode = NotebookViewMode.medium;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadViewMode();
+  }
+
+  Future<void> _loadViewMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedMode = notebookViewModeFromStorage(
+      prefs.getString(_prefsKey),
+      fallback: NotebookViewMode.medium,
+    );
+
+    if (!mounted || savedMode == _viewMode) {
+      return;
+    }
+
+    setState(() {
+      _viewMode = savedMode;
+    });
+  }
+
+  Future<void> _setViewMode(NotebookViewMode mode) async {
+    if (_viewMode == mode) {
+      return;
+    }
+
+    setState(() {
+      _viewMode = mode;
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsKey, mode.storageValue);
+  }
+
+  int _columnsForWidth(double width) {
+    switch (_viewMode) {
+      case NotebookViewMode.small:
+        if (width >= 1320) return 4;
+        if (width >= 980) return 3;
+        if (width >= 680) return 2;
+        return 1;
+      case NotebookViewMode.medium:
+        if (width >= 1180) return 3;
+        if (width >= 740) return 2;
+        return 1;
+      case NotebookViewMode.large:
+        if (width >= 1380) return 3;
+        if (width >= 920) return 2;
+        return 1;
+      case NotebookViewMode.list:
+        return 1;
+    }
+  }
+
+  double _gridItemExtent() {
+    switch (_viewMode) {
+      case NotebookViewMode.small:
+        return 150;
+      case NotebookViewMode.medium:
+        return 188;
+      case NotebookViewMode.large:
+        return 224;
+      case NotebookViewMode.list:
+        return 154;
+    }
+  }
+
+  void _openProject(BuildContext context, NotebookProjectModel project) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => NotebookProjectDetailScreen(
+          appState: widget.appState,
+          project: project,
+          notebookOwnerUid: widget.notebookOwnerUid,
+          notebookOwnerLabel: widget.notebookOwnerLabel,
+          isReadOnly: widget.isReadOnly,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProjectListRow(
+    BuildContext context,
+    NotebookProjectModel project,
+  ) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final description = project.description.trim();
+
+    return Material(
+      color: palette.panelAlt,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _openProject(context, project),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: palette.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                height: 42,
+                width: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF14B8A6).withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.folder_open_rounded,
+                  color: Color(0xFF5EEAD4),
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            project.title.trim().isEmpty
+                                ? 'Untitled project'
+                                : project.title.trim(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontSize: 14.2,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _NotebookBadge(
+                          icon: Icons.schedule_rounded,
+                          label: widget.formatDate(project.createdAt),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      description.isEmpty
+                          ? 'No description yet. Open the notebook workspace to add experiments.'
+                          : description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: description.isEmpty
+                            ? palette.subtleText
+                            : palette.mutedText,
+                        fontSize: 12.0,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _NotebookBadge(
+                          icon: Icons.person_outline_rounded,
+                          label: project.ownerLabel,
+                          accent: widget.isReadOnly
+                              ? const Color(0xFFFBBF24)
+                              : null,
+                        ),
+                        _NotebookBadge(
+                          icon: Icons.chevron_right_rounded,
+                          label: 'Open',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildProjectGridCard(
+    BuildContext context,
+    NotebookProjectModel project,
+  ) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final description = project.description.trim();
+    final isSmall = _viewMode == NotebookViewMode.small;
+    final isLarge = _viewMode == NotebookViewMode.large;
+    final title = project.title.trim().isEmpty
+        ? 'Untitled project'
+        : project.title.trim();
+
+    return Material(
+      color: palette.panelAlt,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _openProject(context, project),
+        child: Container(
+          padding: EdgeInsets.all(isSmall ? 11 : 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: palette.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    height: isSmall ? 36 : 38,
+                    width: isSmall ? 36 : 38,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.14),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.folder_open_rounded,
+                      color: Color(0xFF5EEAD4),
+                      size: 18,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!isSmall)
+                          const Text(
+                            'PROJECT',
+                            style: TextStyle(
+                              color: Color(0xFF5EEAD4),
+                              fontSize: 10.4,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        if (!isSmall) const SizedBox(height: 4),
+                        Text(
+                          title,
+                          maxLines: isLarge ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: isLarge ? 14.8 : 14.0,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: isSmall ? 8 : 10),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(isSmall ? 9 : 11),
+                decoration: BoxDecoration(
+                  color: palette.panel,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: palette.border),
+                ),
+                child: Text(
+                  description.isEmpty
+                      ? 'No project description yet.'
+                      : description,
+                  maxLines: isSmall
+                      ? 2
+                      : isLarge
+                      ? 4
+                      : 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: description.isEmpty
+                        ? palette.subtleText
+                        : palette.mutedText,
+                    fontSize: isSmall ? 11.6 : 12.1,
+                    height: 1.34,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              SizedBox(height: isSmall ? 8 : 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _NotebookBadge(
+                    icon: Icons.schedule_rounded,
+                    label: widget.formatDate(project.createdAt),
+                  ),
+                  if (!isSmall || isLarge)
+                    _NotebookBadge(
+                      icon: Icons.person_outline_rounded,
+                      label: project.ownerLabel,
+                      accent: widget.isReadOnly
+                          ? const Color(0xFFFBBF24)
+                          : null,
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    if (widget.projects.isEmpty) {
+      return Center(
+        child: _NotebookNotice(
+          icon: Icons.folder_open_rounded,
+          title: 'No notebook projects yet',
+          message: widget.isReadOnly
+              ? '${widget.notebookOwnerLabel} has not added any notebook projects yet.'
+              : 'Create your first project to start organizing experiments and reaction notes.',
+          accent: const Color(0xFF14B8A6),
+        ),
+      );
+    }
+
+    if (_viewMode == NotebookViewMode.list) {
+      return ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        itemCount: widget.projects.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          return _buildProjectListRow(context, widget.projects[index]);
+        },
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = _columnsForWidth(constraints.maxWidth);
+
+        if (columns == 1) {
+          return ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: widget.projects.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              return SizedBox(
+                height: _gridItemExtent(),
+                child: _buildProjectGridCard(context, widget.projects[index]),
+              );
+            },
+          );
+        }
+
+        return GridView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          itemCount: widget.projects.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            mainAxisExtent: _gridItemExtent(),
+          ),
+          itemBuilder: (context, index) {
+            return _buildProjectGridCard(context, widget.projects[index]);
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: palette.panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compactHeader = constraints.maxWidth < 760;
+              final title = widget.isReadOnly
+                  ? '${widget.notebookOwnerLabel.split(' ').first} Notebook'
+                  : 'Projects';
+              final subtitle = widget.isReadOnly
+                  ? 'Read-only project list'
+                  : 'Open a project to view its experiment workspace';
+              final controls = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _NotebookBadge(
+                    icon: Icons.folder_copy_rounded,
+                    label: '${widget.projects.length}',
+                    accent: const Color(0xFF5EEAD4),
+                  ),
+                  const SizedBox(width: 8),
+                  NotebookViewModeSelector(
+                    value: _viewMode,
+                    onChanged: _setViewMode,
+                  ),
+                ],
+              );
+
+              if (compactHeader) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 15.0,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: palette.subtleText,
+                        fontSize: 11.4,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    controls,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 15.0,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: palette.subtleText,
+                            fontSize: 11.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Flexible(child: controls),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Expanded(child: _buildBody(context)),
+        ],
       ),
     );
   }

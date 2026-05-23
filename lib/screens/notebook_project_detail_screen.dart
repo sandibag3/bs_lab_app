@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_state.dart';
 import '../models/notebook_experiment_model.dart';
@@ -7,6 +8,7 @@ import '../models/notebook_project_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/lab_notebook_service.dart';
 import '../theme/labmate_theme.dart';
+import '../widgets/notebook/notebook_view_mode_selector.dart';
 import '../widgets/responsive_page_container.dart';
 import 'add_experiment_screen.dart';
 import 'experiment_detail_screen.dart';
@@ -287,282 +289,19 @@ class NotebookProjectDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildExperimentCard(
-    BuildContext context,
-    NotebookExperimentModel experiment,
-  ) {
-    final statusColor = _statusColor(experiment.status);
-    final reactionSummary = experiment.reactionTitle.trim().isNotEmpty
-        ? experiment.reactionTitle.trim()
-        : experiment.aim.trim();
-
-    return Material(
-      color: context.labmate.panelAlt,
-      borderRadius: BorderRadius.circular(18),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(18),
-        onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ExperimentDetailScreen(
-                appState: appState,
-                project: project,
-                experimentId: experiment.id,
-                notebookOwnerUid: notebookOwnerUid,
-                notebookOwnerLabel: notebookOwnerLabel,
-                isReadOnly: isReadOnly,
-              ),
-            ),
-          );
-        },
-        child: Container(
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: context.labmate.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          experiment.experimentCode.trim().isEmpty
-                              ? 'Experiment'
-                              : experiment.experimentCode.trim(),
-                          style: const TextStyle(
-                            color: Color(0xFF5EEAD4),
-                            fontSize: 11.1,
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          experiment.title.trim().isEmpty
-                              ? 'Untitled experiment'
-                              : experiment.title.trim(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: context.colorScheme.onSurface,
-                            fontSize: 14.0,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: statusColor.withValues(alpha: 0.16),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      experiment.status.trim().isEmpty
-                          ? 'Unknown'
-                          : experiment.status.trim(),
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 10.8,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(11),
-                decoration: BoxDecoration(
-                  color: context.labmate.panel,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  reactionSummary.isEmpty
-                      ? 'No reaction summary yet. Open the experiment to capture setup and progress.'
-                      : reactionSummary,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: reactionSummary.isEmpty
-                        ? context.labmate.subtleText
-                        : context.labmate.mutedText,
-                    fontSize: 12.2,
-                    height: 1.38,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _ProjectBadge(
-                    icon: Icons.event_rounded,
-                    label: _formatDate(experiment.date),
-                  ),
-                  if (experiment.solvent.trim().isNotEmpty)
-                    _ProjectBadge(
-                      icon: Icons.opacity_rounded,
-                      label: experiment.solvent.trim(),
-                    ),
-                  if (experiment.scale.trim().isNotEmpty)
-                    _ProjectBadge(
-                      icon: Icons.straighten_rounded,
-                      label: experiment.scale.trim(),
-                    ),
-                ],
-              ),
-              const Spacer(),
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      experiment.startingMaterial.trim().isEmpty
-                          ? 'Open workspace'
-                          : experiment.startingMaterial.trim(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: context.labmate.subtleText,
-                        fontSize: 11.4,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Icon(
-                    Icons.arrow_forward_ios_rounded,
-                    size: 14,
-                    color: context.labmate.subtleText,
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildExperimentsPanel(
     BuildContext context,
     List<NotebookExperimentModel> experiments,
   ) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final width = constraints.maxWidth;
-        final columns = width >= 1220
-            ? 3
-            : width >= 760
-            ? 2
-            : 1;
-
-        Widget body;
-        if (experiments.isEmpty) {
-          body = Center(
-            child: _ProjectNotice(
-              icon: Icons.science_outlined,
-              title: 'No experiments in this project yet',
-              message: isReadOnly
-                  ? '$notebookOwnerLabel has not added any experiments to this project yet.'
-                  : 'Add the first experiment to start documenting reaction setup, results, and daily updates.',
-              accent: const Color(0xFF38BDF8),
-            ),
-          );
-        } else if (columns == 1) {
-          body = ListView.separated(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemCount: experiments.length,
-            separatorBuilder: (context, index) => const SizedBox(height: 10),
-            itemBuilder: (context, index) {
-              return SizedBox(
-                height: 214,
-                child: _buildExperimentCard(context, experiments[index]),
-              );
-            },
-          );
-        } else {
-          body = GridView.builder(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            itemCount: experiments.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: columns,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: columns == 3 ? 1.34 : 1.28,
-            ),
-            itemBuilder: (context, index) {
-              return _buildExperimentCard(context, experiments[index]);
-            },
-          );
-        }
-
-        return Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(13),
-          decoration: BoxDecoration(
-            color: context.labmate.panel,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: context.labmate.border),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Experiments',
-                          style: TextStyle(
-                            color: context.colorScheme.onSurface,
-                            fontSize: 15.0,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          isReadOnly
-                              ? 'Read-only experiment list'
-                              : 'Reaction records inside this project',
-                          style: TextStyle(
-                            color: context.labmate.subtleText,
-                            fontSize: 11.4,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  _ProjectBadge(
-                    icon: Icons.science_outlined,
-                    label: '${experiments.length}',
-                    accent: const Color(0xFF5EEAD4),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Expanded(child: body),
-            ],
-          ),
-        );
-      },
+    return _ExperimentListPanel(
+      appState: appState,
+      project: project,
+      notebookOwnerUid: notebookOwnerUid,
+      notebookOwnerLabel: notebookOwnerLabel,
+      isReadOnly: isReadOnly,
+      experiments: experiments,
+      formatDate: _formatDate,
+      statusColor: _statusColor,
     );
   }
 
@@ -677,6 +416,579 @@ class NotebookProjectDetailScreen extends StatelessWidget {
                   ),
                 ),
         ),
+      ),
+    );
+  }
+}
+
+class _ExperimentListPanel extends StatefulWidget {
+  final AppState appState;
+  final NotebookProjectModel project;
+  final String notebookOwnerUid;
+  final String notebookOwnerLabel;
+  final bool isReadOnly;
+  final List<NotebookExperimentModel> experiments;
+  final String Function(Timestamp timestamp) formatDate;
+  final Color Function(String status) statusColor;
+
+  const _ExperimentListPanel({
+    required this.appState,
+    required this.project,
+    required this.notebookOwnerUid,
+    required this.notebookOwnerLabel,
+    required this.isReadOnly,
+    required this.experiments,
+    required this.formatDate,
+    required this.statusColor,
+  });
+
+  @override
+  State<_ExperimentListPanel> createState() => _ExperimentListPanelState();
+}
+
+class _ExperimentListPanelState extends State<_ExperimentListPanel> {
+  static const _prefsKey = 'lab_notebook_experiment_view_mode';
+
+  NotebookViewMode _viewMode = NotebookViewMode.list;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadViewMode();
+  }
+
+  Future<void> _loadViewMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedMode = notebookViewModeFromStorage(
+      prefs.getString(_prefsKey),
+      fallback: NotebookViewMode.list,
+    );
+
+    if (!mounted || savedMode == _viewMode) {
+      return;
+    }
+
+    setState(() {
+      _viewMode = savedMode;
+    });
+  }
+
+  Future<void> _setViewMode(NotebookViewMode mode) async {
+    if (_viewMode == mode) {
+      return;
+    }
+
+    setState(() {
+      _viewMode = mode;
+    });
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_prefsKey, mode.storageValue);
+  }
+
+  int _columnsForWidth(double width) {
+    switch (_viewMode) {
+      case NotebookViewMode.small:
+        if (width >= 1360) return 4;
+        if (width >= 980) return 3;
+        if (width >= 700) return 2;
+        return 1;
+      case NotebookViewMode.medium:
+        if (width >= 1220) return 3;
+        if (width >= 760) return 2;
+        return 1;
+      case NotebookViewMode.large:
+        if (width >= 1380) return 3;
+        if (width >= 920) return 2;
+        return 1;
+      case NotebookViewMode.list:
+        return 1;
+    }
+  }
+
+  double _gridItemExtent() {
+    switch (_viewMode) {
+      case NotebookViewMode.small:
+        return 174;
+      case NotebookViewMode.medium:
+        return 210;
+      case NotebookViewMode.large:
+        return 246;
+      case NotebookViewMode.list:
+        return 142;
+    }
+  }
+
+  void _openExperiment(
+    BuildContext context,
+    NotebookExperimentModel experiment,
+  ) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ExperimentDetailScreen(
+          appState: widget.appState,
+          project: widget.project,
+          experimentId: experiment.id,
+          notebookOwnerUid: widget.notebookOwnerUid,
+          notebookOwnerLabel: widget.notebookOwnerLabel,
+          isReadOnly: widget.isReadOnly,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    final label = status.trim().isEmpty ? 'Unknown' : status.trim();
+    final color = widget.statusColor(label);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10.8,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExperimentListRow(
+    BuildContext context,
+    NotebookExperimentModel experiment,
+  ) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final reactionSummary = experiment.reactionTitle.trim().isNotEmpty
+        ? experiment.reactionTitle.trim()
+        : experiment.aim.trim();
+
+    return Material(
+      color: palette.panelAlt,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _openExperiment(context, experiment),
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: palette.border),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 42,
+                width: 42,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF38BDF8).withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: const Icon(
+                  Icons.science_outlined,
+                  color: Color(0xFF7DD3FC),
+                  size: 19,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                experiment.experimentCode.trim().isEmpty
+                                    ? 'Experiment'
+                                    : experiment.experimentCode.trim(),
+                                style: const TextStyle(
+                                  color: Color(0xFF5EEAD4),
+                                  fontSize: 11.0,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                experiment.title.trim().isEmpty
+                                    ? 'Untitled experiment'
+                                    : experiment.title.trim(),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colorScheme.onSurface,
+                                  fontSize: 14.1,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _buildStatusChip(experiment.status),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      reactionSummary.isEmpty
+                          ? 'No reaction summary yet. Open the record to add setup details.'
+                          : reactionSummary,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: reactionSummary.isEmpty
+                            ? palette.subtleText
+                            : palette.mutedText,
+                        fontSize: 12.0,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _ProjectBadge(
+                          icon: Icons.event_rounded,
+                          label: widget.formatDate(experiment.date),
+                        ),
+                        if (experiment.solvent.trim().isNotEmpty)
+                          _ProjectBadge(
+                            icon: Icons.opacity_rounded,
+                            label: experiment.solvent.trim(),
+                          ),
+                        if (experiment.scale.trim().isNotEmpty)
+                          _ProjectBadge(
+                            icon: Icons.straighten_rounded,
+                            label: experiment.scale.trim(),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExperimentGridCard(
+    BuildContext context,
+    NotebookExperimentModel experiment,
+  ) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final reactionSummary = experiment.reactionTitle.trim().isNotEmpty
+        ? experiment.reactionTitle.trim()
+        : experiment.aim.trim();
+    final isSmall = _viewMode == NotebookViewMode.small;
+    final isLarge = _viewMode == NotebookViewMode.large;
+
+    return Material(
+      color: palette.panelAlt,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => _openExperiment(context, experiment),
+        child: Container(
+          padding: EdgeInsets.all(isSmall ? 11 : 13),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: palette.border),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          experiment.experimentCode.trim().isEmpty
+                              ? 'Experiment'
+                              : experiment.experimentCode.trim(),
+                          style: const TextStyle(
+                            color: Color(0xFF5EEAD4),
+                            fontSize: 11.0,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          experiment.title.trim().isEmpty
+                              ? 'Untitled experiment'
+                              : experiment.title.trim(),
+                          maxLines: isLarge ? 2 : 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: isLarge ? 14.6 : 14.0,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildStatusChip(experiment.status),
+                ],
+              ),
+              SizedBox(height: isSmall ? 8 : 10),
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(isSmall ? 9 : 11),
+                decoration: BoxDecoration(
+                  color: palette.panel,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  reactionSummary.isEmpty
+                      ? 'No reaction summary yet.'
+                      : reactionSummary,
+                  maxLines: isSmall
+                      ? 2
+                      : isLarge
+                      ? 4
+                      : 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: reactionSummary.isEmpty
+                        ? palette.subtleText
+                        : palette.mutedText,
+                    fontSize: isSmall ? 11.6 : 12.1,
+                    height: 1.35,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _ProjectBadge(
+                    icon: Icons.event_rounded,
+                    label: widget.formatDate(experiment.date),
+                  ),
+                  if (experiment.solvent.trim().isNotEmpty)
+                    _ProjectBadge(
+                      icon: Icons.opacity_rounded,
+                      label: experiment.solvent.trim(),
+                    ),
+                  if (experiment.scale.trim().isNotEmpty)
+                    _ProjectBadge(
+                      icon: Icons.straighten_rounded,
+                      label: experiment.scale.trim(),
+                    ),
+                  if (isLarge && experiment.reactionComponents.isNotEmpty)
+                    _ProjectBadge(
+                      icon: Icons.table_rows_rounded,
+                      label: '${experiment.reactionComponents.length} rows',
+                    ),
+                ],
+              ),
+              const Spacer(),
+              SizedBox(height: isSmall ? 8 : 10),
+              Text(
+                experiment.startingMaterial.trim().isEmpty
+                    ? 'Open workspace'
+                    : experiment.startingMaterial.trim(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: palette.subtleText,
+                  fontSize: 11.4,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    if (widget.experiments.isEmpty) {
+      return Center(
+        child: _ProjectNotice(
+          icon: Icons.science_outlined,
+          title: 'No experiments in this project yet',
+          message: widget.isReadOnly
+              ? '${widget.notebookOwnerLabel} has not added any experiments to this project yet.'
+              : 'Add the first experiment to start documenting reaction setup, results, and daily updates.',
+          accent: const Color(0xFF38BDF8),
+        ),
+      );
+    }
+
+    if (_viewMode == NotebookViewMode.list) {
+      return ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.zero,
+        itemCount: widget.experiments.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          return _buildExperimentListRow(context, widget.experiments[index]);
+        },
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = _columnsForWidth(constraints.maxWidth);
+
+        if (columns == 1) {
+          return ListView.separated(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.zero,
+            itemCount: widget.experiments.length,
+            separatorBuilder: (context, index) => const SizedBox(height: 10),
+            itemBuilder: (context, index) {
+              return SizedBox(
+                height: _gridItemExtent(),
+                child: _buildExperimentGridCard(
+                  context,
+                  widget.experiments[index],
+                ),
+              );
+            },
+          );
+        }
+
+        return GridView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          itemCount: widget.experiments.length,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: columns,
+            crossAxisSpacing: 10,
+            mainAxisSpacing: 10,
+            mainAxisExtent: _gridItemExtent(),
+          ),
+          itemBuilder: (context, index) {
+            return _buildExperimentGridCard(context, widget.experiments[index]);
+          },
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: palette.panel,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compactHeader = constraints.maxWidth < 760;
+              const title = 'Experiments';
+              final subtitle = widget.isReadOnly
+                  ? 'Read-only experiment list'
+                  : 'Reaction records inside this project';
+              final controls = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ProjectBadge(
+                    icon: Icons.science_outlined,
+                    label: '${widget.experiments.length}',
+                    accent: const Color(0xFF5EEAD4),
+                  ),
+                  const SizedBox(width: 8),
+                  NotebookViewModeSelector(
+                    value: _viewMode,
+                    onChanged: _setViewMode,
+                  ),
+                ],
+              );
+
+              if (compactHeader) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 15.0,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        color: palette.subtleText,
+                        fontSize: 11.4,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    controls,
+                  ],
+                );
+              }
+
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          title,
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 15.0,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          subtitle,
+                          style: TextStyle(
+                            color: palette.subtleText,
+                            fontSize: 11.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Flexible(child: controls),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Expanded(child: _buildBody(context)),
+        ],
       ),
     );
   }
