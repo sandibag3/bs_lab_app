@@ -42,6 +42,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
 
   bool _isSavingNote = false;
   bool _isUpdatingStatus = false;
+  bool _isDuplicating = false;
 
   String get _labId => widget.appState.resolveWriteLabId(widget.project.labId);
   bool get _canEditNotebook =>
@@ -210,6 +211,70 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     }
   }
 
+  Future<void> _duplicateExperiment(NotebookExperimentModel experiment) async {
+    if (_isDuplicating || !_canEditNotebook) {
+      return;
+    }
+
+    if (_labId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No active lab found for this experiment.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isDuplicating = true;
+    });
+
+    final messenger = ScaffoldMessenger.of(context);
+
+    try {
+      final duplicatedExperimentId = await _labNotebookService
+          .duplicateExperiment(
+            sourceExperiment: experiment,
+            notebookOwnerUid: widget.notebookOwnerUid,
+          );
+
+      if (!mounted) {
+        return;
+      }
+
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Experiment duplicated. Opening copy.')),
+      );
+
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (_) => ExperimentDetailScreen(
+            appState: widget.appState,
+            project: widget.project,
+            experimentId: duplicatedExperimentId,
+            notebookOwnerUid: widget.notebookOwnerUid,
+            notebookOwnerLabel: widget.notebookOwnerLabel,
+            isReadOnly: widget.isReadOnly,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      messenger.showSnackBar(
+        SnackBar(content: Text(FirestoreAccessGuard.messageFor(error))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isDuplicating = false;
+        });
+      }
+    }
+  }
+
   Stream<List<ExperimentNoteModel>> _notesStream() {
     return _labNotebookService.getExperimentNotes(
       labId: _labId,
@@ -243,6 +308,38 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     final reactionSubtitle = experiment.reactionTitle.trim().isEmpty
         ? experiment.aim.trim()
         : experiment.reactionTitle.trim();
+    final duplicateButton = !_canEditNotebook
+        ? null
+        : SizedBox(
+            width: isWide ? 132 : double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _isDuplicating
+                  ? null
+                  : () => _duplicateExperiment(experiment),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: colorScheme.onSurface,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 11,
+                ),
+                side: BorderSide(color: palette.border),
+              ),
+              icon: _isDuplicating
+                  ? const SizedBox(
+                      height: 15,
+                      width: 15,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.copy_all_rounded, size: 16),
+              label: Text(
+                _isDuplicating ? 'Duplicating' : 'Duplicate',
+                style: const TextStyle(
+                  fontSize: 12.2,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          );
 
     final leftBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -387,6 +484,10 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                   _updateStatus(value);
                 },
         ),
+        if (duplicateButton != null) ...[
+          const SizedBox(height: 8),
+          duplicateButton,
+        ],
       ],
     );
 

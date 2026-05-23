@@ -27,6 +27,9 @@ class LabNotebookService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   String get currentUserUid => _auth.currentUser?.uid.trim() ?? '';
+  String get currentUserEmail => _auth.currentUser?.email?.trim() ?? '';
+  String get currentUserDisplayName =>
+      _auth.currentUser?.displayName?.trim() ?? '';
 
   String resolveNotebookOwnerUid([String? notebookOwnerUid]) {
     final explicitOwnerUid = (notebookOwnerUid ?? '').trim();
@@ -50,6 +53,47 @@ class LabNotebookService {
     }
 
     return userUid != ownerUid;
+  }
+
+  String _createdByValue() {
+    final userUid = currentUserUid;
+    if (userUid.isNotEmpty) {
+      return userUid;
+    }
+
+    final userEmail = currentUserEmail;
+    if (userEmail.isNotEmpty) {
+      return userEmail;
+    }
+
+    final displayName = currentUserDisplayName;
+    if (displayName.isNotEmpty) {
+      return displayName;
+    }
+
+    return 'User';
+  }
+
+  String _nextDuplicateExperimentCode(
+    String originalCode,
+    Set<String> existingCodes,
+  ) {
+    final baseCode = originalCode.trim().isEmpty
+        ? 'experiment'
+        : originalCode.trim();
+
+    var suffixIndex = 1;
+    while (true) {
+      final candidate = suffixIndex == 1
+          ? '$baseCode-copy'
+          : '$baseCode-copy-$suffixIndex';
+
+      if (!existingCodes.contains(candidate.toLowerCase())) {
+        return candidate;
+      }
+
+      suffixIndex += 1;
+    }
   }
 
   CollectionReference<Map<String, dynamic>> _userNotebooksRef(String labId) {
@@ -423,6 +467,87 @@ class LabNotebookService {
         cleanProjectId,
         cleanExperimentId,
       ).update({'status': cleanStatus, 'updatedAt': Timestamp.now()});
+    });
+  }
+
+  Future<String> duplicateExperiment({
+    required NotebookExperimentModel sourceExperiment,
+    String? notebookOwnerUid,
+  }) async {
+    final cleanLabId = sourceExperiment.labId.trim();
+    final cleanNotebookOwnerUid = resolveNotebookOwnerUid(
+      notebookOwnerUid ?? sourceExperiment.ownerUid,
+    );
+    final cleanProjectId = sourceExperiment.projectId.trim();
+    final sourceOwnerUid = sourceExperiment.ownerUid.trim();
+
+    if (cleanLabId.isEmpty ||
+        cleanNotebookOwnerUid.isEmpty ||
+        cleanProjectId.isEmpty) {
+      throw Exception('Experiment context is missing.');
+    }
+
+    if (sourceOwnerUid.isNotEmpty && sourceOwnerUid != cleanNotebookOwnerUid) {
+      throw const LabDataAccessException(readOnlyMessage);
+    }
+
+    _ensureOwnerWriteAccess(cleanNotebookOwnerUid);
+
+    return _runGuarded(() async {
+      final experimentsRef = _experimentsRef(
+        cleanLabId,
+        cleanNotebookOwnerUid,
+        cleanProjectId,
+      );
+      final existingSnapshot = await experimentsRef.get();
+      final existingCodes = existingSnapshot.docs
+          .map((doc) => (doc.data()['experimentCode'] ?? '').toString().trim())
+          .where((code) => code.isNotEmpty)
+          .map((code) => code.toLowerCase())
+          .toSet();
+
+      final now = Timestamp.now();
+      final duplicatedExperiment = NotebookExperimentModel(
+        id: '',
+        experimentCode: _nextDuplicateExperimentCode(
+          sourceExperiment.experimentCode,
+          existingCodes,
+        ),
+        title: sourceExperiment.title,
+        date: now,
+        aim: sourceExperiment.aim,
+        reactionTitle: sourceExperiment.reactionTitle,
+        startingMaterial: sourceExperiment.startingMaterial,
+        reagents: sourceExperiment.reagents,
+        catalyst: sourceExperiment.catalyst,
+        solvent: sourceExperiment.solvent,
+        temperature: sourceExperiment.temperature,
+        time: sourceExperiment.time,
+        atmosphere: sourceExperiment.atmosphere,
+        scale: sourceExperiment.scale,
+        procedure: sourceExperiment.procedure,
+        observations: '',
+        workup: sourceExperiment.workup,
+        purification: sourceExperiment.purification,
+        yieldText: '',
+        characterization: sourceExperiment.characterization,
+        conclusion: '',
+        status: notebookExperimentStatuses.first,
+        ownerUid: cleanNotebookOwnerUid,
+        ownerEmail: sourceExperiment.ownerEmail,
+        createdBy: _createdByValue(),
+        userEmail: currentUserEmail.isEmpty
+            ? sourceExperiment.userEmail
+            : currentUserEmail,
+        createdAt: now,
+        updatedAt: now,
+        labId: cleanLabId,
+        projectId: cleanProjectId,
+      );
+
+      final docRef = experimentsRef.doc();
+      await docRef.set(duplicatedExperiment.toMap());
+      return docRef.id;
     });
   }
 }
