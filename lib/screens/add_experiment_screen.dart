@@ -123,6 +123,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     for (final component in initialExperiment.reactionComponents) {
       _reactionComponentDrafts.add(_createReactionComponentDraft(component));
     }
+    _normalizeLimitingReagentSelection();
   }
 
   _ReactionComponentDraft _createReactionComponentDraft([
@@ -139,8 +140,40 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
       unit: initialComponent?.unit ?? reactionComponentUnits.first,
       supplierOrSource: initialComponent?.supplierOrSource ?? '',
       remarks: initialComponent?.remarks ?? '',
+      isLimitingReagent: initialComponent?.isLimitingReagent ?? false,
     );
     return draft;
+  }
+
+  void _setLimitingReagent(String draftId, bool isSelected) {
+    setState(() {
+      for (final draft in _reactionComponentDrafts) {
+        draft.isLimitingReagent = false;
+      }
+
+      if (!isSelected) {
+        return;
+      }
+
+      for (final draft in _reactionComponentDrafts) {
+        if (draft.id == draftId) {
+          draft.isLimitingReagent = true;
+          break;
+        }
+      }
+    });
+  }
+
+  void _normalizeLimitingReagentSelection() {
+    var hasMarkedLimitingReagent = false;
+    for (final draft in _reactionComponentDrafts) {
+      if (draft.isLimitingReagent && !hasMarkedLimitingReagent) {
+        hasMarkedLimitingReagent = true;
+        continue;
+      }
+
+      draft.isLimitingReagent = false;
+    }
   }
 
   void _addReactionComponentRow([ReactionComponentModel? initialComponent]) {
@@ -401,6 +434,63 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     );
   }
 
+  Widget _buildLimitingReagentControl(
+    _ReactionComponentDraft draft, {
+    required bool compact,
+  }) {
+    final isSelected = draft.isLimitingReagent;
+
+    return Builder(
+      builder: (context) {
+        final palette = context.labmate;
+        return InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: () => _setLimitingReagent(draft.id, !isSelected),
+          child: Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 10 : 11,
+              vertical: compact ? 8 : 9,
+            ),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xFF14B8A6).withValues(alpha: 0.16)
+                  : palette.panel,
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF14B8A6).withValues(alpha: 0.32)
+                    : palette.border,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  isSelected ? Icons.flag_rounded : Icons.outlined_flag_rounded,
+                  size: compact ? 14 : 15,
+                  color: isSelected
+                      ? const Color(0xFF5EEAD4)
+                      : palette.subtleText,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  isSelected ? 'Limiting' : 'Mark',
+                  style: TextStyle(
+                    color: isSelected
+                        ? const Color(0xFF5EEAD4)
+                        : palette.mutedText,
+                    fontSize: compact ? 11.0 : 11.2,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildReactionTableToolbar() {
     return Builder(
       builder: (context) {
@@ -547,7 +637,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Container(
-            width: 1150,
+            width: 1248,
             decoration: BoxDecoration(
               color: palette.panelAlt,
               borderRadius: BorderRadius.circular(16),
@@ -574,6 +664,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                       _DesktopReactionHeaderCell('Unit', 86),
                       _DesktopReactionHeaderCell('Supplier / Source', 150),
                       _DesktopReactionHeaderCell('Remarks', 150),
+                      _DesktopReactionHeaderCell('Limit', 98),
                       _DesktopReactionHeaderCell('', 46),
                     ],
                   ),
@@ -659,6 +750,13 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                             hint: 'Remarks',
                           ),
                         ),
+                        _DesktopReactionFieldCell(
+                          width: 98,
+                          child: _buildLimitingReagentControl(
+                            draft,
+                            compact: true,
+                          ),
+                        ),
                         SizedBox(
                           width: 46,
                           child: IconButton(
@@ -716,6 +814,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                             ),
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        _buildLimitingReagentControl(draft, compact: true),
                         IconButton(
                           onPressed: () =>
                               _removeReactionComponentRow(draft.id),
@@ -1833,6 +1933,7 @@ class _ReactionComponentDraft {
   final TextEditingController remarksController;
   String role;
   String unit;
+  bool isLimitingReagent;
 
   _ReactionComponentDraft({
     required this.id,
@@ -1845,6 +1946,7 @@ class _ReactionComponentDraft {
     required this.unit,
     required String supplierOrSource,
     required String remarks,
+    required this.isLimitingReagent,
   }) : componentNameController = TextEditingController(text: componentName),
        formulaOrNotesController = TextEditingController(text: formulaOrNotes),
        mmolController = TextEditingController(text: mmol),
@@ -1866,6 +1968,7 @@ class _ReactionComponentDraft {
       unit: unit.trim(),
       supplierOrSource: supplierOrSourceController.text.trim(),
       remarks: remarksController.text.trim(),
+      isLimitingReagent: isLimitingReagent,
     );
   }
 

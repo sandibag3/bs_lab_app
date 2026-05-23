@@ -438,6 +438,7 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
                       width: 160,
                       value: component.componentName,
                       strong: true,
+                      isLimitingReagent: component.isLimitingReagent,
                     ),
                     _ReactionTableValueCell(width: 120, value: component.role),
                     _ReactionTableValueCell(
@@ -511,6 +512,10 @@ class _ReactionComponentsMobileCards extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+                if (component.isLimitingReagent) ...[
+                  const SizedBox(height: 6),
+                  const _LimitingBadge(compact: true),
+                ],
                 const SizedBox(height: 6),
                 Wrap(
                   spacing: 8,
@@ -591,11 +596,13 @@ class _ReactionTableValueCell extends StatelessWidget {
   final double width;
   final String value;
   final bool strong;
+  final bool isLimitingReagent;
 
   const _ReactionTableValueCell({
     required this.width,
     required this.value,
     this.strong = false,
+    this.isLimitingReagent = false,
   });
 
   @override
@@ -605,15 +612,55 @@ class _ReactionTableValueCell extends StatelessWidget {
     final colorScheme = context.colorScheme;
     return SizedBox(
       width: width,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            cleanValue.isEmpty ? '-' : cleanValue,
+            style: TextStyle(
+              color: cleanValue.isEmpty
+                  ? palette.subtleText
+                  : colorScheme.onSurface,
+              fontSize: 12.0,
+              fontWeight: strong ? FontWeight.w700 : FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+          if (isLimitingReagent) ...[
+            const SizedBox(height: 6),
+            const _LimitingBadge(compact: true),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _LimitingBadge extends StatelessWidget {
+  final bool compact;
+
+  const _LimitingBadge({required this.compact});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 8 : 9,
+        vertical: compact ? 4 : 5,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF14B8A6).withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: const Color(0xFF14B8A6).withValues(alpha: 0.28),
+        ),
+      ),
       child: Text(
-        cleanValue.isEmpty ? '-' : cleanValue,
+        'Limiting',
         style: TextStyle(
-          color: cleanValue.isEmpty
-              ? palette.subtleText
-              : colorScheme.onSurface,
-          fontSize: 12.0,
-          fontWeight: strong ? FontWeight.w700 : FontWeight.w600,
-          height: 1.35,
+          color: const Color(0xFF5EEAD4),
+          fontSize: compact ? 10.4 : 10.8,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

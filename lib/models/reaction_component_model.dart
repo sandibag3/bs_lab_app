@@ -12,7 +12,7 @@ const List<String> reactionComponentRoles = [
 const List<String> reactionComponentUnits = [
   'mg',
   'g',
-  'µL',
+  '\u00B5L',
   'mL',
   'mmol',
   'equiv',
@@ -30,6 +30,7 @@ class ReactionComponentModel {
   final String unit;
   final String supplierOrSource;
   final String remarks;
+  final bool isLimitingReagent;
 
   const ReactionComponentModel({
     required this.componentName,
@@ -41,9 +42,15 @@ class ReactionComponentModel {
     required this.unit,
     required this.supplierOrSource,
     required this.remarks,
+    required this.isLimitingReagent,
   });
 
   factory ReactionComponentModel.fromMap(Map<String, dynamic> data) {
+    final rawIsLimitingReagent = data['isLimitingReagent'];
+    final isLimitingReagent = rawIsLimitingReagent is bool
+        ? rawIsLimitingReagent
+        : rawIsLimitingReagent.toString().trim().toLowerCase() == 'true';
+
     return ReactionComponentModel(
       componentName: (data['componentName'] ?? '').toString(),
       role: (data['role'] ?? '').toString(),
@@ -54,6 +61,7 @@ class ReactionComponentModel {
       unit: (data['unit'] ?? '').toString(),
       supplierOrSource: (data['supplierOrSource'] ?? '').toString(),
       remarks: (data['remarks'] ?? '').toString(),
+      isLimitingReagent: isLimitingReagent,
     );
   }
 
@@ -68,6 +76,7 @@ class ReactionComponentModel {
       'unit': unit,
       'supplierOrSource': supplierOrSource,
       'remarks': remarks,
+      'isLimitingReagent': isLimitingReagent,
     };
   }
 }
