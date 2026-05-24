@@ -6,11 +6,13 @@ import '../../theme/labmate_theme.dart';
 class CharacterizationPanel extends StatelessWidget {
   final NotebookExperimentModel experiment;
   final bool compact;
+  final Widget? headerTrailing;
 
   const CharacterizationPanel({
     super.key,
     required this.experiment,
     this.compact = false,
+    this.headerTrailing,
   });
 
   @override
@@ -40,10 +42,11 @@ class CharacterizationPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _PanelHeader(
+          _PanelHeader(
             icon: Icons.fact_check_outlined,
             title: 'Record and Results',
             subtitle: 'Procedure, outcome, and analysis',
+            trailing: headerTrailing,
           ),
           SizedBox(height: compact ? 10 : 12),
           Theme(
@@ -71,11 +74,13 @@ class _PanelHeader extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final Widget? trailing;
 
   const _PanelHeader({
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.trailing,
   });
 
   @override
@@ -118,6 +123,7 @@ class _PanelHeader extends StatelessWidget {
             ],
           ),
         ),
+        if (trailing != null) ...[const SizedBox(width: 8), trailing!],
       ],
     );
   }

@@ -46,6 +46,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
   bool _isUpdatingStatus = false;
   bool _isDuplicating = false;
   bool _isOpeningEdit = false;
+  bool _headerCollapsed = true;
 
   String get _labId => widget.appState.resolveWriteLabId(widget.project.labId);
   String get _currentUserUid => widget.appState.authenticatedUserId.trim();
@@ -450,9 +451,161 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     );
   }
 
+  Future<void> _showDesktopSheet({
+    required String title,
+    required Widget child,
+  }) async {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final sheetWidth = (screenWidth * 0.32).clamp(320.0, 420.0).toDouble();
+
+    await showGeneralDialog<void>(
+      context: context,
+      barrierLabel: title,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withValues(alpha: 0.42),
+      transitionDuration: const Duration(milliseconds: 220),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return SafeArea(
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: sheetWidth,
+                margin: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: palette.panel,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: palette.border),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.18),
+                      blurRadius: 24,
+                      offset: const Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 14, 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              title,
+                              style: TextStyle(
+                                color: colorScheme.onSurface,
+                                fontSize: 15.2,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            tooltip: 'Close',
+                            icon: const Icon(Icons.close_rounded, size: 20),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(height: 1, color: palette.border),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(14),
+                        child: child,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        final curved = CurvedAnimation(
+          parent: animation,
+          curve: Curves.easeOutCubic,
+        );
+        return SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0.12, 0),
+            end: Offset.zero,
+          ).animate(curved),
+          child: FadeTransition(opacity: curved, child: child),
+        );
+      },
+    );
+  }
+
+  Future<void> _openExperimentInfoSheet(
+    NotebookExperimentModel experiment,
+  ) async {
+    await _showDesktopSheet(
+      title: 'Experiment Info',
+      child: ExperimentInfoPanel(
+        project: widget.project,
+        experiment: experiment,
+        formatDateTime: _formatDateTime,
+        statusColor: _statusColor(experiment.status),
+        compact: true,
+      ),
+    );
+  }
+
+  Future<void> _openRecordResultsSheet(
+    NotebookExperimentModel experiment,
+  ) async {
+    await _showDesktopSheet(
+      title: 'Record & Results',
+      child: Column(
+        children: [
+          CharacterizationPanel(experiment: experiment, compact: true),
+          const SizedBox(height: 10),
+          _buildEditHistoryPanel(experiment, compact: true),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPanelToggleButton({
+    required bool expanded,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    final palette = context.labmate;
+
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: onPressed,
+        child: Container(
+          height: 30,
+          width: 30,
+          decoration: BoxDecoration(
+            color: palette.panelAlt,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: palette.border),
+          ),
+          child: Icon(
+            expanded ? Icons.unfold_less_rounded : Icons.unfold_more_rounded,
+            size: 16,
+            color: palette.subtleText,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeaderBar(
     NotebookExperimentModel experiment, {
     required bool isWide,
+    double? availableWidth,
   }) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
@@ -476,15 +629,79 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     final reactionSubtitle = experiment.reactionTitle.trim().isEmpty
         ? experiment.aim.trim()
         : experiment.reactionTitle.trim();
+    final compactHeaderWidth = availableWidth ?? double.infinity;
+    final showWideActionLabels = compactHeaderWidth >= 1220;
+    final collapseButton = _buildPanelToggleButton(
+      expanded: !_headerCollapsed,
+      tooltip: _headerCollapsed ? 'Expand header' : 'Collapse header',
+      onPressed: () {
+        setState(() {
+          _headerCollapsed = !_headerCollapsed;
+        });
+      },
+    );
+
+    Widget buildHeaderActionButton({
+      required IconData icon,
+      required String label,
+      required VoidCallback onPressed,
+      required double width,
+      bool iconOnly = false,
+      bool enabled = true,
+    }) {
+      if (iconOnly) {
+        return Tooltip(
+          message: label,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: enabled ? onPressed : null,
+            child: Container(
+              height: 36,
+              width: width,
+              decoration: BoxDecoration(
+                color: palette.panelAlt,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: palette.border),
+              ),
+              child: Icon(
+                icon,
+                size: 16,
+                color: enabled ? colorScheme.onSurface : palette.subtleText,
+              ),
+            ),
+          ),
+        );
+      }
+
+      return SizedBox(
+        width: width,
+        child: OutlinedButton.icon(
+          onPressed: enabled ? onPressed : null,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: colorScheme.onSurface,
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+            minimumSize: const Size(0, 36),
+            side: BorderSide(color: palette.border),
+          ),
+          icon: Icon(icon, size: 16),
+          label: Text(
+            label,
+            style: const TextStyle(fontSize: 11.2, fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
+    }
+
     final editButton = SizedBox(
-      width: isWide ? 132 : double.infinity,
+      width: isWide ? 96 : double.infinity,
       child: OutlinedButton.icon(
         onPressed: !canEditExperiment || _isOpeningEdit
             ? null
             : () => _openEditDraft(experiment),
         style: OutlinedButton.styleFrom(
           foregroundColor: colorScheme.onSurface,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+          minimumSize: const Size(0, 36),
           side: BorderSide(color: palette.border),
         ),
         icon: _isOpeningEdit
@@ -496,19 +713,20 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
             : const Icon(Icons.edit_rounded, size: 16),
         label: Text(
           _isOpeningEdit ? 'Opening' : 'Edit',
-          style: const TextStyle(fontSize: 12.2, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontSize: 11.2, fontWeight: FontWeight.w700),
         ),
       ),
     );
     final duplicateButton = SizedBox(
-      width: isWide ? 132 : double.infinity,
+      width: isWide ? 102 : double.infinity,
       child: OutlinedButton.icon(
         onPressed: !canEditExperiment || _isDuplicating
             ? null
             : () => _openDuplicateDraft(experiment),
         style: OutlinedButton.styleFrom(
           foregroundColor: colorScheme.onSurface,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
+          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+          minimumSize: const Size(0, 36),
           side: BorderSide(color: palette.border),
         ),
         icon: _isDuplicating
@@ -520,18 +738,137 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
             : const Icon(Icons.copy_all_rounded, size: 16),
         label: Text(
           _isDuplicating ? 'Preparing' : 'Duplicate',
-          style: const TextStyle(fontSize: 12.2, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontSize: 11.2, fontWeight: FontWeight.w700),
         ),
       ),
     );
+    final statusDropdown = DropdownButtonFormField<String>(
+      key: ValueKey('experiment_status_${experiment.status}'),
+      initialValue: safeStatus,
+      dropdownColor: palette.panelAlt,
+      style: TextStyle(color: colorScheme.onSurface, fontSize: 11.8),
+      decoration: InputDecoration(
+        isDense: true,
+        filled: true,
+        fillColor: _statusColor(experiment.status).withValues(alpha: 0.14),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      items: notebookExperimentStatuses.map((status) {
+        return DropdownMenuItem<String>(
+          value: status,
+          child: Text(status, style: TextStyle(color: _statusColor(status))),
+        );
+      }).toList(),
+      onChanged: _isUpdatingStatus || !canEditExperiment
+          ? null
+          : (value) {
+              if (value == null || value == experiment.status) {
+                return;
+              }
+              _updateStatus(value);
+            },
+    );
+    final statusChip = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: _statusColor(experiment.status).withValues(alpha: 0.16),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        safeStatus,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: _statusColor(experiment.status),
+          fontSize: 11.2,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+    final statusControl = canEditExperiment ? statusDropdown : statusChip;
+    final infoButton = isWide
+        ? buildHeaderActionButton(
+            icon: Icons.info_outline_rounded,
+            label: 'Info',
+            onPressed: () => _openExperimentInfoSheet(experiment),
+            width: showWideActionLabels ? 84 : 36,
+            iconOnly: !showWideActionLabels,
+          )
+        : const SizedBox.shrink();
+    final recordButton = isWide
+        ? buildHeaderActionButton(
+            icon: Icons.fact_check_outlined,
+            label: 'Record',
+            onPressed: () => _openRecordResultsSheet(experiment),
+            width: showWideActionLabels ? 98 : 36,
+            iconOnly: !showWideActionLabels,
+          )
+        : const SizedBox.shrink();
+
+    if (isWide && _headerCollapsed) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: palette.panel,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: palette.border),
+        ),
+        child: Row(
+          children: [
+            _HeaderBadge(
+              label: code,
+              icon: Icons.biotech_rounded,
+              accent: const Color(0xFF5EEAD4),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 15.2,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: canEditExperiment
+                  ? (compactHeaderWidth < 1180 ? 154 : 172)
+                  : 124,
+              child: statusControl,
+            ),
+            const SizedBox(width: 6),
+            infoButton,
+            const SizedBox(width: 6),
+            recordButton,
+            if (canEditExperiment) ...[
+              const SizedBox(width: 6),
+              editButton,
+              const SizedBox(width: 6),
+              duplicateButton,
+            ],
+            const SizedBox(width: 6),
+            collapseButton,
+          ],
+        ),
+      );
+    }
 
     final leftBlock = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.start,
       children: [
         Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: 6,
+          runSpacing: 6,
           children: [
             _HeaderBadge(
               label: code,
@@ -553,26 +890,26 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Text(
           title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: colorScheme.onSurface,
-            fontSize: isWide ? 20 : 18,
+            fontSize: isWide ? 18.2 : 17.2,
             fontWeight: FontWeight.w800,
           ),
         ),
         if (reactionSubtitle.isNotEmpty) ...[
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             reactionSubtitle,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: palette.mutedText,
-              fontSize: 12.2,
+              fontSize: 11.6,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -592,7 +929,7 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
                 value: _formatDate(experiment.date),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Expanded(
               child: _HeaderMetric(
                 label: 'Updated',
@@ -601,14 +938,14 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Row(
           children: [
             Text(
               'Status',
               style: TextStyle(
                 color: palette.mutedText,
-                fontSize: 11.4,
+                fontSize: 10.8,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -632,49 +969,14 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
           ],
         ),
         const SizedBox(height: 6),
-        DropdownButtonFormField<String>(
-          key: ValueKey('experiment_status_${experiment.status}'),
-          initialValue: safeStatus,
-          dropdownColor: palette.panelAlt,
-          style: TextStyle(color: colorScheme.onSurface, fontSize: 12.6),
-          decoration: InputDecoration(
-            isDense: true,
-            filled: true,
-            fillColor: _statusColor(experiment.status).withValues(alpha: 0.14),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide.none,
-            ),
-          ),
-          items: notebookExperimentStatuses.map((status) {
-            return DropdownMenuItem<String>(
-              value: status,
-              child: Text(
-                status,
-                style: TextStyle(color: _statusColor(status)),
-              ),
-            );
-          }).toList(),
-          onChanged: _isUpdatingStatus || !canEditExperiment
-              ? null
-              : (value) {
-                  if (value == null || value == experiment.status) {
-                    return;
-                  }
-                  _updateStatus(value);
-                },
-        ),
+        statusControl,
         if (canEditExperiment) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           if (isWide)
             Row(
               children: [
                 Expanded(child: editButton),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 Expanded(child: duplicateButton),
               ],
             )
@@ -687,15 +989,25 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
               ],
             ),
         ],
+        if (isWide) ...[
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            alignment: WrapAlignment.end,
+            children: [infoButton, recordButton],
+          ),
+          const SizedBox(height: 6),
+          Align(alignment: Alignment.centerRight, child: collapseButton),
+        ],
       ],
     );
 
     return Container(
       width: double.infinity,
-      constraints: BoxConstraints(minHeight: isWide ? 156 : 0),
       padding: EdgeInsets.symmetric(
-        horizontal: isWide ? 14 : 13,
-        vertical: isWide ? 12 : 13,
+        horizontal: isWide ? 12 : 13,
+        vertical: isWide ? 10 : 12,
       ),
       decoration: BoxDecoration(
         color: palette.panel,
@@ -707,13 +1019,13 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: leftBlock),
-                const SizedBox(width: 14),
-                SizedBox(width: 372, child: rightBlock),
+                const SizedBox(width: 12),
+                SizedBox(width: 332, child: rightBlock),
               ],
             )
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [leftBlock, const SizedBox(height: 12), rightBlock],
+              children: [leftBlock, const SizedBox(height: 10), rightBlock],
             ),
     );
   }
@@ -727,21 +1039,8 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
     double width,
   ) {
     final canEditExperiment = _canEditExperiment(experiment);
-    final infoPanel = ExperimentInfoPanel(
-      project: widget.project,
-      experiment: experiment,
-      formatDateTime: _formatDateTime,
-      statusColor: _statusColor(experiment.status),
-      compact: true,
-    );
+    final notesWidth = (width * 0.28).clamp(300.0, 340.0).toDouble();
     final reactionPanel = ReactionDetailsPanel(experiment: experiment);
-    final recordPanel = Column(
-      children: [
-        CharacterizationPanel(experiment: experiment, compact: true),
-        const SizedBox(height: 10),
-        _buildEditHistoryPanel(experiment, compact: true),
-      ],
-    );
     final notesPanel = ExperimentNotesPanel(
       noteController: _noteController,
       isSavingNote: _isSavingNote,
@@ -756,35 +1055,17 @@ class _ExperimentDetailScreenState extends State<ExperimentDetailScreen> {
           'Read-only view: you are viewing another member\'s notebook.',
     );
 
-    final leftRailWidth = width >= 1320 ? 258.0 : 232.0;
-    final rightRailWidth = width >= 1320 ? 352.0 : 318.0;
-    final notesHeight = width >= 1320 ? 312.0 : 280.0;
-
     return Column(
       children: [
-        _buildHeaderBar(experiment, isWide: true),
-        const SizedBox(height: 10),
+        _buildHeaderBar(experiment, isWide: true, availableWidth: width),
+        const SizedBox(height: 8),
         Expanded(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SizedBox(
-                width: leftRailWidth,
-                child: _buildScrollablePanel(child: infoPanel),
-              ),
-              const SizedBox(width: 10),
               Expanded(child: _buildScrollablePanel(child: reactionPanel)),
               const SizedBox(width: 10),
-              SizedBox(
-                width: rightRailWidth,
-                child: Column(
-                  children: [
-                    Expanded(child: _buildScrollablePanel(child: recordPanel)),
-                    const SizedBox(height: 10),
-                    SizedBox(height: notesHeight, child: notesPanel),
-                  ],
-                ),
-              ),
+              SizedBox(width: notesWidth, child: notesPanel),
             ],
           ),
         ),
@@ -993,9 +1274,9 @@ class _HeaderBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = context.labmate;
     return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 280),
+      constraints: const BoxConstraints(maxWidth: 248),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
         decoration: BoxDecoration(
           color: palette.panelAlt,
           borderRadius: BorderRadius.circular(999),
@@ -1004,15 +1285,15 @@ class _HeaderBadge extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, size: 13, color: accent ?? const Color(0xFF5EEAD4)),
-            const SizedBox(width: 6),
+            Icon(icon, size: 12.5, color: accent ?? const Color(0xFF5EEAD4)),
+            const SizedBox(width: 5),
             Flexible(
               child: Text(
                 label,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: accent ?? palette.mutedText,
-                  fontSize: 11.3,
+                  fontSize: 10.9,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1035,7 +1316,7 @@ class _HeaderMetric extends StatelessWidget {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: palette.panelAlt,
         borderRadius: BorderRadius.circular(14),
@@ -1048,16 +1329,16 @@ class _HeaderMetric extends StatelessWidget {
             label,
             style: TextStyle(
               color: palette.subtleText,
-              fontSize: 10.8,
+              fontSize: 10.2,
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             value,
             style: TextStyle(
               color: colorScheme.onSurface,
-              fontSize: 12.2,
+              fontSize: 11.7,
               fontWeight: FontWeight.w600,
             ),
           ),

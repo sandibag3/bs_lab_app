@@ -11,6 +11,7 @@ class ExperimentInfoPanel extends StatelessWidget {
   final String Function(Timestamp timestamp) formatDateTime;
   final Color statusColor;
   final bool compact;
+  final Widget? headerTrailing;
 
   const ExperimentInfoPanel({
     super.key,
@@ -19,6 +20,7 @@ class ExperimentInfoPanel extends StatelessWidget {
     required this.formatDateTime,
     required this.statusColor,
     this.compact = false,
+    this.headerTrailing,
   });
 
   @override
@@ -41,10 +43,11 @@ class ExperimentInfoPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _RailHeader(
+          _RailHeader(
             icon: Icons.space_dashboard_rounded,
             title: 'Experiment Rail',
             subtitle: 'Metadata and context',
+            trailing: headerTrailing,
           ),
           SizedBox(height: compact ? 10 : 12),
           Wrap(
@@ -117,11 +120,13 @@ class _RailHeader extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final Widget? trailing;
 
   const _RailHeader({
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.trailing,
   });
 
   @override
@@ -164,6 +169,7 @@ class _RailHeader extends StatelessWidget {
             ],
           ),
         ),
+        if (trailing != null) ...[const SizedBox(width: 8), trailing!],
       ],
     );
   }
@@ -303,11 +309,7 @@ class _InfoStack extends StatelessWidget {
             decoration: BoxDecoration(
               border: isLast
                   ? null
-                  : Border(
-                      bottom: BorderSide(
-                        color: palette.border,
-                      ),
-                    ),
+                  : Border(bottom: BorderSide(color: palette.border)),
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,7 +394,9 @@ class _SectionBlock extends StatelessWidget {
           Text(
             cleanValue.isEmpty ? emptyMessage : cleanValue,
             style: TextStyle(
-              color: cleanValue.isEmpty ? palette.subtleText : palette.mutedText,
+              color: cleanValue.isEmpty
+                  ? palette.subtleText
+                  : palette.mutedText,
               fontSize: compact ? 12.0 : 12.4,
               height: 1.38,
             ),

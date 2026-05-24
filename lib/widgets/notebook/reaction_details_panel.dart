@@ -7,11 +7,13 @@ import '../../theme/labmate_theme.dart';
 class ReactionDetailsPanel extends StatelessWidget {
   final NotebookExperimentModel experiment;
   final bool compact;
+  final Widget? headerTrailing;
 
   const ReactionDetailsPanel({
     super.key,
     required this.experiment,
     this.compact = false,
+    this.headerTrailing,
   });
 
   @override
@@ -63,10 +65,11 @@ class ReactionDetailsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _PanelHeader(
+          _PanelHeader(
             icon: Icons.science_outlined,
             title: 'Reaction Workspace',
             subtitle: 'Scheme, setup, and structured component table',
+            trailing: headerTrailing,
           ),
           SizedBox(height: compact ? 10 : 12),
           _SchemePlaceholder(
@@ -108,11 +111,13 @@ class _PanelHeader extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
+  final Widget? trailing;
 
   const _PanelHeader({
     required this.icon,
     required this.title,
     required this.subtitle,
+    this.trailing,
   });
 
   @override
@@ -155,6 +160,7 @@ class _PanelHeader extends StatelessWidget {
             ],
           ),
         ),
+        if (trailing != null) ...[const SizedBox(width: 8), trailing!],
       ],
     );
   }
@@ -449,85 +455,104 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.labmate;
+    const desktopTableMinWidth = 1120.0;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: Container(
-        width: 1080,
-        decoration: BoxDecoration(
-          color: palette.panelAlt,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: palette.border),
-        ),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                border: Border(bottom: BorderSide(color: palette.border)),
-              ),
-              child: const Row(
-                children: [
-                  _ReactionTableHeaderCell('Component', 160),
-                  _ReactionTableHeaderCell('Role', 120),
-                  _ReactionTableHeaderCell('Equiv', 74),
-                  _ReactionTableHeaderCell('mmol', 74),
-                  _ReactionTableHeaderCell('Molecular weight', 112),
-                  _ReactionTableHeaderCell('Amount', 84),
-                  _ReactionTableHeaderCell('Unit', 80),
-                  _ReactionTableHeaderCell('Density', 84),
-                  _ReactionTableHeaderCell('Volume', 84),
-                  _ReactionTableHeaderCell('Remarks', 208),
-                ],
-              ),
-            ),
-            ...components.asMap().entries.map((entry) {
-              final index = entry.key;
-              final component = entry.value;
-              final isLast = index == components.length - 1;
-
-              return Container(
-                padding: EdgeInsets.symmetric(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minWidth: desktopTableMinWidth),
+        child: Container(
+          width: desktopTableMinWidth,
+          decoration: BoxDecoration(
+            color: palette.panelAlt,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: palette.border),
+          ),
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(
                   horizontal: 12,
-                  vertical: compact ? 10 : 11,
+                  vertical: 10,
                 ),
                 decoration: BoxDecoration(
-                  border: isLast
-                      ? null
-                      : Border(bottom: BorderSide(color: palette.border)),
+                  border: Border(bottom: BorderSide(color: palette.border)),
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: const Row(
                   children: [
-                    _ReactionTableValueCell(
-                      width: 160,
-                      value: component.componentName,
-                      strong: true,
-                      isLimitingReagent: component.isLimitingReagent,
-                    ),
-                    _ReactionTableValueCell(width: 120, value: component.role),
-                    _ReactionTableValueCell(width: 74, value: component.equiv),
-                    _ReactionTableValueCell(width: 74, value: component.mmol),
-                    _ReactionTableValueCell(
-                      width: 112,
-                      value: component.molecularWeight,
-                    ),
-                    _ReactionTableValueCell(width: 84, value: component.amount),
-                    _ReactionTableValueCell(width: 80, value: component.unit),
-                    _ReactionTableValueCell(
-                      width: 84,
-                      value: component.density,
-                    ),
-                    _ReactionTableValueCell(width: 84, value: component.volume),
-                    _ReactionTableValueCell(
-                      width: 208,
-                      value: component.remarks,
-                    ),
+                    _ReactionTableHeaderCell('Component', 160),
+                    _ReactionTableHeaderCell('Role', 120),
+                    _ReactionTableHeaderCell('Equiv', 74),
+                    _ReactionTableHeaderCell('mmol', 74),
+                    _ReactionTableHeaderCell('Molecular weight', 112),
+                    _ReactionTableHeaderCell('Amount', 84),
+                    _ReactionTableHeaderCell('Unit', 80),
+                    _ReactionTableHeaderCell('Density', 84),
+                    _ReactionTableHeaderCell('Volume', 84),
+                    _ReactionTableHeaderCell('Remarks', 208),
                   ],
                 ),
-              );
-            }),
-          ],
+              ),
+              ...components.asMap().entries.map((entry) {
+                final index = entry.key;
+                final component = entry.value;
+                final isLast = index == components.length - 1;
+
+                return Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: compact ? 10 : 11,
+                  ),
+                  decoration: BoxDecoration(
+                    border: isLast
+                        ? null
+                        : Border(bottom: BorderSide(color: palette.border)),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ReactionTableValueCell(
+                        width: 160,
+                        value: component.componentName,
+                        strong: true,
+                        isLimitingReagent: component.isLimitingReagent,
+                      ),
+                      _ReactionTableValueCell(
+                        width: 120,
+                        value: component.role,
+                      ),
+                      _ReactionTableValueCell(
+                        width: 74,
+                        value: component.equiv,
+                      ),
+                      _ReactionTableValueCell(width: 74, value: component.mmol),
+                      _ReactionTableValueCell(
+                        width: 112,
+                        value: component.molecularWeight,
+                      ),
+                      _ReactionTableValueCell(
+                        width: 84,
+                        value: component.amount,
+                      ),
+                      _ReactionTableValueCell(width: 80, value: component.unit),
+                      _ReactionTableValueCell(
+                        width: 84,
+                        value: component.density,
+                      ),
+                      _ReactionTableValueCell(
+                        width: 84,
+                        value: component.volume,
+                      ),
+                      _ReactionTableValueCell(
+                        width: 208,
+                        value: component.remarks,
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
         ),
       ),
     );
