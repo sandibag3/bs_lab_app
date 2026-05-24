@@ -732,6 +732,27 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     return 'calc: ${calculatedMolPercent.toStringAsFixed(1)} mol%';
   }
 
+  double? _calculatedAmountMgForDraft(_ReactionComponentDraft draft) {
+    final mmol = _parseReactionNumber(draft.mmolController.text);
+    final molecularWeight = _parseReactionNumber(
+      draft.molecularWeightController.text,
+    );
+    if (mmol == null || molecularWeight == null) {
+      return null;
+    }
+
+    return mmol * molecularWeight;
+  }
+
+  String? _calculatedAmountLabelForDraft(_ReactionComponentDraft draft) {
+    final calculatedAmount = _calculatedAmountMgForDraft(draft);
+    if (calculatedAmount == null) {
+      return null;
+    }
+
+    return 'calc: ${calculatedAmount.toStringAsFixed(1)} mg';
+  }
+
   Widget _buildReactionHelperLabel(String? label) {
     if (label == null) {
       return const SizedBox.shrink();
@@ -940,6 +961,9 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                   );
                   final calculatedMolPercentLabel =
                       _calculatedMolPercentLabelForDraft(draft);
+                  final calculatedAmountLabel = _calculatedAmountLabelForDraft(
+                    draft,
+                  );
 
                   return Container(
                     padding: const EdgeInsets.symmetric(
@@ -1005,13 +1029,20 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                           child: _buildReactionComponentTextField(
                             controller: draft.molecularWeightController,
                             hint: 'Mol. wt.',
+                            onChanged: (_) => setState(() {}),
                           ),
                         ),
                         _DesktopReactionFieldCell(
                           width: 86,
-                          child: _buildReactionComponentTextField(
-                            controller: draft.amountController,
-                            hint: 'Amount',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildReactionComponentTextField(
+                                controller: draft.amountController,
+                                hint: 'Amount',
+                              ),
+                              _buildReactionHelperLabel(calculatedAmountLabel),
+                            ],
                           ),
                         ),
                         _DesktopReactionFieldCell(
@@ -1077,6 +1108,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
         final calculatedMolPercentLabel = _calculatedMolPercentLabelForDraft(
           draft,
         );
+        final calculatedAmountLabel = _calculatedAmountLabelForDraft(draft);
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Builder(
@@ -1159,10 +1191,17 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                         _buildReactionComponentTextField(
                           controller: draft.molecularWeightController,
                           hint: 'Molecular weight',
+                          onChanged: (_) => setState(() {}),
                         ),
-                        _buildReactionComponentTextField(
-                          controller: draft.amountController,
-                          hint: 'Amount',
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildReactionComponentTextField(
+                              controller: draft.amountController,
+                              hint: 'Amount',
+                            ),
+                            _buildReactionHelperLabel(calculatedAmountLabel),
+                          ],
                         ),
                         _buildReactionComponentUnitField(draft),
                         _buildReactionComponentTextField(

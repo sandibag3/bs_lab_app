@@ -62,6 +62,17 @@ String? _calculatedMolPercentLabel(
   return 'calc: ${molPercent.toStringAsFixed(1)} mol%';
 }
 
+String? _calculatedAmountLabel(ReactionComponentModel component) {
+  final mmol = _parseReactionNumber(component.mmol);
+  final molecularWeight = _parseReactionNumber(component.molecularWeight);
+  if (mmol == null || molecularWeight == null) {
+    return null;
+  }
+
+  final amountMg = mmol * molecularWeight;
+  return 'calc: ${amountMg.toStringAsFixed(1)} mg';
+}
+
 class ReactionDetailsPanel extends StatelessWidget {
   final NotebookExperimentModel experiment;
   final bool compact;
@@ -563,6 +574,7 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
                   components,
                   component,
                 );
+                final calculatedAmountLabel = _calculatedAmountLabel(component);
 
                 return Container(
                   padding: EdgeInsets.symmetric(
@@ -604,6 +616,7 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
                       _ReactionTableValueCell(
                         width: 84,
                         value: component.amount,
+                        supportingText: calculatedAmountLabel,
                       ),
                       _ReactionTableValueCell(width: 80, value: component.unit),
                       _ReactionTableValueCell(
@@ -656,6 +669,7 @@ class _ReactionComponentsMobileCards extends StatelessWidget {
           components,
           component,
         );
+        final calculatedAmountLabel = _calculatedAmountLabel(component);
 
         return Padding(
           padding: EdgeInsets.only(
@@ -731,6 +745,12 @@ class _ReactionComponentsMobileCards extends StatelessWidget {
                       value: component.amount,
                       compact: compact,
                     ),
+                    if (calculatedAmountLabel != null)
+                      _ComponentMetaChip(
+                        label: 'Calc Amt',
+                        value: calculatedAmountLabel.replaceFirst('calc: ', ''),
+                        compact: compact,
+                      ),
                     _ComponentMetaChip(
                       label: 'Unit',
                       value: component.unit,
