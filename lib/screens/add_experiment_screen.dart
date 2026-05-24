@@ -266,9 +266,14 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
       equiv: initialComponent?.equiv ?? '',
       molecularWeight: initialComponent?.molecularWeight ?? '',
       amount: initialComponent?.amount ?? '',
-      unit: initialComponent?.unit ?? reactionComponentUnits.first,
+      unit: initialComponent == null
+          ? reactionComponentAmountUnits[1]
+          : initialComponent.unit,
       density: initialComponent?.density ?? '',
       volume: initialComponent?.volume ?? '',
+      volumeUnit: initialComponent == null
+          ? reactionComponentVolumeUnits[1]
+          : initialComponent.volumeUnit,
       supplierOrSource: initialComponent?.supplierOrSource ?? '',
       remarks: initialComponent?.remarks ?? '',
       isLimitingReagent: initialComponent?.isLimitingReagent ?? false,
@@ -578,20 +583,35 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
   }
 
   Widget _buildReactionComponentUnitField(_ReactionComponentDraft draft) {
+    final normalizedUnit = draft.unit.trim();
+    final hasSupportedUnit = reactionComponentAmountUnits.contains(
+      normalizedUnit,
+    );
+
     return Builder(
       builder: (context) => DropdownButtonFormField<String>(
         key: ValueKey('unit_${draft.id}_${draft.unit}'),
-        initialValue: reactionComponentUnits.contains(draft.unit)
-            ? draft.unit
-            : reactionComponentUnits.first,
+        initialValue: hasSupportedUnit ? normalizedUnit : null,
+        hint: !hasSupportedUnit && normalizedUnit.isNotEmpty
+            ? Text(
+                'Legacy: $normalizedUnit',
+                style: TextStyle(
+                  color: context.labmate.subtleText,
+                  fontSize: 11.8,
+                ),
+              )
+            : null,
         dropdownColor: context.labmate.panelAlt,
         isExpanded: true,
         style: TextStyle(
           color: Theme.of(context).colorScheme.onSurface,
           fontSize: 12.2,
         ),
-        decoration: _reactionComponentInputDecoration(context, hint: 'Unit'),
-        items: reactionComponentUnits.map((unit) {
+        decoration: _reactionComponentInputDecoration(
+          context,
+          hint: 'Amount unit',
+        ),
+        items: reactionComponentAmountUnits.map((unit) {
           return DropdownMenuItem<String>(value: unit, child: Text(unit));
         }).toList(),
         onChanged: (value) {
@@ -601,6 +621,51 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
 
           setState(() {
             draft.unit = value;
+          });
+        },
+      ),
+    );
+  }
+
+  Widget _buildReactionComponentVolumeUnitField(_ReactionComponentDraft draft) {
+    final normalizedUnit = draft.volumeUnit.trim();
+    final hasSupportedUnit = reactionComponentVolumeUnits.contains(
+      normalizedUnit,
+    );
+
+    return Builder(
+      builder: (context) => DropdownButtonFormField<String>(
+        key: ValueKey('volume_unit_${draft.id}_${draft.volumeUnit}'),
+        initialValue: hasSupportedUnit ? normalizedUnit : null,
+        hint: !hasSupportedUnit && normalizedUnit.isNotEmpty
+            ? Text(
+                'Legacy: $normalizedUnit',
+                style: TextStyle(
+                  color: context.labmate.subtleText,
+                  fontSize: 11.8,
+                ),
+              )
+            : null,
+        dropdownColor: context.labmate.panelAlt,
+        isExpanded: true,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurface,
+          fontSize: 12.2,
+        ),
+        decoration: _reactionComponentInputDecoration(
+          context,
+          hint: 'Vol unit',
+        ),
+        items: reactionComponentVolumeUnits.map((unit) {
+          return DropdownMenuItem<String>(value: unit, child: Text(unit));
+        }).toList(),
+        onChanged: (value) {
+          if (value == null) {
+            return;
+          }
+
+          setState(() {
+            draft.volumeUnit = value;
           });
         },
       ),
@@ -943,9 +1008,10 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                       _DesktopReactionHeaderCell('mmol', 76),
                       _DesktopReactionHeaderCell('Molecular weight', 116),
                       _DesktopReactionHeaderCell('Amount', 86),
-                      _DesktopReactionHeaderCell('Unit', 86),
-                      _DesktopReactionHeaderCell('Density', 90),
+                      _DesktopReactionHeaderCell('Amt unit', 86),
+                      _DesktopReactionHeaderCell('Density (g/mL)', 104),
                       _DesktopReactionHeaderCell('Volume', 90),
+                      _DesktopReactionHeaderCell('Vol unit', 86),
                       _DesktopReactionHeaderCell('Remarks', 150),
                       _DesktopReactionHeaderCell('Limit', 98),
                       _DesktopReactionHeaderCell('', 46),
@@ -1050,10 +1116,10 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                           child: _buildReactionComponentUnitField(draft),
                         ),
                         _DesktopReactionFieldCell(
-                          width: 90,
+                          width: 104,
                           child: _buildReactionComponentTextField(
                             controller: draft.densityController,
-                            hint: 'Density',
+                            hint: 'Density (g/mL)',
                           ),
                         ),
                         _DesktopReactionFieldCell(
@@ -1062,6 +1128,10 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                             controller: draft.volumeController,
                             hint: 'Volume',
                           ),
+                        ),
+                        _DesktopReactionFieldCell(
+                          width: 86,
+                          child: _buildReactionComponentVolumeUnitField(draft),
                         ),
                         _DesktopReactionFieldCell(
                           width: 150,
@@ -1206,12 +1276,13 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                         _buildReactionComponentUnitField(draft),
                         _buildReactionComponentTextField(
                           controller: draft.densityController,
-                          hint: 'Density',
+                          hint: 'Density (g/mL)',
                         ),
                         _buildReactionComponentTextField(
                           controller: draft.volumeController,
                           hint: 'Volume',
                         ),
+                        _buildReactionComponentVolumeUnitField(draft),
                         _buildReactionComponentTextField(
                           controller: draft.remarksController,
                           hint: 'Remarks',
@@ -2400,6 +2471,7 @@ class _ReactionComponentDraft {
   final TextEditingController remarksController;
   String role;
   String unit;
+  String volumeUnit;
   bool isLimitingReagent;
 
   _ReactionComponentDraft({
@@ -2414,6 +2486,7 @@ class _ReactionComponentDraft {
     required this.unit,
     required String density,
     required String volume,
+    required this.volumeUnit,
     required String supplierOrSource,
     required String remarks,
     required this.isLimitingReagent,
@@ -2442,6 +2515,7 @@ class _ReactionComponentDraft {
       unit: unit.trim(),
       density: densityController.text.trim(),
       volume: volumeController.text.trim(),
+      volumeUnit: volumeUnit.trim(),
       supplierOrSource: supplierOrSourceController.text.trim(),
       remarks: remarksController.text.trim(),
       isLimitingReagent: isLimitingReagent,

@@ -9,16 +9,9 @@ const List<String> reactionComponentRoles = [
   'Other',
 ];
 
-const List<String> reactionComponentUnits = [
-  'mg',
-  'g',
-  '\u00B5L',
-  'mL',
-  'mmol',
-  'equiv',
-  'mol%',
-  'wt%',
-];
+const List<String> reactionComponentAmountUnits = ['\u00B5g', 'mg', 'g'];
+
+const List<String> reactionComponentVolumeUnits = ['\u00B5L', 'mL', 'L'];
 
 class ReactionComponentModel {
   final String componentName;
@@ -31,6 +24,7 @@ class ReactionComponentModel {
   final String unit;
   final String density;
   final String volume;
+  final String volumeUnit;
   final String supplierOrSource;
   final String remarks;
   final bool isLimitingReagent;
@@ -46,6 +40,7 @@ class ReactionComponentModel {
     required this.unit,
     required this.density,
     required this.volume,
+    required this.volumeUnit,
     required this.supplierOrSource,
     required this.remarks,
     required this.isLimitingReagent,
@@ -68,6 +63,7 @@ class ReactionComponentModel {
       unit: (data['unit'] ?? '').toString(),
       density: (data['density'] ?? '').toString(),
       volume: (data['volume'] ?? '').toString(),
+      volumeUnit: (data['volumeUnit'] ?? '').toString(),
       supplierOrSource: (data['supplierOrSource'] ?? '').toString(),
       remarks: (data['remarks'] ?? '').toString(),
       isLimitingReagent: isLimitingReagent,
@@ -86,6 +82,7 @@ class ReactionComponentModel {
       'unit': unit,
       'density': density,
       'volume': volume,
+      'volumeUnit': volumeUnit,
       'supplierOrSource': supplierOrSource,
       'remarks': remarks,
       'isLimitingReagent': isLimitingReagent,

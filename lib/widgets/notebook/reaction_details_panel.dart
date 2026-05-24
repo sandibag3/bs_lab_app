@@ -73,6 +73,29 @@ String? _calculatedAmountLabel(ReactionComponentModel component) {
   return 'calc: ${amountMg.toStringAsFixed(1)} mg';
 }
 
+String _valueWithUnit(String value, String unit) {
+  final cleanValue = value.trim();
+  final cleanUnit = unit.trim();
+  if (cleanValue.isEmpty) {
+    return '';
+  }
+
+  if (cleanUnit.isEmpty) {
+    return cleanValue;
+  }
+
+  return '$cleanValue $cleanUnit';
+}
+
+String _densityDisplayValue(String density) {
+  final cleanDensity = density.trim();
+  if (cleanDensity.isEmpty) {
+    return '';
+  }
+
+  return '$cleanDensity g/mL';
+}
+
 class ReactionDetailsPanel extends StatelessWidget {
   final NotebookExperimentModel experiment;
   final bool compact;
@@ -524,7 +547,7 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = context.labmate;
-    const desktopTableMinWidth = 1120.0;
+    const desktopTableMinWidth = 1100.0;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
@@ -554,10 +577,9 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
                     _ReactionTableHeaderCell('Equiv', 74),
                     _ReactionTableHeaderCell('mmol', 74),
                     _ReactionTableHeaderCell('Molecular weight', 112),
-                    _ReactionTableHeaderCell('Amount', 84),
-                    _ReactionTableHeaderCell('Unit', 80),
-                    _ReactionTableHeaderCell('Density', 84),
-                    _ReactionTableHeaderCell('Volume', 84),
+                    _ReactionTableHeaderCell('Amount', 100),
+                    _ReactionTableHeaderCell('Density', 96),
+                    _ReactionTableHeaderCell('Volume', 96),
                     _ReactionTableHeaderCell('Remarks', 208),
                   ],
                 ),
@@ -614,18 +636,20 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
                         value: component.molecularWeight,
                       ),
                       _ReactionTableValueCell(
-                        width: 84,
-                        value: component.amount,
+                        width: 100,
+                        value: _valueWithUnit(component.amount, component.unit),
                         supportingText: calculatedAmountLabel,
                       ),
-                      _ReactionTableValueCell(width: 80, value: component.unit),
                       _ReactionTableValueCell(
-                        width: 84,
-                        value: component.density,
+                        width: 96,
+                        value: _densityDisplayValue(component.density),
                       ),
                       _ReactionTableValueCell(
-                        width: 84,
-                        value: component.volume,
+                        width: 96,
+                        value: _valueWithUnit(
+                          component.volume,
+                          component.volumeUnit,
+                        ),
                       ),
                       _ReactionTableValueCell(
                         width: 208,
@@ -742,7 +766,7 @@ class _ReactionComponentsMobileCards extends StatelessWidget {
                     ),
                     _ComponentMetaChip(
                       label: 'Amount',
-                      value: component.amount,
+                      value: _valueWithUnit(component.amount, component.unit),
                       compact: compact,
                     ),
                     if (calculatedAmountLabel != null)
@@ -752,18 +776,16 @@ class _ReactionComponentsMobileCards extends StatelessWidget {
                         compact: compact,
                       ),
                     _ComponentMetaChip(
-                      label: 'Unit',
-                      value: component.unit,
-                      compact: compact,
-                    ),
-                    _ComponentMetaChip(
                       label: 'Density',
-                      value: component.density,
+                      value: _densityDisplayValue(component.density),
                       compact: compact,
                     ),
                     _ComponentMetaChip(
                       label: 'Volume',
-                      value: component.volume,
+                      value: _valueWithUnit(
+                        component.volume,
+                        component.volumeUnit,
+                      ),
                       compact: compact,
                     ),
                   ],
