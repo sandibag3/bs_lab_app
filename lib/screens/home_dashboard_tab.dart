@@ -26,6 +26,7 @@ import 'consumables_inventory_screen.dart';
 import 'lab_notebook_screen.dart';
 import 'lab_members_screen.dart';
 import 'lab_settings_screen.dart';
+import 'msds_lookup_screen.dart';
 import 'recent_activity_screen.dart';
 
 class HomeDashboardTab extends StatelessWidget {
@@ -96,6 +97,13 @@ class HomeDashboardTab extends StatelessWidget {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => LabNotebookScreen(appState: appState)),
+    );
+  }
+
+  void _openMsdsLookup(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const MsdsLookupScreen()),
     );
   }
 
@@ -536,7 +544,9 @@ class HomeDashboardTab extends StatelessWidget {
                                       vertical: 5,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.16),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.16,
+                                      ),
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
@@ -725,6 +735,15 @@ class HomeDashboardTab extends StatelessWidget {
                 ),
                 SizedBox(height: sectionGap),
                 _WorkflowEntryCard(
+                  title: 'MSDS / Safety',
+                  subtitle:
+                      'Search by CAS number and review a PubChem-based safety summary before handling chemicals.',
+                  icon: Icons.health_and_safety_rounded,
+                  accentColor: const Color(0xFFF59E0B),
+                  onTap: () => _openMsdsLookup(context),
+                ),
+                SizedBox(height: sectionGap),
+                _WorkflowEntryCard(
                   title: 'Recent Activity',
                   subtitle:
                       'View recent requirements, orders, deliveries, and inventory entries for this lab.',
@@ -865,9 +884,12 @@ class _HeroProfileAvatar extends StatelessWidget {
       height: 72,
       width: 72,
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.18),
+        color: Colors.white.withValues(alpha: 0.18),
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withOpacity(0.24), width: 1.5),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.24),
+          width: 1.5,
+        ),
       ),
       child: ClipOval(
         child: scientificAvatar != null
@@ -1017,7 +1039,7 @@ class _AttendanceStatusButtonState extends State<_AttendanceStatusButton> {
         label = 'Check in';
         icon = Icons.qr_code_scanner_rounded;
         accentColor = Colors.white;
-        backgroundColor = Colors.white.withOpacity(0.14);
+        backgroundColor = Colors.white.withValues(alpha: 0.14);
         break;
     }
 
@@ -1031,7 +1053,7 @@ class _AttendanceStatusButtonState extends State<_AttendanceStatusButton> {
           decoration: BoxDecoration(
             color: backgroundColor,
             borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: accentColor.withOpacity(0.28)),
+            border: Border.all(color: accentColor.withValues(alpha: 0.28)),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -1062,7 +1084,7 @@ class _HeroProfileScientificAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white.withOpacity(0.08),
+      color: Colors.white.withValues(alpha: 0.08),
       alignment: Alignment.center,
       child: Icon(icon, color: Colors.white, size: 36),
     );
@@ -1077,7 +1099,7 @@ class _HeroProfileInitials extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: Colors.white.withOpacity(0.08),
+      color: Colors.white.withValues(alpha: 0.08),
       alignment: Alignment.center,
       child: Text(
         initials,
@@ -1698,7 +1720,7 @@ class _HomeToolCard extends StatelessWidget {
                         height: iconBoxSize,
                         width: iconBoxSize,
                         decoration: BoxDecoration(
-                          color: accentColor.withOpacity(0.15),
+                          color: accentColor.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(
                             isCompact ? 10 : 12,
                           ),
@@ -1812,7 +1834,7 @@ class _WorkflowEntryCard extends StatelessWidget {
                 height: 52,
                 width: 52,
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.16),
+                  color: accentColor.withValues(alpha: 0.16),
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(icon, color: accentColor, size: 26),
