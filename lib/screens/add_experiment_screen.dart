@@ -818,6 +818,17 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     return 'calc: ${calculatedAmount.toStringAsFixed(1)} mg';
   }
 
+  double? _calculatedVolumeMlForDraft(_ReactionComponentDraft draft) {
+    final calculatedAmountMg = _calculatedAmountMgForDraft(draft);
+    final density = _parseReactionNumber(draft.densityController.text);
+    if (calculatedAmountMg == null || density == null || density <= 0) {
+      return null;
+    }
+
+    final massGrams = calculatedAmountMg / 1000;
+    return massGrams / density;
+  }
+
   String? _calculatedVolumeLabelForDraft(_ReactionComponentDraft draft) {
     final calculatedAmountMg = _calculatedAmountMgForDraft(draft);
     final density = _parseReactionNumber(draft.densityController.text);
@@ -851,6 +862,110 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
             fontWeight: FontWeight.w700,
           ),
         ),
+      ),
+    );
+  }
+
+  String? _computedVolumeHelperLabelForDraft(_ReactionComponentDraft draft) {
+    final label = _calculatedVolumeLabelForDraft(draft);
+    if (label == null) {
+      return null;
+    }
+
+    return label.replaceAll('Âµ', '\u00B5');
+  }
+
+  String _formatReactionValue(
+    double value, {
+    required int decimals,
+    bool trimTrailingZeros = false,
+  }) {
+    final text = value.toStringAsFixed(decimals);
+    if (!trimTrailingZeros) {
+      return text;
+    }
+
+    return text.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  void _applyCalculatedAmount(_ReactionComponentDraft draft) {
+    final calculatedAmountMg = _calculatedAmountMgForDraft(draft);
+    if (calculatedAmountMg == null) {
+      return;
+    }
+
+    setState(() {
+      if (calculatedAmountMg >= 1000) {
+        draft.amountController.text = _formatReactionValue(
+          calculatedAmountMg / 1000,
+          decimals: 2,
+        );
+        draft.unit = 'g';
+      } else if (calculatedAmountMg < 1) {
+        draft.amountController.text = _formatReactionValue(
+          calculatedAmountMg * 1000,
+          decimals: 1,
+          trimTrailingZeros: true,
+        );
+        draft.unit = '\u00B5g';
+      } else {
+        draft.amountController.text = _formatReactionValue(
+          calculatedAmountMg,
+          decimals: 1,
+        );
+        draft.unit = 'mg';
+      }
+    });
+  }
+
+  void _applyCalculatedVolume(_ReactionComponentDraft draft) {
+    final volumeMl = _calculatedVolumeMlForDraft(draft);
+    if (volumeMl == null) {
+      return;
+    }
+
+    setState(() {
+      if (volumeMl < 1) {
+        draft.volumeController.text = _formatReactionValue(
+          volumeMl * 1000,
+          decimals: 1,
+        );
+        draft.volumeUnit = '\u00B5L';
+      } else {
+        draft.volumeController.text = _formatReactionValue(
+          volumeMl,
+          decimals: 2,
+        );
+        draft.volumeUnit = 'mL';
+      }
+    });
+  }
+
+  Widget _buildReactionHelperAction(
+    String? label, {
+    required String actionLabel,
+    required VoidCallback onPressed,
+  }) {
+    if (label == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 0),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          visualDensity: const VisualDensity(horizontal: -4, vertical: -4),
+          foregroundColor: const Color(0xFF99F6E4),
+          textStyle: const TextStyle(
+            fontSize: 10.6,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        child: Text(actionLabel),
       ),
     );
   }
@@ -1001,7 +1116,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
         return SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Container(
-            width: 1324,
+            width: 1388,
             decoration: BoxDecoration(
               color: palette.panelAlt,
               borderRadius: BorderRadius.circular(16),
@@ -1024,10 +1139,10 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                       _DesktopReactionHeaderCell('Equiv', 76),
                       _DesktopReactionHeaderCell('mmol', 76),
                       _DesktopReactionHeaderCell('Molecular weight', 116),
-                      _DesktopReactionHeaderCell('Amount', 86),
+                      _DesktopReactionHeaderCell('Amount', 120),
                       _DesktopReactionHeaderCell('Amt unit', 86),
                       _DesktopReactionHeaderCell('Density (g/mL)', 104),
-                      _DesktopReactionHeaderCell('Volume', 90),
+                      _DesktopReactionHeaderCell('Volume', 114),
                       _DesktopReactionHeaderCell('Vol unit', 86),
                       _DesktopReactionHeaderCell('Remarks', 150),
                       _DesktopReactionHeaderCell('Limit', 98),
@@ -1047,9 +1162,8 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                   final calculatedAmountLabel = _calculatedAmountLabelForDraft(
                     draft,
                   );
-                  final calculatedVolumeLabel = _calculatedVolumeLabelForDraft(
-                    draft,
-                  );
+                  final calculatedVolumeLabel =
+                      _computedVolumeHelperLabelForDraft(draft);
 
                   return Container(
                     padding: const EdgeInsets.symmetric(
@@ -1119,7 +1233,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                           ),
                         ),
                         _DesktopReactionFieldCell(
-                          width: 86,
+                          width: 120,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1128,6 +1242,11 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                                 hint: 'Amount',
                               ),
                               _buildReactionHelperLabel(calculatedAmountLabel),
+                              _buildReactionHelperAction(
+                                calculatedAmountLabel,
+                                actionLabel: 'Use calc amount',
+                                onPressed: () => _applyCalculatedAmount(draft),
+                              ),
                             ],
                           ),
                         ),
@@ -1144,7 +1263,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                           ),
                         ),
                         _DesktopReactionFieldCell(
-                          width: 90,
+                          width: 114,
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -1153,6 +1272,11 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                                 hint: 'Volume',
                               ),
                               _buildReactionHelperLabel(calculatedVolumeLabel),
+                              _buildReactionHelperAction(
+                                calculatedVolumeLabel,
+                                actionLabel: 'Use calc volume',
+                                onPressed: () => _applyCalculatedVolume(draft),
+                              ),
                             ],
                           ),
                         ),
@@ -1206,7 +1330,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
           draft,
         );
         final calculatedAmountLabel = _calculatedAmountLabelForDraft(draft);
-        final calculatedVolumeLabel = _calculatedVolumeLabelForDraft(draft);
+        final calculatedVolumeLabel = _computedVolumeHelperLabelForDraft(draft);
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Builder(
@@ -1299,6 +1423,11 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                               hint: 'Amount',
                             ),
                             _buildReactionHelperLabel(calculatedAmountLabel),
+                            _buildReactionHelperAction(
+                              calculatedAmountLabel,
+                              actionLabel: 'Use calc amount',
+                              onPressed: () => _applyCalculatedAmount(draft),
+                            ),
                           ],
                         ),
                         _buildReactionComponentUnitField(draft),
@@ -1315,6 +1444,11 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                               hint: 'Volume',
                             ),
                             _buildReactionHelperLabel(calculatedVolumeLabel),
+                            _buildReactionHelperAction(
+                              calculatedVolumeLabel,
+                              actionLabel: 'Use calc volume',
+                              onPressed: () => _applyCalculatedVolume(draft),
+                            ),
                           ],
                         ),
                         _buildReactionComponentVolumeUnitField(draft),
