@@ -4,6 +4,64 @@ import '../../models/notebook_experiment_model.dart';
 import '../../models/reaction_component_model.dart';
 import '../../theme/labmate_theme.dart';
 
+double? _parseReactionNumber(String rawValue) {
+  final normalized = rawValue.trim().replaceAll(',', '.');
+  if (normalized.isEmpty) {
+    return null;
+  }
+
+  return double.tryParse(normalized);
+}
+
+double? _limitingReagentReferenceMmol(List<ReactionComponentModel> components) {
+  for (final component in components) {
+    if (!component.isLimitingReagent) {
+      continue;
+    }
+
+    final limitingMmol = _parseReactionNumber(component.mmol);
+    if (limitingMmol == null || limitingMmol <= 0) {
+      return null;
+    }
+
+    return limitingMmol;
+  }
+
+  return null;
+}
+
+String? _calculatedEquivLabel(
+  List<ReactionComponentModel> components,
+  ReactionComponentModel component,
+) {
+  final limitingMmol = _limitingReagentReferenceMmol(components);
+  final rowMmol = _parseReactionNumber(component.mmol);
+  if (limitingMmol == null || rowMmol == null || limitingMmol <= 0) {
+    return null;
+  }
+
+  final calculatedEquiv = rowMmol / limitingMmol;
+  return 'calc: ${calculatedEquiv.toStringAsFixed(2)} equiv';
+}
+
+String? _calculatedMolPercentLabel(
+  List<ReactionComponentModel> components,
+  ReactionComponentModel component,
+) {
+  if (component.role.trim().toLowerCase() != 'catalyst') {
+    return null;
+  }
+
+  final limitingMmol = _limitingReagentReferenceMmol(components);
+  final catalystMmol = _parseReactionNumber(component.mmol);
+  if (limitingMmol == null || catalystMmol == null || limitingMmol <= 0) {
+    return null;
+  }
+
+  final molPercent = (catalystMmol / limitingMmol) * 100;
+  return 'calc: ${molPercent.toStringAsFixed(1)} mol%';
+}
+
 class ReactionDetailsPanel extends StatelessWidget {
   final NotebookExperimentModel experiment;
   final bool compact;
@@ -497,6 +555,14 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
                 final index = entry.key;
                 final component = entry.value;
                 final isLast = index == components.length - 1;
+                final calculatedEquivLabel = _calculatedEquivLabel(
+                  components,
+                  component,
+                );
+                final calculatedMolPercentLabel = _calculatedMolPercentLabel(
+                  components,
+                  component,
+                );
 
                 return Container(
                   padding: EdgeInsets.symmetric(
@@ -524,8 +590,13 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
                       _ReactionTableValueCell(
                         width: 74,
                         value: component.equiv,
+                        supportingText: calculatedEquivLabel,
                       ),
-                      _ReactionTableValueCell(width: 74, value: component.mmol),
+                      _ReactionTableValueCell(
+                        width: 74,
+                        value: component.mmol,
+                        supportingText: calculatedMolPercentLabel,
+                      ),
                       _ReactionTableValueCell(
                         width: 112,
                         value: component.molecularWeight,
@@ -577,6 +648,14 @@ class _ReactionComponentsMobileCards extends StatelessWidget {
       children: components.asMap().entries.map((entry) {
         final index = entry.key;
         final component = entry.value;
+        final calculatedEquivLabel = _calculatedEquivLabel(
+          components,
+          component,
+        );
+        final calculatedMolPercentLabel = _calculatedMolPercentLabel(
+          components,
+          component,
+        );
 
         return Padding(
           padding: EdgeInsets.only(
@@ -622,6 +701,21 @@ class _ReactionComponentsMobileCards extends StatelessWidget {
                       value: component.equiv,
                       compact: compact,
                     ),
+                    if (calculatedEquivLabel != null)
+                      _ComponentMetaChip(
+                        label: 'Calc',
+                        value: calculatedEquivLabel.replaceFirst('calc: ', ''),
+                        compact: compact,
+                      ),
+                    if (calculatedMolPercentLabel != null)
+                      _ComponentMetaChip(
+                        label: 'Mol%',
+                        value: calculatedMolPercentLabel.replaceFirst(
+                          'calc: ',
+                          '',
+                        ),
+                        compact: compact,
+                      ),
                     _ComponentMetaChip(
                       label: 'mmol',
                       value: component.mmol,
@@ -695,12 +789,14 @@ class _ReactionTableValueCell extends StatelessWidget {
   final String value;
   final bool strong;
   final bool isLimitingReagent;
+  final String? supportingText;
 
   const _ReactionTableValueCell({
     required this.width,
     required this.value,
     this.strong = false,
     this.isLimitingReagent = false,
+    this.supportingText,
   });
 
   @override
@@ -724,6 +820,17 @@ class _ReactionTableValueCell extends StatelessWidget {
               height: 1.35,
             ),
           ),
+          if (supportingText != null) ...[
+            const SizedBox(height: 5),
+            Text(
+              supportingText!,
+              style: const TextStyle(
+                color: Color(0xFF5EEAD4),
+                fontSize: 10.8,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
           if (isLimitingReagent) ...[
             const SizedBox(height: 6),
             const _LimitingBadge(compact: true),

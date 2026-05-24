@@ -531,6 +531,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     required TextEditingController controller,
     required String hint,
     String? Function(String?)? validator,
+    ValueChanged<String>? onChanged,
   }) {
     return Builder(
       builder: (context) => TextFormField(
@@ -541,6 +542,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
         ),
         decoration: _reactionComponentInputDecoration(context, hint: hint),
         validator: validator,
+        onChanged: onChanged,
       ),
     );
   }
@@ -659,6 +661,94 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
           ),
         );
       },
+    );
+  }
+
+  double? _parseReactionNumber(String rawValue) {
+    final normalized = rawValue.trim().replaceAll(',', '.');
+    if (normalized.isEmpty) {
+      return null;
+    }
+
+    return double.tryParse(normalized);
+  }
+
+  double? _limitingReagentReferenceMmol() {
+    for (final draft in _reactionComponentDrafts) {
+      if (!draft.isLimitingReagent) {
+        continue;
+      }
+
+      final limitingMmol = _parseReactionNumber(draft.mmolController.text);
+      if (limitingMmol == null || limitingMmol <= 0) {
+        return null;
+      }
+
+      return limitingMmol;
+    }
+
+    return null;
+  }
+
+  double? _calculatedEquivForDraft(_ReactionComponentDraft draft) {
+    final limitingMmol = _limitingReagentReferenceMmol();
+    final rowMmol = _parseReactionNumber(draft.mmolController.text);
+    if (limitingMmol == null || rowMmol == null || limitingMmol <= 0) {
+      return null;
+    }
+
+    return rowMmol / limitingMmol;
+  }
+
+  String? _calculatedEquivLabelForDraft(_ReactionComponentDraft draft) {
+    final calculatedEquiv = _calculatedEquivForDraft(draft);
+    if (calculatedEquiv == null) {
+      return null;
+    }
+
+    return 'calc: ${calculatedEquiv.toStringAsFixed(2)} equiv';
+  }
+
+  double? _calculatedMolPercentForDraft(_ReactionComponentDraft draft) {
+    if (draft.role.trim().toLowerCase() != 'catalyst') {
+      return null;
+    }
+
+    final limitingMmol = _limitingReagentReferenceMmol();
+    final catalystMmol = _parseReactionNumber(draft.mmolController.text);
+    if (limitingMmol == null || catalystMmol == null || limitingMmol <= 0) {
+      return null;
+    }
+
+    return (catalystMmol / limitingMmol) * 100;
+  }
+
+  String? _calculatedMolPercentLabelForDraft(_ReactionComponentDraft draft) {
+    final calculatedMolPercent = _calculatedMolPercentForDraft(draft);
+    if (calculatedMolPercent == null) {
+      return null;
+    }
+
+    return 'calc: ${calculatedMolPercent.toStringAsFixed(1)} mol%';
+  }
+
+  Widget _buildReactionHelperLabel(String? label) {
+    if (label == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Builder(
+      builder: (context) => Padding(
+        padding: const EdgeInsets.only(top: 5, left: 2),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: const Color(0xFF5EEAD4),
+            fontSize: 10.8,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
     );
   }
 
@@ -845,6 +935,11 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                   final index = entry.key;
                   final draft = entry.value;
                   final isLast = index == _reactionComponentDrafts.length - 1;
+                  final calculatedEquivLabel = _calculatedEquivLabelForDraft(
+                    draft,
+                  );
+                  final calculatedMolPercentLabel =
+                      _calculatedMolPercentLabelForDraft(draft);
 
                   return Container(
                     padding: const EdgeInsets.symmetric(
@@ -878,16 +973,31 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                         ),
                         _DesktopReactionFieldCell(
                           width: 76,
-                          child: _buildReactionComponentTextField(
-                            controller: draft.equivController,
-                            hint: 'Equiv',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildReactionComponentTextField(
+                                controller: draft.equivController,
+                                hint: 'Equiv',
+                              ),
+                              _buildReactionHelperLabel(calculatedEquivLabel),
+                            ],
                           ),
                         ),
                         _DesktopReactionFieldCell(
                           width: 76,
-                          child: _buildReactionComponentTextField(
-                            controller: draft.mmolController,
-                            hint: 'mmol',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildReactionComponentTextField(
+                                controller: draft.mmolController,
+                                hint: 'mmol',
+                                onChanged: (_) => setState(() {}),
+                              ),
+                              _buildReactionHelperLabel(
+                                calculatedMolPercentLabel,
+                              ),
+                            ],
                           ),
                         ),
                         _DesktopReactionFieldCell(
@@ -963,6 +1073,10 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
   Widget _buildMobileReactionTable() {
     return Column(
       children: _reactionComponentDrafts.map((draft) {
+        final calculatedEquivLabel = _calculatedEquivLabelForDraft(draft);
+        final calculatedMolPercentLabel = _calculatedMolPercentLabelForDraft(
+          draft,
+        );
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Builder(
@@ -1019,13 +1133,28 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                           },
                         ),
                         _buildReactionComponentRoleField(draft),
-                        _buildReactionComponentTextField(
-                          controller: draft.equivController,
-                          hint: 'Equiv',
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildReactionComponentTextField(
+                              controller: draft.equivController,
+                              hint: 'Equiv',
+                            ),
+                            _buildReactionHelperLabel(calculatedEquivLabel),
+                          ],
                         ),
-                        _buildReactionComponentTextField(
-                          controller: draft.mmolController,
-                          hint: 'mmol',
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildReactionComponentTextField(
+                              controller: draft.mmolController,
+                              hint: 'mmol',
+                              onChanged: (_) => setState(() {}),
+                            ),
+                            _buildReactionHelperLabel(
+                              calculatedMolPercentLabel,
+                            ),
+                          ],
                         ),
                         _buildReactionComponentTextField(
                           controller: draft.molecularWeightController,
