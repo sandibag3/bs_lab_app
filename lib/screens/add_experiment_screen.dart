@@ -818,6 +818,23 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
     return 'calc: ${calculatedAmount.toStringAsFixed(1)} mg';
   }
 
+  String? _calculatedVolumeLabelForDraft(_ReactionComponentDraft draft) {
+    final calculatedAmountMg = _calculatedAmountMgForDraft(draft);
+    final density = _parseReactionNumber(draft.densityController.text);
+    if (calculatedAmountMg == null || density == null || density <= 0) {
+      return null;
+    }
+
+    final massGrams = calculatedAmountMg / 1000;
+    final volumeMl = massGrams / density;
+    if (volumeMl < 1) {
+      final volumeMicrolitres = volumeMl * 1000;
+      return 'calc: ${volumeMicrolitres.toStringAsFixed(1)} µL';
+    }
+
+    return 'calc: ${volumeMl.toStringAsFixed(2)} mL';
+  }
+
   Widget _buildReactionHelperLabel(String? label) {
     if (label == null) {
       return const SizedBox.shrink();
@@ -1030,6 +1047,9 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                   final calculatedAmountLabel = _calculatedAmountLabelForDraft(
                     draft,
                   );
+                  final calculatedVolumeLabel = _calculatedVolumeLabelForDraft(
+                    draft,
+                  );
 
                   return Container(
                     padding: const EdgeInsets.symmetric(
@@ -1120,13 +1140,20 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                           child: _buildReactionComponentTextField(
                             controller: draft.densityController,
                             hint: 'Density (g/mL)',
+                            onChanged: (_) => setState(() {}),
                           ),
                         ),
                         _DesktopReactionFieldCell(
                           width: 90,
-                          child: _buildReactionComponentTextField(
-                            controller: draft.volumeController,
-                            hint: 'Volume',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildReactionComponentTextField(
+                                controller: draft.volumeController,
+                                hint: 'Volume',
+                              ),
+                              _buildReactionHelperLabel(calculatedVolumeLabel),
+                            ],
                           ),
                         ),
                         _DesktopReactionFieldCell(
@@ -1179,6 +1206,7 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
           draft,
         );
         final calculatedAmountLabel = _calculatedAmountLabelForDraft(draft);
+        final calculatedVolumeLabel = _calculatedVolumeLabelForDraft(draft);
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
           child: Builder(
@@ -1277,10 +1305,17 @@ class _AddExperimentScreenState extends State<AddExperimentScreen> {
                         _buildReactionComponentTextField(
                           controller: draft.densityController,
                           hint: 'Density (g/mL)',
+                          onChanged: (_) => setState(() {}),
                         ),
-                        _buildReactionComponentTextField(
-                          controller: draft.volumeController,
-                          hint: 'Volume',
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildReactionComponentTextField(
+                              controller: draft.volumeController,
+                              hint: 'Volume',
+                            ),
+                            _buildReactionHelperLabel(calculatedVolumeLabel),
+                          ],
                         ),
                         _buildReactionComponentVolumeUnitField(draft),
                         _buildReactionComponentTextField(

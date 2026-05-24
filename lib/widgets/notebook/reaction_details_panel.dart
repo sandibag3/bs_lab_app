@@ -73,6 +73,28 @@ String? _calculatedAmountLabel(ReactionComponentModel component) {
   return 'calc: ${amountMg.toStringAsFixed(1)} mg';
 }
 
+String? _calculatedVolumeLabel(ReactionComponentModel component) {
+  final mmol = _parseReactionNumber(component.mmol);
+  final molecularWeight = _parseReactionNumber(component.molecularWeight);
+  final density = _parseReactionNumber(component.density);
+  if (mmol == null ||
+      molecularWeight == null ||
+      density == null ||
+      density <= 0) {
+    return null;
+  }
+
+  final calculatedAmountMg = mmol * molecularWeight;
+  final massGrams = calculatedAmountMg / 1000;
+  final volumeMl = massGrams / density;
+  if (volumeMl < 1) {
+    final volumeMicrolitres = volumeMl * 1000;
+    return 'calc: ${volumeMicrolitres.toStringAsFixed(1)} µL';
+  }
+
+  return 'calc: ${volumeMl.toStringAsFixed(2)} mL';
+}
+
 String _valueWithUnit(String value, String unit) {
   final cleanValue = value.trim();
   final cleanUnit = unit.trim();
@@ -597,6 +619,7 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
                   component,
                 );
                 final calculatedAmountLabel = _calculatedAmountLabel(component);
+                final calculatedVolumeLabel = _calculatedVolumeLabel(component);
 
                 return Container(
                   padding: EdgeInsets.symmetric(
@@ -650,6 +673,7 @@ class _ReactionComponentsDesktopTable extends StatelessWidget {
                           component.volume,
                           component.volumeUnit,
                         ),
+                        supportingText: calculatedVolumeLabel,
                       ),
                       _ReactionTableValueCell(
                         width: 208,
@@ -694,6 +718,7 @@ class _ReactionComponentsMobileCards extends StatelessWidget {
           component,
         );
         final calculatedAmountLabel = _calculatedAmountLabel(component);
+        final calculatedVolumeLabel = _calculatedVolumeLabel(component);
 
         return Padding(
           padding: EdgeInsets.only(
@@ -788,6 +813,12 @@ class _ReactionComponentsMobileCards extends StatelessWidget {
                       ),
                       compact: compact,
                     ),
+                    if (calculatedVolumeLabel != null)
+                      _ComponentMetaChip(
+                        label: 'Calc Vol',
+                        value: calculatedVolumeLabel.replaceFirst('calc: ', ''),
+                        compact: compact,
+                      ),
                   ],
                 ),
                 const SizedBox(height: 8),
