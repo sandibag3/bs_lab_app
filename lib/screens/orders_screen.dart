@@ -30,6 +30,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   String _selectedModeOfPurchase = _allFilterValue;
   DateTime? _startDate;
   DateTime? _endDate;
+  bool _filtersExpanded = false;
 
   String get _currentUserName => AppState.instance.authenticatedUserName;
 
@@ -190,6 +191,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
         _endDate != null;
   }
 
+  int get _activeFilterCount {
+    var count = 0;
+    if (_selectedBrand != _allFilterValue) count++;
+    if (_selectedVendor != _allFilterValue) count++;
+    if (_selectedOrderedBy != _allFilterValue) count++;
+    if (_selectedModeOfPurchase != _allFilterValue) count++;
+    if (_startDate != null) count++;
+    if (_endDate != null) count++;
+    return count;
+  }
+
   Future<void> _pickFilterDate({required bool isStartDate}) async {
     final now = DateTime.now();
     final initialDate = isStartDate
@@ -261,9 +273,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
       return Expanded(
         child: Material(
           color: isSelected ? palette.selected : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(8),
           child: InkWell(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(8),
             onTap: () {
               if (isSelected) return;
               setState(() {
@@ -286,12 +298,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
 
     return SizedBox(
-      height: 46,
+      height: 40,
       child: Container(
-        padding: const EdgeInsets.all(4),
+        padding: const EdgeInsets.all(3),
         decoration: BoxDecoration(
           color: palette.panel,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: palette.border),
         ),
         child: Row(
@@ -310,12 +322,12 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final colorScheme = context.colorScheme;
 
     return SizedBox(
-      height: 46,
+      height: 40,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: palette.panel,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: palette.border),
         ),
         child: DropdownButtonHideUnderline(
@@ -324,13 +336,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
             dropdownColor: palette.panel,
             style: TextStyle(
               color: colorScheme.onSurface,
-              fontSize: 13,
+              fontSize: 12.8,
               fontWeight: FontWeight.w600,
             ),
             icon: Icon(
               Icons.swap_vert_rounded,
               color: palette.mutedText,
-              size: 18,
+              size: 17,
             ),
             isExpanded: true,
             items: OrdersSortOption.values.map((option) {
@@ -341,7 +353,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: colorScheme.onSurface,
-                    fontSize: 13,
+                    fontSize: 12.8,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -370,18 +382,18 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final colorScheme = context.colorScheme;
 
     return Container(
-      height: 46,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      height: 40,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
       decoration: BoxDecoration(
         color: palette.panel,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(color: palette.border),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: safeValue,
           dropdownColor: palette.panel,
-          style: TextStyle(color: colorScheme.onSurface),
+          style: TextStyle(color: colorScheme.onSurface, fontSize: 12.8),
           isExpanded: true,
           items: options.map((option) {
             return DropdownMenuItem<String>(
@@ -389,7 +401,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
               child: Text(
                 option == _allFilterValue ? '$label: All' : option,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: colorScheme.onSurface, fontSize: 12.8),
+                style: TextStyle(color: colorScheme.onSurface, fontSize: 12.6),
               ),
             );
           }).toList(),
@@ -411,14 +423,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final colorScheme = context.colorScheme;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       onTap: onTap,
       child: Container(
-        height: 46,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: palette.panel,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(color: palette.border),
         ),
         child: Row(
@@ -430,16 +442,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: palette.mutedText,
-                  fontSize: 12.8,
+                  fontSize: 12.6,
                   fontWeight: FontWeight.w600,
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 6),
             Icon(
               Icons.calendar_today_rounded,
               color: colorScheme.primary,
-              size: 17,
+              size: 16,
             ),
           ],
         ),
@@ -453,16 +465,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final button = OutlinedButton.icon(
       onPressed: _hasActiveFilters ? _resetFilters : null,
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 46),
-        padding: const EdgeInsets.symmetric(horizontal: 14),
+        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         side: BorderSide(color: palette.border),
         foregroundColor: palette.mutedText,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      icon: const Icon(Icons.filter_alt_off_rounded, size: 18),
+      icon: const Icon(Icons.filter_alt_off_rounded, size: 17),
       label: const Text(
         'Reset Filters',
-        style: TextStyle(fontSize: 12.8, fontWeight: FontWeight.w700),
+        style: TextStyle(fontSize: 12.4, fontWeight: FontWeight.w700),
       ),
     );
 
@@ -471,6 +483,79 @@ class _OrdersScreenState extends State<OrdersScreen> {
     }
 
     return button;
+  }
+
+  Widget _buildFilterToggleButton({required bool isExpanded}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final isActive = _hasActiveFilters || isExpanded;
+
+    return SizedBox(
+      height: 40,
+      child: OutlinedButton(
+        onPressed: () {
+          setState(() {
+            _filtersExpanded = !_filtersExpanded;
+          });
+        },
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          backgroundColor: isActive
+              ? colorScheme.primary.withValues(alpha: 0.08)
+              : palette.panel,
+          foregroundColor: isActive ? colorScheme.primary : palette.mutedText,
+          side: BorderSide(
+            color: isActive
+                ? colorScheme.primary.withValues(alpha: 0.28)
+                : palette.border,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isExpanded
+                  ? Icons.filter_list_off_rounded
+                  : Icons.filter_list_rounded,
+              size: 17,
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Filters',
+              style: TextStyle(fontSize: 12.6, fontWeight: FontWeight.w700),
+            ),
+            if (_activeFilterCount > 0) ...[
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '$_activeFilterCount',
+                  style: TextStyle(
+                    color: colorScheme.primary,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(width: 6),
+            Icon(
+              isExpanded
+                  ? Icons.keyboard_arrow_up_rounded
+                  : Icons.keyboard_arrow_down_rounded,
+              size: 18,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildFilterToolbar({
@@ -565,17 +650,17 @@ class _OrdersScreenState extends State<OrdersScreen> {
         children: [
           for (int index = 0; index < controls.length; index++) ...[
             controls[index],
-            if (index != controls.length - 1) const SizedBox(height: 10),
+            if (index != controls.length - 1) const SizedBox(height: 8),
           ],
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           _buildResetFiltersButton(fullWidth: true),
         ],
       );
     }
 
     return Wrap(
-      spacing: 12,
-      runSpacing: 12,
+      spacing: 10,
+      runSpacing: 10,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [...controls, _buildResetFiltersButton(fullWidth: false)],
     );
@@ -592,13 +677,14 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final orderCountText = _hasActiveFilters
         ? '$filteredCount of $totalCount orders'
         : '$totalCount ${totalCount == 1 ? 'order' : 'orders'}';
+    final showFilters = _filtersExpanded;
 
     return Container(
-      margin: EdgeInsets.fromLTRB(12, isDesktop ? 8 : 10, 12, 8),
-      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      margin: EdgeInsets.fromLTRB(12, isDesktop ? 2 : 4, 12, 6),
+      padding: EdgeInsets.fromLTRB(12, 10, 12, showFilters ? 10 : 8),
       decoration: BoxDecoration(
         color: palette.panelAlt,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: palette.border),
       ),
       child: Column(
@@ -618,15 +704,16 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 12),
                 Wrap(
                   alignment: WrapAlignment.end,
-                  runSpacing: 12,
-                  spacing: 12,
+                  runSpacing: 8,
+                  spacing: 8,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    SizedBox(width: 210, child: _buildViewToggle()),
-                    SizedBox(width: 200, child: _buildSortDropdown()),
+                    SizedBox(width: 188, child: _buildViewToggle()),
+                    SizedBox(width: 180, child: _buildSortDropdown()),
+                    _buildFilterToggleButton(isExpanded: showFilters),
                   ],
                 ),
               ],
@@ -640,24 +727,41 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 10),
-            _buildViewToggle(),
-            const SizedBox(height: 12),
-            _buildSortDropdown(),
-          ],
-          const SizedBox(height: 12),
-          Container(height: 1, color: palette.border.withValues(alpha: 0.8)),
-          const SizedBox(height: 10),
-          Text(
-            'Filters',
-            style: TextStyle(
-              color: palette.subtleText,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                SizedBox(width: 188, child: _buildViewToggle()),
+                SizedBox(width: 180, child: _buildSortDropdown()),
+                _buildFilterToggleButton(isExpanded: showFilters),
+              ],
             ),
+          ],
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOutCubic,
+            child: showFilters
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          height: 1,
+                          color: palette.border.withValues(alpha: 0.42),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildFilterToolbar(
+                          isDesktop: isDesktop,
+                          allOrders: allOrders,
+                        ),
+                      ],
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
-          const SizedBox(height: 10),
-          _buildFilterToolbar(isDesktop: isDesktop, allOrders: allOrders),
         ],
       ),
     );
