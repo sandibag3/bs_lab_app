@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../app_state.dart';
 import '../models/attendance_record_model.dart';
@@ -22,6 +24,7 @@ import '../theme/labmate_theme.dart';
 import '../widgets/newly_arrived_section.dart';
 import '../widgets/search_bar_widget.dart';
 import 'attendance_screen.dart';
+import 'chemical_detail_screen.dart';
 import 'consumables_inventory_screen.dart';
 import 'lab_notebook_screen.dart';
 import 'lab_members_screen.dart';
@@ -29,7 +32,7 @@ import 'lab_settings_screen.dart';
 import 'msds_lookup_screen.dart';
 import 'recent_activity_screen.dart';
 
-class HomeDashboardTab extends StatelessWidget {
+class HomeDashboardTab extends StatefulWidget {
   final AppState appState;
   final VoidCallback onOpenChemicals;
   final VoidCallback onOpenCalculator;
@@ -62,6 +65,9 @@ class HomeDashboardTab extends StatelessWidget {
     required this.onOpenInventoryAnalytics,
     required this.onOpenMore,
   });
+
+  @override
+  State<HomeDashboardTab> createState() => _HomeDashboardTabState();
 
   void _openConsumablesInventory(BuildContext context) {
     Navigator.push(
@@ -330,6 +336,15 @@ class HomeDashboardTab extends StatelessWidget {
       },
     );
   }
+}
+
+class _FocusDashboardSearchIntent extends Intent {
+  const _FocusDashboardSearchIntent();
+}
+
+class _HomeDashboardTabState extends State<HomeDashboardTab> {
+  final GlobalKey<_DashboardChemicalSearchState> _dashboardSearchKey =
+      GlobalKey<_DashboardChemicalSearchState>();
 
   @override
   Widget build(BuildContext context) {
@@ -339,419 +354,472 @@ class HomeDashboardTab extends StatelessWidget {
         title: 'Chemical Inventory',
         icon: Icons.science_rounded,
         accentColor: const Color(0xFF2DD4BF),
-        onTap: onOpenChemicals,
+        onTap: widget.onOpenChemicals,
       ),
       _DashboardToolItem(
         id: 'consumables_inventory',
         title: 'Consumables Inventory',
         icon: Icons.inventory_rounded,
         accentColor: const Color(0xFF60A5FA),
-        onTap: () => _openConsumablesInventory(context),
+        onTap: () => widget._openConsumablesInventory(context),
       ),
       _DashboardToolItem(
         id: 'inventory_analytics',
         title: 'Inventory Analytics',
         icon: Icons.insights_rounded,
         accentColor: const Color(0xFF0891B2),
-        onTap: onOpenInventoryAnalytics,
+        onTap: widget.onOpenInventoryAnalytics,
       ),
       _DashboardToolItem(
         id: 'cart',
         title: 'Cart',
         icon: Icons.assignment_rounded,
         accentColor: const Color(0xFFFBBF24),
-        onTap: onOpenCart,
+        onTap: widget.onOpenCart,
       ),
       _DashboardToolItem(
         id: 'orders',
         title: 'Orders',
         icon: Icons.local_shipping_rounded,
         accentColor: const Color(0xFF38BDF8),
-        onTap: onOpenOrders,
+        onTap: widget.onOpenOrders,
       ),
       _DashboardToolItem(
         id: 'calculator',
         title: 'Calculator',
         icon: Icons.calculate_rounded,
         accentColor: const Color(0xFFA78BFA),
-        onTap: onOpenCalculator,
+        onTap: widget.onOpenCalculator,
       ),
       _DashboardToolItem(
         id: 'instruments',
         title: 'Instruments',
         icon: Icons.precision_manufacturing_rounded,
         accentColor: const Color(0xFF94A3B8),
-        onTap: onOpenInstruments,
+        onTap: widget.onOpenInstruments,
       ),
       _DashboardToolItem(
         id: 'lab_manual',
         title: 'Lab Manual',
         icon: Icons.description_rounded,
         accentColor: const Color(0xFF34D399),
-        onTap: onOpenLabManual,
+        onTap: widget.onOpenLabManual,
       ),
       _DashboardToolItem(
         id: 'chemdraw',
         title: 'ChemDraw',
         icon: Icons.draw_rounded,
         accentColor: const Color(0xFFF472B6),
-        onTap: onOpenChemDraw,
+        onTap: widget.onOpenChemDraw,
       ),
       _DashboardToolItem(
         id: 'log_books',
         title: 'Log books',
         icon: Icons.menu_book_outlined,
         accentColor: const Color(0xFF22C55E),
-        onTap: () => _showComingSoonMessage(context, 'Log books coming soon'),
+        onTap: () =>
+            widget._showComingSoonMessage(context, 'Log books coming soon'),
       ),
       _DashboardToolItem(
         id: 'glass_apparatus',
         title: 'Glass apparatus',
         icon: Icons.science_outlined,
         accentColor: const Color(0xFFFB923C),
-        onTap: onOpenGlassApparatus,
+        onTap: widget.onOpenGlassApparatus,
       ),
       _DashboardToolItem(
         id: 'lab_notebook',
         title: 'Lab Notebook',
         icon: Icons.edit_note_outlined,
         accentColor: const Color(0xFF38BDF8),
-        onTap: () => _openLabNotebook(context),
+        onTap: () => widget._openLabNotebook(context),
       ),
       _DashboardToolItem(
         id: 'more',
         title: 'More',
         icon: Icons.apps_outlined,
         accentColor: const Color(0xFF94A3B8),
-        onTap: onOpenMore,
+        onTap: widget.onOpenMore,
         isFixed: true,
       ),
     ];
 
     return AnimatedBuilder(
-      animation: appState,
+      animation: widget.appState,
       builder: (context, _) {
         final isDesktopLayout = MediaQuery.sizeOf(context).width >= 900;
         final pagePadding = isDesktopLayout
             ? const EdgeInsets.fromLTRB(12, 8, 12, 16)
             : const EdgeInsets.fromLTRB(16, 8, 16, 20);
-        final heroSearchGap = isDesktopLayout ? 8.0 : 12.0;
+        final heroSearchGap = isDesktopLayout ? 10.0 : 12.0;
         final searchSectionGap = isDesktopLayout ? 12.0 : 20.0;
         final sectionGap = isDesktopLayout ? 14.0 : 20.0;
         final heroPadding = isDesktopLayout
             ? const EdgeInsets.all(10)
             : const EdgeInsets.all(12);
         final heroRadius = BorderRadius.circular(isDesktopLayout ? 18 : 22);
-        final profile = appState.profile;
+        final profile = widget.appState.profile;
         final profileName = profile.name.trim();
         final resolvedName = profileName.isEmpty || profileName == 'Your Name'
-            ? appState.authenticatedUserName
+            ? widget.appState.authenticatedUserName
             : profileName;
         final photoReference = profile.photoUrl.trim();
-        final selectedLabName = appState.selectedLabName.trim();
+        final selectedLabName = widget.appState.selectedLabName.trim();
         final visibleLabName = selectedLabName.isEmpty
             ? 'No lab selected'
             : selectedLabName;
 
-        return SafeArea(
-          child: SingleChildScrollView(
-            padding: pagePadding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (!isDesktopLayout) ...[
-                  SearchBarWidget(onTap: onOpenChemicals),
-                  SizedBox(height: heroSearchGap),
-                ],
-                Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    borderRadius: heroRadius,
-                    onTap: () => _openHeroActions(context),
-                    child: Ink(
-                      width: double.infinity,
-                      padding: heroPadding,
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF0F766E), Color(0xFF0EA5E9)],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: heroRadius,
-                        boxShadow: const [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 12,
-                            offset: Offset(0, 4),
-                          ),
-                        ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              _HeroProfileAvatar(
-                                photoReference: photoReference,
-                                displayName: resolvedName,
-                                fallbackEmail: appState.authenticatedUserEmail,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      resolvedName,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 20,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      visibleLabName,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 10),
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  _AttendanceStatusButton(
-                                    appState: appState,
-                                    onOpen: () => _openAttendance(context),
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 5,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.16,
-                                      ),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Text(
-                                      appState.currentRoleLabel,
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
+        return Focus(
+          autofocus: true,
+          child: Shortcuts(
+            shortcuts: const <ShortcutActivator, Intent>{
+              SingleActivator(LogicalKeyboardKey.keyF, control: true):
+                  _FocusDashboardSearchIntent(),
+            },
+            child: Actions(
+              actions: <Type, Action<Intent>>{
+                _FocusDashboardSearchIntent:
+                    CallbackAction<_FocusDashboardSearchIntent>(
+                      onInvoke: (intent) {
+                        _dashboardSearchKey.currentState?.focusSearch();
+                        return null;
+                      },
                     ),
-                  ),
-                ),
-                if (isDesktopLayout) ...[
-                  SizedBox(height: heroSearchGap),
-                  _DesktopDashboardSearchBar(onTap: onOpenChemicals),
-                  SizedBox(height: searchSectionGap),
-                ] else
-                  SizedBox(height: sectionGap),
-                if (appState.shouldShowProfileReminder) ...[
-                  _WorkflowEntryCard(
-                    title: 'Complete Personal Information',
-                    subtitle:
-                        'Your profile is still incomplete. You can keep using Labmate and finish it when convenient.',
-                    icon: Icons.person_outline_rounded,
-                    accentColor: const Color(0xFFF59E0B),
-                    onTap: onOpenProfile,
-                  ),
-                  SizedBox(height: sectionGap),
-                ],
-                if (isDesktopLayout)
-                  SizedBox(
-                    height: 176,
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Expanded(flex: 3, child: NewlyArrivedSection()),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          flex: 2,
-                          child: _UpcomingEventsPreview(
-                            onViewAll: onOpenEvents,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                else ...[
-                  const NewlyArrivedSection(),
-                  SizedBox(height: sectionGap),
-                  _UpcomingEventsPreview(onViewAll: onOpenEvents),
-                ],
-                SizedBox(height: sectionGap),
-                StreamBuilder<List<RequirementModel>>(
-                  stream: RequirementService().getRequirements(),
-                  builder: (context, requirementsSnapshot) {
-                    final requirementsAccessMessage = _firstAccessMessage([
-                      requirementsSnapshot.error,
-                    ]);
-                    if (requirementsAccessMessage != null) {
+              },
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  padding: pagePadding,
+                  child: StreamBuilder<List<ChemicalModel>>(
+                    stream: InventoryService().getChemicals(),
+                    builder: (context, chemicalsSnapshot) {
+                      final chemicalsAccessMessage = widget._firstAccessMessage(
+                        [chemicalsSnapshot.error],
+                      );
+                      final chemicals =
+                          chemicalsSnapshot.data ?? const <ChemicalModel>[];
+
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _buildAccessNotice(requirementsAccessMessage),
-                          const SizedBox(height: 12),
-                          _buildWorkflowGrid(
-                            workflowItems: workflowItems,
-                            pendingApprovalCount: _pendingApprovalCount(
-                              requirementsSnapshot.data ?? [],
+                          if (!isDesktopLayout) ...[
+                            _DashboardChemicalSearch(
+                              key: _dashboardSearchKey,
+                              chemicals: chemicals,
+                              accessMessage: chemicalsAccessMessage,
+                              onViewAllResults: widget.onOpenChemicals,
+                              isDesktopLayout: false,
                             ),
-                            ordersInProgressCount: 0,
-                            chemicalAttentionCount: 0,
-                            consumablesLowStockCount: 0,
-                          ),
-                        ],
-                      );
-                    }
-
-                    return StreamBuilder<List<OrderModel>>(
-                      stream: OrderService().getOrders(),
-                      builder: (context, ordersSnapshot) {
-                        final ordersAccessMessage = _firstAccessMessage([
-                          ordersSnapshot.error,
-                        ]);
-                        if (ordersAccessMessage != null) {
-                          return Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildAccessNotice(ordersAccessMessage),
-                              const SizedBox(height: 12),
-                              _buildWorkflowGrid(
-                                workflowItems: workflowItems,
-                                pendingApprovalCount: _pendingApprovalCount(
-                                  requirementsSnapshot.data ?? [],
-                                ),
-                                ordersInProgressCount: 0,
-                                chemicalAttentionCount: 0,
-                                consumablesLowStockCount: 0,
-                              ),
-                            ],
-                          );
-                        }
-
-                        return StreamBuilder<List<ChemicalModel>>(
-                          stream: InventoryService().getChemicals(),
-                          builder: (context, chemicalsSnapshot) {
-                            final chemicalsAccessMessage = _firstAccessMessage([
-                              chemicalsSnapshot.error,
-                            ]);
-                            if (chemicalsAccessMessage != null) {
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildAccessNotice(chemicalsAccessMessage),
-                                  const SizedBox(height: 12),
-                                  _buildWorkflowGrid(
-                                    workflowItems: workflowItems,
-                                    pendingApprovalCount: _pendingApprovalCount(
-                                      requirementsSnapshot.data ?? [],
+                            SizedBox(height: heroSearchGap),
+                          ],
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: heroRadius,
+                              onTap: () => widget._openHeroActions(context),
+                              child: Ink(
+                                width: double.infinity,
+                                padding: heroPadding,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    colors: [
+                                      Color(0xFF0F766E),
+                                      Color(0xFF0EA5E9),
+                                    ],
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                  ),
+                                  borderRadius: heroRadius,
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black26,
+                                      blurRadius: 12,
+                                      offset: Offset(0, 4),
                                     ),
-                                    ordersInProgressCount:
-                                        _ordersInProgressCount(
-                                          ordersSnapshot.data ?? [],
+                                  ],
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    _HeroProfileAvatar(
+                                      photoReference: photoReference,
+                                      displayName: resolvedName,
+                                      fallbackEmail: widget
+                                          .appState
+                                          .authenticatedUserEmail,
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            resolvedName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.w800,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            visibleLabName,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
+                                      children: [
+                                        _AttendanceStatusButton(
+                                          appState: widget.appState,
+                                          onOpen: () =>
+                                              widget._openAttendance(context),
                                         ),
-                                    chemicalAttentionCount: 0,
-                                    consumablesLowStockCount: 0,
+                                        const SizedBox(height: 8),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 5,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.16,
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            widget.appState.currentRoleLabel,
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          if (isDesktopLayout) ...[
+                            SizedBox(height: heroSearchGap),
+                            _DashboardChemicalSearch(
+                              key: _dashboardSearchKey,
+                              chemicals: chemicals,
+                              accessMessage: chemicalsAccessMessage,
+                              onViewAllResults: widget.onOpenChemicals,
+                              isDesktopLayout: true,
+                            ),
+                            SizedBox(height: searchSectionGap),
+                          ] else
+                            SizedBox(height: sectionGap),
+                          if (widget.appState.shouldShowProfileReminder) ...[
+                            _WorkflowEntryCard(
+                              title: 'Complete Personal Information',
+                              subtitle:
+                                  'Your profile is still incomplete. You can keep using Labmate and finish it when convenient.',
+                              icon: Icons.person_outline_rounded,
+                              accentColor: const Color(0xFFF59E0B),
+                              onTap: widget.onOpenProfile,
+                            ),
+                            SizedBox(height: sectionGap),
+                          ],
+                          if (isDesktopLayout)
+                            SizedBox(
+                              height: 176,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const Expanded(
+                                    flex: 3,
+                                    child: NewlyArrivedSection(),
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    flex: 2,
+                                    child: _UpcomingEventsPreview(
+                                      onViewAll: widget.onOpenEvents,
+                                    ),
                                   ),
                                 ],
-                              );
-                            }
-
-                            return StreamBuilder<
-                              List<QueryDocumentSnapshot<Map<String, dynamic>>>
-                            >(
-                              stream: _consumablesInventoryStream(),
-                              builder: (context, consumablesSnapshot) {
-                                final consumablesAccessMessage =
-                                    _firstAccessMessage([
-                                      consumablesSnapshot.error,
-                                    ]);
-
+                              ),
+                            )
+                          else ...[
+                            const NewlyArrivedSection(),
+                            SizedBox(height: sectionGap),
+                            _UpcomingEventsPreview(
+                              onViewAll: widget.onOpenEvents,
+                            ),
+                          ],
+                          SizedBox(height: sectionGap),
+                          StreamBuilder<List<RequirementModel>>(
+                            stream: RequirementService().getRequirements(),
+                            builder: (context, requirementsSnapshot) {
+                              final requirementsAccessMessage = widget
+                                  ._firstAccessMessage([
+                                    requirementsSnapshot.error,
+                                  ]);
+                              if (requirementsAccessMessage != null) {
                                 return Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    if (consumablesAccessMessage != null) ...[
-                                      _buildAccessNotice(
-                                        consumablesAccessMessage,
-                                      ),
-                                      const SizedBox(height: 12),
-                                    ],
-                                    _buildWorkflowGrid(
+                                    widget._buildAccessNotice(
+                                      requirementsAccessMessage,
+                                    ),
+                                    const SizedBox(height: 12),
+                                    widget._buildWorkflowGrid(
                                       workflowItems: workflowItems,
-                                      pendingApprovalCount:
-                                          _pendingApprovalCount(
+                                      pendingApprovalCount: widget
+                                          ._pendingApprovalCount(
                                             requirementsSnapshot.data ?? [],
                                           ),
-                                      ordersInProgressCount:
-                                          _ordersInProgressCount(
-                                            ordersSnapshot.data ?? [],
-                                          ),
-                                      chemicalAttentionCount:
-                                          _chemicalAttentionCount(
-                                            chemicalsSnapshot.data ?? [],
-                                          ),
-                                      consumablesLowStockCount:
-                                          _consumablesLowStockCount(
-                                            consumablesSnapshot.data ?? [],
-                                          ),
+                                      ordersInProgressCount: 0,
+                                      chemicalAttentionCount: 0,
+                                      consumablesLowStockCount: 0,
                                     ),
                                   ],
                                 );
-                              },
-                            );
-                          },
-                        );
-                      },
-                    );
-                  },
+                              }
+
+                              return StreamBuilder<List<OrderModel>>(
+                                stream: OrderService().getOrders(),
+                                builder: (context, ordersSnapshot) {
+                                  final ordersAccessMessage = widget
+                                      ._firstAccessMessage([
+                                        ordersSnapshot.error,
+                                      ]);
+                                  if (ordersAccessMessage != null) {
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        widget._buildAccessNotice(
+                                          ordersAccessMessage,
+                                        ),
+                                        const SizedBox(height: 12),
+                                        widget._buildWorkflowGrid(
+                                          workflowItems: workflowItems,
+                                          pendingApprovalCount: widget
+                                              ._pendingApprovalCount(
+                                                requirementsSnapshot.data ?? [],
+                                              ),
+                                          ordersInProgressCount: 0,
+                                          chemicalAttentionCount: 0,
+                                          consumablesLowStockCount: 0,
+                                        ),
+                                      ],
+                                    );
+                                  }
+
+                                  return StreamBuilder<
+                                    List<
+                                      QueryDocumentSnapshot<
+                                        Map<String, dynamic>
+                                      >
+                                    >
+                                  >(
+                                    stream: widget
+                                        ._consumablesInventoryStream(),
+                                    builder: (context, consumablesSnapshot) {
+                                      final consumablesAccessMessage = widget
+                                          ._firstAccessMessage([
+                                            consumablesSnapshot.error,
+                                          ]);
+
+                                      return Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          if (chemicalsAccessMessage !=
+                                              null) ...[
+                                            widget._buildAccessNotice(
+                                              chemicalsAccessMessage,
+                                            ),
+                                            const SizedBox(height: 12),
+                                          ],
+                                          if (consumablesAccessMessage !=
+                                              null) ...[
+                                            widget._buildAccessNotice(
+                                              consumablesAccessMessage,
+                                            ),
+                                            const SizedBox(height: 12),
+                                          ],
+                                          widget._buildWorkflowGrid(
+                                            workflowItems: workflowItems,
+                                            pendingApprovalCount: widget
+                                                ._pendingApprovalCount(
+                                                  requirementsSnapshot.data ??
+                                                      [],
+                                                ),
+                                            ordersInProgressCount: widget
+                                                ._ordersInProgressCount(
+                                                  ordersSnapshot.data ?? [],
+                                                ),
+                                            chemicalAttentionCount:
+                                                chemicalsAccessMessage == null
+                                                ? widget
+                                                      ._chemicalAttentionCount(
+                                                        chemicals,
+                                                      )
+                                                : 0,
+                                            consumablesLowStockCount: widget
+                                                ._consumablesLowStockCount(
+                                                  consumablesSnapshot.data ??
+                                                      [],
+                                                ),
+                                          ),
+                                        ],
+                                      );
+                                    },
+                                  );
+                                },
+                              );
+                            },
+                          ),
+                          SizedBox(height: sectionGap),
+                          _WorkflowEntryCard(
+                            title: 'MSDS / Safety',
+                            subtitle:
+                                'Search by CAS number and review a PubChem-based safety summary before handling chemicals.',
+                            icon: Icons.health_and_safety_rounded,
+                            accentColor: const Color(0xFFF59E0B),
+                            onTap: () => widget._openMsdsLookup(context),
+                          ),
+                          SizedBox(height: sectionGap),
+                          _WorkflowEntryCard(
+                            title: 'Recent Activity',
+                            subtitle:
+                                'View recent requirements, orders, deliveries, and inventory entries for this lab.',
+                            icon: Icons.notifications_rounded,
+                            accentColor: const Color(0xFF14B8A6),
+                            onTap: () => widget._openRecentActivity(context),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
                 ),
-                SizedBox(height: sectionGap),
-                _WorkflowEntryCard(
-                  title: 'MSDS / Safety',
-                  subtitle:
-                      'Search by CAS number and review a PubChem-based safety summary before handling chemicals.',
-                  icon: Icons.health_and_safety_rounded,
-                  accentColor: const Color(0xFFF59E0B),
-                  onTap: () => _openMsdsLookup(context),
-                ),
-                SizedBox(height: sectionGap),
-                _WorkflowEntryCard(
-                  title: 'Recent Activity',
-                  subtitle:
-                      'View recent requirements, orders, deliveries, and inventory entries for this lab.',
-                  icon: Icons.notifications_rounded,
-                  accentColor: const Color(0xFF14B8A6),
-                  onTap: () => _openRecentActivity(context),
-                ),
-              ],
+              ),
             ),
           ),
         );
@@ -760,47 +828,569 @@ class HomeDashboardTab extends StatelessWidget {
   }
 }
 
-class _DesktopDashboardSearchBar extends StatelessWidget {
-  final VoidCallback onTap;
+class _DashboardChemicalSearch extends StatefulWidget {
+  final List<ChemicalModel> chemicals;
+  final String? accessMessage;
+  final VoidCallback onViewAllResults;
+  final bool isDesktopLayout;
 
-  const _DesktopDashboardSearchBar({required this.onTap});
+  const _DashboardChemicalSearch({
+    super.key,
+    required this.chemicals,
+    required this.accessMessage,
+    required this.onViewAllResults,
+    required this.isDesktopLayout,
+  });
+
+  @override
+  State<_DashboardChemicalSearch> createState() =>
+      _DashboardChemicalSearchState();
+}
+
+class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode(
+    debugLabel: 'homeDashboardSearch',
+  );
+  Timer? _searchDebounce;
+
+  String _debouncedQuery = '';
+  bool _showResults = false;
+  int _highlightedIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchFocusNode.addListener(_handleSearchFocusChange);
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchFocusNode
+      ..removeListener(_handleSearchFocusChange)
+      ..dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void focusSearch() {
+    if (_searchFocusNode.hasFocus) {
+      return;
+    }
+
+    _searchFocusNode.requestFocus();
+
+    final text = _searchController.text;
+    _searchController.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: text.length,
+    );
+
+    if (text.trim().isNotEmpty && mounted) {
+      setState(() {
+        _showResults = true;
+      });
+    }
+  }
+
+  void _handleSearchFocusChange() {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      if (_searchFocusNode.hasFocus) {
+        _showResults = _searchController.text.trim().isNotEmpty;
+      } else {
+        _showResults = false;
+      }
+    });
+  }
+
+  void _handleSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    final trimmed = value.trim();
+
+    if (trimmed.isEmpty) {
+      setState(() {
+        _debouncedQuery = '';
+        _showResults = false;
+        _highlightedIndex = 0;
+      });
+      return;
+    }
+
+    _searchDebounce = Timer(const Duration(milliseconds: 180), () {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _debouncedQuery = trimmed;
+        _showResults = true;
+        _highlightedIndex = 0;
+      });
+    });
+  }
+
+  List<ChemicalModel> _matchingChemicalsFor(String rawQuery) {
+    final query = rawQuery.trim().toLowerCase();
+    if (query.isEmpty) {
+      return const <ChemicalModel>[];
+    }
+
+    final results = widget.chemicals.where((chemical) {
+      final normalizedName = chemical.chemicalName.trim().toLowerCase();
+      final normalizedCas = chemical.cas.trim().toLowerCase();
+      final normalizedLabel = chemical.label.trim().toLowerCase();
+
+      return normalizedName.contains(query) ||
+          normalizedCas.contains(query) ||
+          normalizedLabel.contains(query);
+    }).toList();
+
+    int scoreFor(ChemicalModel chemical) {
+      final normalizedName = chemical.chemicalName.trim().toLowerCase();
+      final normalizedCas = chemical.cas.trim().toLowerCase();
+      final normalizedLabel = chemical.label.trim().toLowerCase();
+
+      if (normalizedName == query ||
+          normalizedCas == query ||
+          normalizedLabel == query) {
+        return 0;
+      }
+      if (normalizedName.startsWith(query)) {
+        return 1;
+      }
+      if (normalizedLabel.startsWith(query)) {
+        return 2;
+      }
+      if (normalizedCas.startsWith(query)) {
+        return 3;
+      }
+      if (normalizedName.contains(query)) {
+        return 4;
+      }
+      if (normalizedLabel.contains(query)) {
+        return 5;
+      }
+      return 6;
+    }
+
+    results.sort((a, b) {
+      final scoreComparison = scoreFor(a).compareTo(scoreFor(b));
+      if (scoreComparison != 0) {
+        return scoreComparison;
+      }
+
+      final nameComparison = a.chemicalName.toLowerCase().compareTo(
+        b.chemicalName.toLowerCase(),
+      );
+      if (nameComparison != 0) {
+        return nameComparison;
+      }
+
+      return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+    });
+
+    return results.take(8).toList();
+  }
+
+  void _closeResults({bool unfocus = false}) {
+    if (mounted) {
+      setState(() {
+        _showResults = false;
+      });
+    }
+
+    if (unfocus) {
+      _searchFocusNode.unfocus();
+    }
+  }
+
+  void _openChemical(ChemicalModel chemical) {
+    _searchDebounce?.cancel();
+    _searchFocusNode.unfocus();
+
+    if (mounted) {
+      setState(() {
+        _showResults = false;
+      });
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ChemicalDetailScreen(chemical: chemical),
+      ),
+    );
+  }
+
+  void _openTopResult() {
+    if (widget.accessMessage != null) {
+      return;
+    }
+
+    final results = _matchingChemicalsFor(_searchController.text);
+    if (results.isEmpty) {
+      if (mounted) {
+        setState(() {
+          _showResults = true;
+        });
+      }
+      return;
+    }
+
+    final safeIndex = _highlightedIndex.clamp(0, results.length - 1);
+    _openChemical(results[safeIndex]);
+  }
+
+  KeyEventResult _handleSearchKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent || !_searchFocusNode.hasFocus) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.escape) {
+      _closeResults(unfocus: true);
+      return KeyEventResult.handled;
+    }
+
+    final results = _matchingChemicalsFor(_searchController.text);
+    if (!_showResults || results.isEmpty) {
+      return KeyEventResult.ignored;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      setState(() {
+        _highlightedIndex = (_highlightedIndex + 1) % results.length;
+      });
+      return KeyEventResult.handled;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      setState(() {
+        _highlightedIndex =
+            (_highlightedIndex - 1 + results.length) % results.length;
+      });
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
+  }
+
+  String _buildResultSubtitle(ChemicalModel chemical) {
+    final parts = <String>[];
+
+    if (chemical.label.trim().isNotEmpty) {
+      parts.add('Label ${chemical.label.trim()}');
+    }
+    if (chemical.location.trim().isNotEmpty) {
+      parts.add(chemical.location.trim());
+    }
+    if (chemical.availability.trim().isNotEmpty) {
+      parts.add(chemical.availability.trim());
+    }
+
+    return parts.join(' | ');
+  }
 
   @override
   Widget build(BuildContext context) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
+    final activeQuery = _debouncedQuery.isNotEmpty
+        ? _debouncedQuery
+        : _searchController.text.trim();
+    final searchResults = _matchingChemicalsFor(activeQuery);
+    final showPanel = _showResults && activeQuery.isNotEmpty;
+    final safeHighlightedIndex = searchResults.isEmpty
+        ? -1
+        : _highlightedIndex.clamp(0, searchResults.length - 1);
 
-    return Material(
-      color: palette.panel,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Container(
-          height: 42,
-          padding: const EdgeInsets.symmetric(horizontal: 13),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: palette.border),
-          ),
-          child: Row(
-            children: [
-              Icon(Icons.search_rounded, color: colorScheme.primary, size: 19),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Search chemical by name, CAS, or functional group',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: palette.subtleText,
-                    fontSize: 13,
-                    height: 1.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
+    return TapRegion(
+      onTapOutside: (_) => _closeResults(unfocus: true),
+      child: Focus(
+        onKeyEvent: _handleSearchKeyEvent,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SearchBarWidget(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              onTap: () {
+                if (_searchController.text.trim().isNotEmpty) {
+                  setState(() {
+                    _showResults = true;
+                  });
+                }
+              },
+              onChanged: _handleSearchChanged,
+              onSubmitted: (_) => _openTopResult(),
+              hintText: 'Search chemicals by name, CAS, or label',
+              isFocused: _searchFocusNode.hasFocus,
+              compact: widget.isDesktopLayout,
+              suffixIcon: widget.isDesktopLayout
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: palette.panelAlt.withValues(alpha: 0.30),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: palette.border.withValues(alpha: 0.72),
+                        ),
+                      ),
+                      child: Text(
+                        'Ctrl+F',
+                        style: TextStyle(
+                          color: palette.subtleText,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 160),
+              child: !showPanel
+                  ? const SizedBox.shrink()
+                  : Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Container(
+                        constraints: BoxConstraints(
+                          maxHeight: widget.isDesktopLayout ? 380 : 320,
+                        ),
+                        decoration: BoxDecoration(
+                          color: palette.panel,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: palette.border),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.12),
+                              blurRadius: 18,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: widget.accessMessage != null
+                            ? Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Text(
+                                  widget.accessMessage!,
+                                  style: TextStyle(
+                                    color: palette.mutedText,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              )
+                            : searchResults.isEmpty
+                            ? Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'No chemicals found',
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      'Try a different chemical name, CAS number, or bottle label.',
+                                      style: TextStyle(
+                                        color: palette.mutedText,
+                                        fontSize: 12.8,
+                                        fontWeight: FontWeight.w500,
+                                        height: 1.35,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Align(
+                                      alignment: Alignment.centerRight,
+                                      child: TextButton.icon(
+                                        onPressed: widget.onViewAllResults,
+                                        icon: const Icon(
+                                          Icons.open_in_new_rounded,
+                                          size: 16,
+                                        ),
+                                        label: const Text('View all results'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Flexible(
+                                    child: ListView.separated(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 8,
+                                      ),
+                                      shrinkWrap: true,
+                                      itemCount: searchResults.length,
+                                      separatorBuilder: (context, index) =>
+                                          Divider(
+                                            height: 1,
+                                            color: palette.border,
+                                          ),
+                                      itemBuilder: (context, index) {
+                                        final chemical = searchResults[index];
+                                        final subtitle = _buildResultSubtitle(
+                                          chemical,
+                                        );
+                                        final isHighlighted =
+                                            index == safeHighlightedIndex;
+
+                                        return Material(
+                                          color: isHighlighted
+                                              ? palette.selected
+                                              : Colors.transparent,
+                                          borderRadius: BorderRadius.circular(
+                                            14,
+                                          ),
+                                          child: InkWell(
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                            onTap: () =>
+                                                _openChemical(chemical),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 10,
+                                                  ),
+                                              child: Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Text(
+                                                          chemical.chemicalName
+                                                                  .trim()
+                                                                  .isEmpty
+                                                              ? 'Untitled chemical'
+                                                              : chemical
+                                                                    .chemicalName,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style: TextStyle(
+                                                            color: colorScheme
+                                                                .onSurface,
+                                                            fontSize: 13.8,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 3,
+                                                        ),
+                                                        Text(
+                                                          chemical.cas
+                                                                  .trim()
+                                                                  .isEmpty
+                                                              ? 'No CAS number'
+                                                              : chemical.cas,
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style: TextStyle(
+                                                            color: palette
+                                                                .mutedText,
+                                                            fontSize: 12.6,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                        if (subtitle
+                                                            .isNotEmpty) ...[
+                                                          const SizedBox(
+                                                            height: 3,
+                                                          ),
+                                                          Text(
+                                                            subtitle,
+                                                            maxLines: 1,
+                                                            overflow:
+                                                                TextOverflow
+                                                                    .ellipsis,
+                                                            style: TextStyle(
+                                                              color: palette
+                                                                  .subtleText,
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 10),
+                                                  Icon(
+                                                    Icons.arrow_outward_rounded,
+                                                    size: 18,
+                                                    color: palette.subtleText,
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                  Divider(height: 1, color: palette.border),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    child: Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '${searchResults.length} quick result${searchResults.length == 1 ? '' : 's'}',
+                                            style: TextStyle(
+                                              color: palette.mutedText,
+                                              fontSize: 12.4,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                        TextButton.icon(
+                                          onPressed: widget.onViewAllResults,
+                                          icon: const Icon(
+                                            Icons.open_in_new_rounded,
+                                            size: 16,
+                                          ),
+                                          label: const Text('View all results'),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                      ),
+                    ),
+            ),
+          ],
         ),
       ),
     );
