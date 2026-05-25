@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../theme/labmate_theme.dart';
 
 class SearchBarWidget extends StatelessWidget {
-  final TextEditingController? controller;
-  final FocusNode? focusNode;
+  final TextEditingController controller;
+  final FocusNode focusNode;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
   final VoidCallback? onTap;
@@ -17,8 +17,8 @@ class SearchBarWidget extends StatelessWidget {
 
   const SearchBarWidget({
     super.key,
-    this.controller,
-    this.focusNode,
+    required this.controller,
+    required this.focusNode,
     this.onChanged,
     this.onSubmitted,
     this.onTap,
@@ -35,7 +35,7 @@ class SearchBarWidget extends StatelessWidget {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
     final borderRadius = BorderRadius.circular(compact ? 16 : 18);
-    final searchBarHeight = compact ? 52.0 : 56.0;
+    const searchBarHeight = 48.0;
 
     Widget buildField(BuildContext context) {
       return LayoutBuilder(
@@ -43,109 +43,145 @@ class SearchBarWidget extends StatelessWidget {
           final showSuffix =
               suffixIcon != null &&
               constraints.maxWidth >= (compact ? 280 : 320);
-          final textValue = controller?.value.text ?? '';
+          final textValue = controller.value.text;
           final hasText = textValue.trim().isNotEmpty;
 
-          return AnimatedContainer(
-            duration: const Duration(milliseconds: 160),
-            curve: Curves.easeOut,
-            height: searchBarHeight,
-            padding: EdgeInsets.symmetric(horizontal: compact ? 14 : 16),
-            decoration: BoxDecoration(
-              color: palette.panel,
-              borderRadius: borderRadius,
-              border: Border.all(
-                color: isFocused
-                    ? colorScheme.primary.withValues(alpha: 0.55)
-                    : palette.border,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(
-                    alpha: isFocused ? 0.08 : 0.04,
-                  ),
-                  blurRadius: isFocused ? 14 : 8,
-                  offset: Offset(0, isFocused ? 5 : 3),
+          return Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) {
+              if (!focusNode.hasFocus) {
+                focusNode.requestFocus();
+              }
+              onTap?.call();
+            },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 160),
+              curve: Curves.easeOut,
+              height: searchBarHeight,
+              decoration: BoxDecoration(
+                color: palette.panel,
+                borderRadius: borderRadius,
+                border: Border.all(
+                  color: isFocused
+                      ? colorScheme.primary.withValues(alpha: 0.55)
+                      : palette.border,
                 ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.search_rounded,
-                  color: colorScheme.primary,
-                  size: compact ? 19 : 21,
-                ),
-                SizedBox(width: compact ? 10 : 12),
-                Expanded(
-                  child: TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    readOnly: readOnly,
-                    onChanged: onChanged,
-                    onSubmitted: onSubmitted,
-                    onTap: onTap,
-                    cursorColor: colorScheme.primary,
-                    textAlignVertical: TextAlignVertical.center,
-                    maxLines: 1,
-                    style: TextStyle(
-                      color: colorScheme.onSurface,
-                      fontSize: compact ? 13.5 : 14,
-                      fontWeight: FontWeight.w500,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(
+                      alpha: isFocused ? 0.08 : 0.04,
                     ),
-                    decoration: InputDecoration(
-                      hintText: hintText,
-                      hintStyle: TextStyle(
-                        color: palette.subtleText,
-                        fontSize: compact ? 13 : 13.5,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      isDense: true,
-                      contentPadding: EdgeInsets.zero,
-                      filled: false,
-                      fillColor: Colors.transparent,
-                      border: InputBorder.none,
-                      enabledBorder: InputBorder.none,
-                      focusedBorder: InputBorder.none,
-                      disabledBorder: InputBorder.none,
-                      errorBorder: InputBorder.none,
-                      focusedErrorBorder: InputBorder.none,
-                    ),
-                  ),
-                ),
-                if (hasText && showClearButton && !readOnly) ...[
-                  const SizedBox(width: 8),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(999),
-                    onTap: () {
-                      controller?.clear();
-                      onChanged?.call('');
-                      focusNode?.requestFocus();
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.all(4),
-                      child: Icon(
-                        Icons.close_rounded,
-                        size: compact ? 16 : 17,
-                        color: palette.mutedText,
-                      ),
-                    ),
+                    blurRadius: isFocused ? 14 : 8,
+                    offset: Offset(0, isFocused ? 5 : 3),
                   ),
                 ],
-                if (showSuffix) ...[const SizedBox(width: 10), suffixIcon!],
-              ],
+              ),
+              child: SizedBox(
+                height: searchBarHeight,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    SizedBox(
+                      width: 44,
+                      child: Center(
+                        child: Icon(
+                          Icons.search_rounded,
+                          color: colorScheme.primary,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Stack(
+                        alignment: Alignment.centerLeft,
+                        children: [
+                          if (!hasText)
+                            IgnorePointer(
+                              child: Text(
+                                hintText,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colorScheme.onSurfaceVariant,
+                                  fontSize: 15,
+                                  height: 1.2,
+                                  fontWeight: FontWeight.w400,
+                                ),
+                              ),
+                            ),
+                          EditableText(
+                            controller: controller,
+                            focusNode: focusNode,
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontSize: 15,
+                              height: 1.2,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            cursorColor: colorScheme.primary,
+                            backgroundCursorColor:
+                                colorScheme.surfaceContainerHighest,
+                            selectionColor: colorScheme.primary.withValues(
+                              alpha: 0.20,
+                            ),
+                            keyboardType: TextInputType.text,
+                            textInputAction: TextInputAction.search,
+                            maxLines: 1,
+                            readOnly: readOnly,
+                            onChanged: onChanged,
+                            onSubmitted: onSubmitted,
+                            cursorHeight: 18,
+                            cursorWidth: 1.5,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (hasText && showClearButton && !readOnly)
+                      SizedBox(
+                        width: 32,
+                        child: Center(
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(999),
+                            onTap: () {
+                              controller.clear();
+                              onChanged?.call('');
+                              focusNode.requestFocus();
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(4),
+                              child: Icon(
+                                Icons.close_rounded,
+                                size: compact ? 16 : 17,
+                                color: palette.mutedText,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    if (showSuffix)
+                      SizedBox(
+                        width: 94,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 14),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: suffixIcon!,
+                          ),
+                        ),
+                      )
+                    else
+                      const SizedBox(width: 12),
+                  ],
+                ),
+              ),
             ),
           );
         },
       );
     }
 
-    if (controller == null) {
-      return buildField(context);
-    }
-
     return ValueListenableBuilder<TextEditingValue>(
-      valueListenable: controller!,
+      valueListenable: controller,
       builder: (context, value, child) => buildField(context),
     );
   }
