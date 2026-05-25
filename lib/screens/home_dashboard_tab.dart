@@ -338,13 +338,45 @@ class HomeDashboardTab extends StatefulWidget {
   }
 }
 
-class _FocusDashboardSearchIntent extends Intent {
-  const _FocusDashboardSearchIntent();
-}
-
 class _HomeDashboardTabState extends State<HomeDashboardTab> {
   final GlobalKey<_DashboardChemicalSearchState> _dashboardSearchKey =
       GlobalKey<_DashboardChemicalSearchState>();
+  final FocusNode _dashboardKeyboardFocusNode = FocusNode(
+    debugLabel: 'homeDashboardKeyboardScope',
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_dashboardKeyboardFocusNode.hasFocus) {
+        _dashboardKeyboardFocusNode.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _dashboardKeyboardFocusNode.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _handleDashboardKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+
+    final isShortcutPressed =
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isMetaPressed;
+
+    if (!isShortcutPressed || event.logicalKey != LogicalKeyboardKey.keyF) {
+      return KeyEventResult.ignored;
+    }
+
+    _dashboardSearchKey.currentState?.focusSearch();
+    return KeyEventResult.handled;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -470,354 +502,338 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
             : selectedLabName;
 
         return Focus(
+          focusNode: _dashboardKeyboardFocusNode,
           autofocus: true,
-          child: Shortcuts(
-            shortcuts: const <ShortcutActivator, Intent>{
-              SingleActivator(LogicalKeyboardKey.keyF, control: true):
-                  _FocusDashboardSearchIntent(),
+          onKeyEvent: _handleDashboardKeyEvent,
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) {
+              if (!_dashboardKeyboardFocusNode.hasFocus) {
+                _dashboardKeyboardFocusNode.requestFocus();
+              }
             },
-            child: Actions(
-              actions: <Type, Action<Intent>>{
-                _FocusDashboardSearchIntent:
-                    CallbackAction<_FocusDashboardSearchIntent>(
-                      onInvoke: (intent) {
-                        _dashboardSearchKey.currentState?.focusSearch();
-                        return null;
-                      },
-                    ),
-              },
-              child: SafeArea(
-                child: SingleChildScrollView(
-                  padding: pagePadding,
-                  child: StreamBuilder<List<ChemicalModel>>(
-                    stream: InventoryService().getChemicals(),
-                    builder: (context, chemicalsSnapshot) {
-                      final chemicalsAccessMessage = widget._firstAccessMessage(
-                        [chemicalsSnapshot.error],
-                      );
-                      final chemicals =
-                          chemicalsSnapshot.data ?? const <ChemicalModel>[];
+            child: SafeArea(
+              child: SingleChildScrollView(
+                padding: pagePadding,
+                child: StreamBuilder<List<ChemicalModel>>(
+                  stream: InventoryService().getChemicals(),
+                  builder: (context, chemicalsSnapshot) {
+                    final chemicalsAccessMessage = widget._firstAccessMessage([
+                      chemicalsSnapshot.error,
+                    ]);
+                    final chemicals =
+                        chemicalsSnapshot.data ?? const <ChemicalModel>[];
 
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (!isDesktopLayout) ...[
-                            _DashboardChemicalSearch(
-                              key: _dashboardSearchKey,
-                              chemicals: chemicals,
-                              accessMessage: chemicalsAccessMessage,
-                              onViewAllResults: widget.onOpenChemicals,
-                              isDesktopLayout: false,
-                            ),
-                            SizedBox(height: heroSearchGap),
-                          ],
-                          Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: heroRadius,
-                              onTap: () => widget._openHeroActions(context),
-                              child: Ink(
-                                width: double.infinity,
-                                padding: heroPadding,
-                                decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
-                                    colors: [
-                                      Color(0xFF0F766E),
-                                      Color(0xFF0EA5E9),
-                                    ],
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                  ),
-                                  borderRadius: heroRadius,
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Colors.black26,
-                                      blurRadius: 12,
-                                      offset: Offset(0, 4),
-                                    ),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (!isDesktopLayout) ...[
+                          _DashboardChemicalSearch(
+                            key: _dashboardSearchKey,
+                            chemicals: chemicals,
+                            accessMessage: chemicalsAccessMessage,
+                            onViewAllResults: widget.onOpenChemicals,
+                            isDesktopLayout: false,
+                          ),
+                          SizedBox(height: heroSearchGap),
+                        ],
+                        Material(
+                          color: Colors.transparent,
+                          child: InkWell(
+                            borderRadius: heroRadius,
+                            onTap: () => widget._openHeroActions(context),
+                            child: Ink(
+                              width: double.infinity,
+                              padding: heroPadding,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Color(0xFF0F766E),
+                                    Color(0xFF0EA5E9),
                                   ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
                                 ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    _HeroProfileAvatar(
-                                      photoReference: photoReference,
-                                      displayName: resolvedName,
-                                      fallbackEmail: widget
-                                          .appState
-                                          .authenticatedUserEmail,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            resolvedName,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.w800,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            visibleLabName,
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 14,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    Column(
-                                      mainAxisSize: MainAxisSize.min,
+                                borderRadius: heroRadius,
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 12,
+                                    offset: Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  _HeroProfileAvatar(
+                                    photoReference: photoReference,
+                                    displayName: resolvedName,
+                                    fallbackEmail:
+                                        widget.appState.authenticatedUserEmail,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
                                       crossAxisAlignment:
-                                          CrossAxisAlignment.end,
+                                          CrossAxisAlignment.start,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        _AttendanceStatusButton(
-                                          appState: widget.appState,
-                                          onOpen: () =>
-                                              widget._openAttendance(context),
+                                        Text(
+                                          resolvedName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w800,
+                                          ),
                                         ),
-                                        const SizedBox(height: 8),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 5,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.16,
-                                            ),
-                                            borderRadius: BorderRadius.circular(
-                                              12,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            widget.appState.currentRoleLabel,
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w700,
-                                            ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          visibleLabName,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w700,
                                           ),
                                         ),
                                       ],
                                     ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (isDesktopLayout) ...[
-                            SizedBox(height: heroSearchGap),
-                            _DashboardChemicalSearch(
-                              key: _dashboardSearchKey,
-                              chemicals: chemicals,
-                              accessMessage: chemicalsAccessMessage,
-                              onViewAllResults: widget.onOpenChemicals,
-                              isDesktopLayout: true,
-                            ),
-                            SizedBox(height: searchSectionGap),
-                          ] else
-                            SizedBox(height: sectionGap),
-                          if (widget.appState.shouldShowProfileReminder) ...[
-                            _WorkflowEntryCard(
-                              title: 'Complete Personal Information',
-                              subtitle:
-                                  'Your profile is still incomplete. You can keep using Labmate and finish it when convenient.',
-                              icon: Icons.person_outline_rounded,
-                              accentColor: const Color(0xFFF59E0B),
-                              onTap: widget.onOpenProfile,
-                            ),
-                            SizedBox(height: sectionGap),
-                          ],
-                          if (isDesktopLayout)
-                            SizedBox(
-                              height: 176,
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  const Expanded(
-                                    flex: 3,
-                                    child: NewlyArrivedSection(),
                                   ),
-                                  const SizedBox(width: 14),
-                                  Expanded(
-                                    flex: 2,
-                                    child: _UpcomingEventsPreview(
-                                      onViewAll: widget.onOpenEvents,
-                                    ),
+                                  const SizedBox(width: 10),
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      _AttendanceStatusButton(
+                                        appState: widget.appState,
+                                        onOpen: () =>
+                                            widget._openAttendance(context),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 10,
+                                          vertical: 5,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.16,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          widget.appState.currentRoleLabel,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
-                            )
-                          else ...[
-                            const NewlyArrivedSection(),
-                            SizedBox(height: sectionGap),
-                            _UpcomingEventsPreview(
-                              onViewAll: widget.onOpenEvents,
                             ),
-                          ],
+                          ),
+                        ),
+                        if (isDesktopLayout) ...[
+                          SizedBox(height: heroSearchGap),
+                          _DashboardChemicalSearch(
+                            key: _dashboardSearchKey,
+                            chemicals: chemicals,
+                            accessMessage: chemicalsAccessMessage,
+                            onViewAllResults: widget.onOpenChemicals,
+                            isDesktopLayout: true,
+                          ),
+                          SizedBox(height: searchSectionGap),
+                        ] else
                           SizedBox(height: sectionGap),
-                          StreamBuilder<List<RequirementModel>>(
-                            stream: RequirementService().getRequirements(),
-                            builder: (context, requirementsSnapshot) {
-                              final requirementsAccessMessage = widget
-                                  ._firstAccessMessage([
-                                    requirementsSnapshot.error,
-                                  ]);
-                              if (requirementsAccessMessage != null) {
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    widget._buildAccessNotice(
-                                      requirementsAccessMessage,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    widget._buildWorkflowGrid(
-                                      workflowItems: workflowItems,
-                                      pendingApprovalCount: widget
-                                          ._pendingApprovalCount(
-                                            requirementsSnapshot.data ?? [],
-                                          ),
-                                      ordersInProgressCount: 0,
-                                      chemicalAttentionCount: 0,
-                                      consumablesLowStockCount: 0,
-                                    ),
-                                  ],
-                                );
-                              }
+                        if (widget.appState.shouldShowProfileReminder) ...[
+                          _WorkflowEntryCard(
+                            title: 'Complete Personal Information',
+                            subtitle:
+                                'Your profile is still incomplete. You can keep using Labmate and finish it when convenient.',
+                            icon: Icons.person_outline_rounded,
+                            accentColor: const Color(0xFFF59E0B),
+                            onTap: widget.onOpenProfile,
+                          ),
+                          SizedBox(height: sectionGap),
+                        ],
+                        if (isDesktopLayout)
+                          SizedBox(
+                            height: 176,
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                const Expanded(
+                                  flex: 3,
+                                  child: NewlyArrivedSection(),
+                                ),
+                                const SizedBox(width: 14),
+                                Expanded(
+                                  flex: 2,
+                                  child: _UpcomingEventsPreview(
+                                    onViewAll: widget.onOpenEvents,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        else ...[
+                          const NewlyArrivedSection(),
+                          SizedBox(height: sectionGap),
+                          _UpcomingEventsPreview(
+                            onViewAll: widget.onOpenEvents,
+                          ),
+                        ],
+                        SizedBox(height: sectionGap),
+                        StreamBuilder<List<RequirementModel>>(
+                          stream: RequirementService().getRequirements(),
+                          builder: (context, requirementsSnapshot) {
+                            final requirementsAccessMessage = widget
+                                ._firstAccessMessage([
+                                  requirementsSnapshot.error,
+                                ]);
+                            if (requirementsAccessMessage != null) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  widget._buildAccessNotice(
+                                    requirementsAccessMessage,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  widget._buildWorkflowGrid(
+                                    workflowItems: workflowItems,
+                                    pendingApprovalCount: widget
+                                        ._pendingApprovalCount(
+                                          requirementsSnapshot.data ?? [],
+                                        ),
+                                    ordersInProgressCount: 0,
+                                    chemicalAttentionCount: 0,
+                                    consumablesLowStockCount: 0,
+                                  ),
+                                ],
+                              );
+                            }
 
-                              return StreamBuilder<List<OrderModel>>(
-                                stream: OrderService().getOrders(),
-                                builder: (context, ordersSnapshot) {
-                                  final ordersAccessMessage = widget
-                                      ._firstAccessMessage([
-                                        ordersSnapshot.error,
-                                      ]);
-                                  if (ordersAccessMessage != null) {
+                            return StreamBuilder<List<OrderModel>>(
+                              stream: OrderService().getOrders(),
+                              builder: (context, ordersSnapshot) {
+                                final ordersAccessMessage = widget
+                                    ._firstAccessMessage([
+                                      ordersSnapshot.error,
+                                    ]);
+                                if (ordersAccessMessage != null) {
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      widget._buildAccessNotice(
+                                        ordersAccessMessage,
+                                      ),
+                                      const SizedBox(height: 12),
+                                      widget._buildWorkflowGrid(
+                                        workflowItems: workflowItems,
+                                        pendingApprovalCount: widget
+                                            ._pendingApprovalCount(
+                                              requirementsSnapshot.data ?? [],
+                                            ),
+                                        ordersInProgressCount: 0,
+                                        chemicalAttentionCount: 0,
+                                        consumablesLowStockCount: 0,
+                                      ),
+                                    ],
+                                  );
+                                }
+
+                                return StreamBuilder<
+                                  List<
+                                    QueryDocumentSnapshot<Map<String, dynamic>>
+                                  >
+                                >(
+                                  stream: widget._consumablesInventoryStream(),
+                                  builder: (context, consumablesSnapshot) {
+                                    final consumablesAccessMessage = widget
+                                        ._firstAccessMessage([
+                                          consumablesSnapshot.error,
+                                        ]);
+
                                     return Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        widget._buildAccessNotice(
-                                          ordersAccessMessage,
-                                        ),
-                                        const SizedBox(height: 12),
+                                        if (chemicalsAccessMessage != null) ...[
+                                          widget._buildAccessNotice(
+                                            chemicalsAccessMessage,
+                                          ),
+                                          const SizedBox(height: 12),
+                                        ],
+                                        if (consumablesAccessMessage !=
+                                            null) ...[
+                                          widget._buildAccessNotice(
+                                            consumablesAccessMessage,
+                                          ),
+                                          const SizedBox(height: 12),
+                                        ],
                                         widget._buildWorkflowGrid(
                                           workflowItems: workflowItems,
                                           pendingApprovalCount: widget
                                               ._pendingApprovalCount(
                                                 requirementsSnapshot.data ?? [],
                                               ),
-                                          ordersInProgressCount: 0,
-                                          chemicalAttentionCount: 0,
-                                          consumablesLowStockCount: 0,
+                                          ordersInProgressCount: widget
+                                              ._ordersInProgressCount(
+                                                ordersSnapshot.data ?? [],
+                                              ),
+                                          chemicalAttentionCount:
+                                              chemicalsAccessMessage == null
+                                              ? widget._chemicalAttentionCount(
+                                                  chemicals,
+                                                )
+                                              : 0,
+                                          consumablesLowStockCount: widget
+                                              ._consumablesLowStockCount(
+                                                consumablesSnapshot.data ?? [],
+                                              ),
                                         ),
                                       ],
                                     );
-                                  }
-
-                                  return StreamBuilder<
-                                    List<
-                                      QueryDocumentSnapshot<
-                                        Map<String, dynamic>
-                                      >
-                                    >
-                                  >(
-                                    stream: widget
-                                        ._consumablesInventoryStream(),
-                                    builder: (context, consumablesSnapshot) {
-                                      final consumablesAccessMessage = widget
-                                          ._firstAccessMessage([
-                                            consumablesSnapshot.error,
-                                          ]);
-
-                                      return Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          if (chemicalsAccessMessage !=
-                                              null) ...[
-                                            widget._buildAccessNotice(
-                                              chemicalsAccessMessage,
-                                            ),
-                                            const SizedBox(height: 12),
-                                          ],
-                                          if (consumablesAccessMessage !=
-                                              null) ...[
-                                            widget._buildAccessNotice(
-                                              consumablesAccessMessage,
-                                            ),
-                                            const SizedBox(height: 12),
-                                          ],
-                                          widget._buildWorkflowGrid(
-                                            workflowItems: workflowItems,
-                                            pendingApprovalCount: widget
-                                                ._pendingApprovalCount(
-                                                  requirementsSnapshot.data ??
-                                                      [],
-                                                ),
-                                            ordersInProgressCount: widget
-                                                ._ordersInProgressCount(
-                                                  ordersSnapshot.data ?? [],
-                                                ),
-                                            chemicalAttentionCount:
-                                                chemicalsAccessMessage == null
-                                                ? widget
-                                                      ._chemicalAttentionCount(
-                                                        chemicals,
-                                                      )
-                                                : 0,
-                                            consumablesLowStockCount: widget
-                                                ._consumablesLowStockCount(
-                                                  consumablesSnapshot.data ??
-                                                      [],
-                                                ),
-                                          ),
-                                        ],
-                                      );
-                                    },
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                          SizedBox(height: sectionGap),
-                          _WorkflowEntryCard(
-                            title: 'MSDS / Safety',
-                            subtitle:
-                                'Search by CAS number and review a PubChem-based safety summary before handling chemicals.',
-                            icon: Icons.health_and_safety_rounded,
-                            accentColor: const Color(0xFFF59E0B),
-                            onTap: () => widget._openMsdsLookup(context),
-                          ),
-                          SizedBox(height: sectionGap),
-                          _WorkflowEntryCard(
-                            title: 'Recent Activity',
-                            subtitle:
-                                'View recent requirements, orders, deliveries, and inventory entries for this lab.',
-                            icon: Icons.notifications_rounded,
-                            accentColor: const Color(0xFF14B8A6),
-                            onTap: () => widget._openRecentActivity(context),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+                        SizedBox(height: sectionGap),
+                        _WorkflowEntryCard(
+                          title: 'MSDS / Safety',
+                          subtitle:
+                              'Search by CAS number and review a PubChem-based safety summary before handling chemicals.',
+                          icon: Icons.health_and_safety_rounded,
+                          accentColor: const Color(0xFFF59E0B),
+                          onTap: () => widget._openMsdsLookup(context),
+                        ),
+                        SizedBox(height: sectionGap),
+                        _WorkflowEntryCard(
+                          title: 'Recent Activity',
+                          subtitle:
+                              'View recent requirements, orders, deliveries, and inventory entries for this lab.',
+                          icon: Icons.notifications_rounded,
+                          accentColor: const Color(0xFF14B8A6),
+                          onTap: () => widget._openRecentActivity(context),
+                        ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -882,10 +898,7 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
     _searchFocusNode.requestFocus();
 
     final text = _searchController.text;
-    _searchController.selection = TextSelection(
-      baseOffset: 0,
-      extentOffset: text.length,
-    );
+    _searchController.selection = TextSelection.collapsed(offset: text.length);
 
     if (text.trim().isNotEmpty && mounted) {
       setState(() {
