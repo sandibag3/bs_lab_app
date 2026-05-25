@@ -255,45 +255,53 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
 
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        ChoiceChip(
-          label: const Text('Compact'),
-          selected: _viewMode == OrdersViewMode.compact,
-          selectedColor: palette.selected,
-          backgroundColor: palette.panel,
-          labelStyle: TextStyle(
-            color: _viewMode == OrdersViewMode.compact
-                ? colorScheme.primary
-                : palette.mutedText,
-            fontWeight: FontWeight.w600,
+    Widget buildSegment({required OrdersViewMode mode, required String label}) {
+      final isSelected = _viewMode == mode;
+
+      return Expanded(
+        child: Material(
+          color: isSelected ? palette.selected : Colors.transparent,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: () {
+              if (isSelected) return;
+              setState(() {
+                _viewMode = mode;
+              });
+            },
+            child: Center(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? colorScheme.primary : palette.mutedText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
           ),
-          onSelected: (_) {
-            setState(() {
-              _viewMode = OrdersViewMode.compact;
-            });
-          },
         ),
-        ChoiceChip(
-          label: const Text('Detailed'),
-          selected: _viewMode == OrdersViewMode.detailed,
-          selectedColor: palette.selected,
-          backgroundColor: palette.panel,
-          labelStyle: TextStyle(
-            color: _viewMode == OrdersViewMode.detailed
-                ? colorScheme.primary
-                : palette.mutedText,
-            fontWeight: FontWeight.w600,
-          ),
-          onSelected: (_) {
-            setState(() {
-              _viewMode = OrdersViewMode.detailed;
-            });
-          },
+      );
+    }
+
+    return SizedBox(
+      height: 46,
+      child: Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: palette.panel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: palette.border),
         ),
-      ],
+        child: Row(
+          children: [
+            buildSegment(mode: OrdersViewMode.compact, label: 'Compact'),
+            const SizedBox(width: 6),
+            buildSegment(mode: OrdersViewMode.detailed, label: 'Detailed'),
+          ],
+        ),
+      ),
     );
   }
 
@@ -301,34 +309,51 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: palette.panel,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: palette.border),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<OrdersSortOption>(
-          value: _sortOption,
-          dropdownColor: palette.panel,
-          style: TextStyle(color: colorScheme.onSurface),
-          isExpanded: true,
-          items: OrdersSortOption.values.map((option) {
-            return DropdownMenuItem<OrdersSortOption>(
-              value: option,
-              child: Text(
-                'Sort: ${_sortLabel(option)}',
-                style: TextStyle(color: colorScheme.onSurface),
-              ),
-            );
-          }).toList(),
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() {
-              _sortOption = value;
-            });
-          },
+    return SizedBox(
+      height: 46,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: palette.panel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: palette.border),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<OrdersSortOption>(
+            value: _sortOption,
+            dropdownColor: palette.panel,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+            icon: Icon(
+              Icons.swap_vert_rounded,
+              color: palette.mutedText,
+              size: 18,
+            ),
+            isExpanded: true,
+            items: OrdersSortOption.values.map((option) {
+              return DropdownMenuItem<OrdersSortOption>(
+                value: option,
+                child: Text(
+                  _sortLabel(option),
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              );
+            }).toList(),
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                _sortOption = value;
+              });
+            },
+          ),
         ),
       ),
     );
@@ -422,6 +447,32 @@ class _OrdersScreenState extends State<OrdersScreen> {
     );
   }
 
+  Widget _buildResetFiltersButton({required bool fullWidth}) {
+    final palette = context.labmate;
+
+    final button = OutlinedButton.icon(
+      onPressed: _hasActiveFilters ? _resetFilters : null,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 46),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        side: BorderSide(color: palette.border),
+        foregroundColor: palette.mutedText,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      ),
+      icon: const Icon(Icons.filter_alt_off_rounded, size: 18),
+      label: const Text(
+        'Reset Filters',
+        style: TextStyle(fontSize: 12.8, fontWeight: FontWeight.w700),
+      ),
+    );
+
+    if (fullWidth) {
+      return SizedBox(width: double.infinity, child: button);
+    }
+
+    return button;
+  }
+
   Widget _buildFilterToolbar({
     required bool isDesktop,
     required List<OrderModel> allOrders,
@@ -437,99 +488,96 @@ class _OrdersScreenState extends State<OrdersScreen> {
       (order) => order.modeOfPurchase,
     );
 
-    final controls = [
-      _buildFilterDropdown(
-        label: 'Brand',
-        value: _selectedBrand,
-        options: brandOptions,
-        onChanged: (value) {
-          setState(() {
-            _selectedBrand = value;
-          });
-        },
+    final controls = <Widget>[
+      SizedBox(
+        width: isDesktop ? 180 : double.infinity,
+        child: _buildFilterDropdown(
+          label: 'Brand',
+          value: _selectedBrand,
+          options: brandOptions,
+          onChanged: (value) {
+            setState(() {
+              _selectedBrand = value;
+            });
+          },
+        ),
       ),
-      _buildFilterDropdown(
-        label: 'Vendor',
-        value: _selectedVendor,
-        options: vendorOptions,
-        onChanged: (value) {
-          setState(() {
-            _selectedVendor = value;
-          });
-        },
+      SizedBox(
+        width: isDesktop ? 180 : double.infinity,
+        child: _buildFilterDropdown(
+          label: 'Vendor',
+          value: _selectedVendor,
+          options: vendorOptions,
+          onChanged: (value) {
+            setState(() {
+              _selectedVendor = value;
+            });
+          },
+        ),
       ),
-      _buildFilterDropdown(
-        label: 'Ordered by',
-        value: _selectedOrderedBy,
-        options: orderedByOptions,
-        onChanged: (value) {
-          setState(() {
-            _selectedOrderedBy = value;
-          });
-        },
+      SizedBox(
+        width: isDesktop ? 190 : double.infinity,
+        child: _buildFilterDropdown(
+          label: 'Ordered by',
+          value: _selectedOrderedBy,
+          options: orderedByOptions,
+          onChanged: (value) {
+            setState(() {
+              _selectedOrderedBy = value;
+            });
+          },
+        ),
       ),
-      _buildFilterDropdown(
-        label: 'Mode',
-        value: _selectedModeOfPurchase,
-        options: modeOptions,
-        onChanged: (value) {
-          setState(() {
-            _selectedModeOfPurchase = value;
-          });
-        },
+      SizedBox(
+        width: isDesktop ? 170 : double.infinity,
+        child: _buildFilterDropdown(
+          label: 'Mode',
+          value: _selectedModeOfPurchase,
+          options: modeOptions,
+          onChanged: (value) {
+            setState(() {
+              _selectedModeOfPurchase = value;
+            });
+          },
+        ),
       ),
-      _buildDateFilterButton(
-        label: 'Start',
-        value: _startDate,
-        onTap: () => _pickFilterDate(isStartDate: true),
+      SizedBox(
+        width: isDesktop ? 168 : double.infinity,
+        child: _buildDateFilterButton(
+          label: 'Start date',
+          value: _startDate,
+          onTap: () => _pickFilterDate(isStartDate: true),
+        ),
       ),
-      _buildDateFilterButton(
-        label: 'End',
-        value: _endDate,
-        onTap: () => _pickFilterDate(isStartDate: false),
+      SizedBox(
+        width: isDesktop ? 168 : double.infinity,
+        child: _buildDateFilterButton(
+          label: 'End date',
+          value: _endDate,
+          onTap: () => _pickFilterDate(isStartDate: false),
+        ),
       ),
     ];
 
     if (!isDesktop) {
       return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           for (int index = 0; index < controls.length; index++) ...[
             controls[index],
             if (index != controls.length - 1) const SizedBox(height: 10),
           ],
           const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: _hasActiveFilters ? _resetFilters : null,
-              icon: const Icon(Icons.filter_alt_off_rounded, size: 18),
-              label: const Text('Reset Filters'),
-            ),
-          ),
+          _buildResetFiltersButton(fullWidth: true),
         ],
       );
     }
 
-    return Column(
-      children: [
-        Row(
-          children: [
-            for (int index = 0; index < controls.length; index++) ...[
-              Expanded(child: controls[index]),
-              if (index != controls.length - 1) const SizedBox(width: 10),
-            ],
-          ],
-        ),
-        const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerRight,
-          child: OutlinedButton.icon(
-            onPressed: _hasActiveFilters ? _resetFilters : null,
-            icon: const Icon(Icons.filter_alt_off_rounded, size: 18),
-            label: const Text('Reset Filters'),
-          ),
-        ),
-      ],
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [...controls, _buildResetFiltersButton(fullWidth: false)],
     );
   }
 
@@ -541,10 +589,13 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
+    final orderCountText = _hasActiveFilters
+        ? '$filteredCount of $totalCount orders'
+        : '$totalCount ${totalCount == 1 ? 'order' : 'orders'}';
 
     return Container(
-      margin: EdgeInsets.fromLTRB(12, isDesktop ? 10 : 12, 12, 8),
-      padding: const EdgeInsets.all(14),
+      margin: EdgeInsets.fromLTRB(12, isDesktop ? 8 : 10, 12, 8),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
       decoration: BoxDecoration(
         color: palette.panelAlt,
         borderRadius: BorderRadius.circular(16),
@@ -553,32 +604,59 @@ class _OrdersScreenState extends State<OrdersScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            _hasActiveFilters
-                ? '$filteredCount of $totalCount orders'
-                : '$totalCount ${totalCount == 1 ? 'order' : 'orders'}',
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontSize: 14.5,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 12),
           if (isDesktop)
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SizedBox(width: 190, child: _buildViewToggle()),
-                const SizedBox(width: 12),
-                SizedBox(width: 220, child: _buildSortDropdown()),
+                Expanded(
+                  child: Text(
+                    orderCountText,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  runSpacing: 12,
+                  spacing: 12,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    SizedBox(width: 210, child: _buildViewToggle()),
+                    SizedBox(width: 200, child: _buildSortDropdown()),
+                  ],
+                ),
               ],
             )
           else ...[
+            Text(
+              orderCountText,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 10),
             _buildViewToggle(),
             const SizedBox(height: 12),
             _buildSortDropdown(),
           ],
           const SizedBox(height: 12),
+          Container(height: 1, color: palette.border.withValues(alpha: 0.8)),
+          const SizedBox(height: 10),
+          Text(
+            'Filters',
+            style: TextStyle(
+              color: palette.subtleText,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
           _buildFilterToolbar(isDesktop: isDesktop, allOrders: allOrders),
         ],
       ),
@@ -612,7 +690,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.14),
+        color: color.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
