@@ -30,6 +30,31 @@ class RequirementService {
     return doc.id;
   }
 
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  getRequirementDocsOnce() async {
+    if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+      return <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    }
+
+    final appState = AppState.instance;
+    final selectedLabId = appState.selectedLabId.trim();
+
+    final snapshot = appState.isDemoLabSelected
+        ? await _firestore.collection('requirements').get()
+        : await _firestore
+              .collection('requirements')
+              .where('labId', isEqualTo: selectedLabId)
+              .get();
+
+    if (appState.isDemoLabSelected) {
+      return snapshot.docs
+          .where((doc) => _matchesCurrentLab(doc.data()))
+          .toList();
+    }
+
+    return snapshot.docs.toList();
+  }
+
   Stream<List<RequirementModel>> getRequirements() {
     return FirestoreAccessGuard.guardLabStream<List<RequirementModel>>(
       source: _requirementsSnapshots(),

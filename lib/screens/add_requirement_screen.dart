@@ -18,7 +18,10 @@ class AddRequirementScreen extends StatefulWidget {
 }
 
 class _AddRequirementScreenState extends State<AddRequirementScreen> {
+  static const String _customOption = 'Add custom...';
+
   final _formKey = GlobalKey<FormState>();
+  final RequirementService _requirementService = RequirementService();
 
   // Common controllers
   final TextEditingController quantityController = TextEditingController();
@@ -36,6 +39,14 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
   // Custom manual entry controllers
   final TextEditingController customBrandController = TextEditingController();
   final TextEditingController customVendorController = TextEditingController();
+  final TextEditingController customModeOfPurchaseController =
+      TextEditingController();
+  final TextEditingController customChemicalTypeController =
+      TextEditingController();
+  final TextEditingController customConsumableCategoryController =
+      TextEditingController();
+  final TextEditingController customPackSizeController =
+      TextEditingController();
 
   // Dropdown values
   String selectedMainType = 'chemical';
@@ -51,7 +62,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
 
   bool isFetchingChemicalName = false;
 
-  final List<String> brands = [
+  final List<String> brands = const [
     'Merck',
     'Sigma',
     'TCI',
@@ -63,7 +74,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     'Others',
   ];
 
-  final List<String> vendors = [
+  final List<String> vendors = const [
     'Merck',
     'Sigma',
     'Globe Scientific',
@@ -73,9 +84,9 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     'Others',
   ];
 
-  final List<String> quantities = ['1', '2', '3', '4', '5', '10'];
+  final List<String> quantities = const ['1', '2', '3', '4', '5', '10'];
 
-  final List<String> packSizes = [
+  final List<String> packSizes = const [
     '100 mg',
     '250 mg',
     '500 mg',
@@ -90,7 +101,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     '5 L',
   ];
 
-  final List<String> chemicalTypes = [
+  final List<String> chemicalTypes = const [
     'Common Reagent',
     'Catalyst',
     'Ligand',
@@ -101,7 +112,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     'Bulk Solvent',
   ];
 
-  final List<String> consumableCategories = [
+  final List<String> consumableCategories = const [
     'Gloves',
     'Syringes',
     'Balloon',
@@ -128,16 +139,55 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     'Joint Clips': ['14', '19', '24'],
   };
 
-  final List<String> purchaseModes = ['indent', 'direct'];
+  final List<String> purchaseModes = const ['indent', 'direct'];
+
+  List<String> customBrandOptions = const [];
+  List<String> customVendorOptions = const [];
+  List<String> customChemicalTypeOptions = const [];
+  List<String> customConsumableCategoryOptions = const [];
+  List<String> customModeOfPurchaseOptions = const [];
+  List<String> customPackSizeOptions = const [];
+  List<String> customQuantityOptions = const [];
+
+  static const Map<String, List<String>> _categoryAliases = {
+    'Gloves': ['glove', 'gloves'],
+    'Syringes': ['syringe', 'syringes'],
+    'Balloon': ['balloon', 'balloons'],
+    'Needle': ['needle', 'needles'],
+    'Filter Paper': ['filter paper'],
+    'Silica': ['silica'],
+    'TLC Plates': [
+      'tlc',
+      'tlc plate',
+      'tlc plates',
+      'normal tlc plate',
+      'preparative tlc plate',
+    ],
+    'Cotton': ['cotton'],
+    'Rubber Band': ['rubber band', 'rubber bands'],
+    'Tubes': ['tube', 'tubes'],
+    'Joint Clips': ['clip', 'clips', 'joint clip', 'joint clips'],
+    'Grease': ['grease'],
+    'Teflon': ['teflon'],
+    'Reflux Pumps': ['reflux pump', 'reflux pumps'],
+    'Column Pumps': ['column pump', 'column pumps'],
+    'Others': ['other', 'others'],
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadExistingDropdownOptions();
+  }
 
   double get totalPrice {
     final estimate = double.tryParse(estimatedCostController.text.trim()) ?? 0;
-    final qty = int.tryParse(selectedQuantity ?? '0') ?? 0;
+    final qty = double.tryParse(_resolvedQuantity) ?? 0;
     return estimate * qty;
   }
 
   bool get hasFixedConsumableVariants {
-    final category = selectedConsumableCategory?.trim() ?? '';
+    final category = _resolvedConsumableCategory;
     return consumableVariantsByCategory.containsKey(category);
   }
 
@@ -145,20 +195,95 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     return (selectedConsumableCategory ?? '').trim() == 'Others';
   }
 
+  bool get isCustomConsumableCategory {
+    return selectedConsumableCategory == _customOption;
+  }
+
+  bool get isCustomBrandSelection => _isCustomSelection(selectedBrand);
+
+  bool get isCustomVendorSelection => _isCustomSelection(selectedVendor);
+
+  bool get isCustomChemicalTypeSelection {
+    return selectedChemicalType == _customOption;
+  }
+
+  bool get isCustomModeOfPurchaseSelection {
+    return selectedModeOfPurchase == _customOption;
+  }
+
+  bool get isCustomPackSizeSelection {
+    return selectedPackSize == _customOption;
+  }
+
+  bool get isCustomQuantitySelection {
+    return selectedQuantity == _customOption;
+  }
+
   bool get shouldShowManualConsumableVariantField {
-    final category = selectedConsumableCategory?.trim() ?? '';
+    final category = _resolvedConsumableCategory;
     return category.isNotEmpty &&
         !hasFixedConsumableVariants &&
         !isOtherConsumableCategory;
   }
 
   List<String> get currentConsumableVariants {
-    final category = selectedConsumableCategory?.trim() ?? '';
+    final category = _resolvedConsumableCategory;
     return consumableVariantsByCategory[category] ?? const [];
   }
 
+  bool _isCustomSelection(String? value) {
+    return value == _customOption || value == 'Others';
+  }
+
+  String _resolvedDropdownValue(
+    String? selectedValue,
+    TextEditingController customController,
+  ) {
+    if (_isCustomSelection(selectedValue)) {
+      return customController.text.trim();
+    }
+    return selectedValue?.trim() ?? '';
+  }
+
+  String get _resolvedBrand {
+    return _resolvedDropdownValue(selectedBrand, customBrandController);
+  }
+
+  String get _resolvedVendor {
+    return _resolvedDropdownValue(selectedVendor, customVendorController);
+  }
+
+  String get _resolvedChemicalType {
+    return _resolvedDropdownValue(
+      selectedChemicalType,
+      customChemicalTypeController,
+    );
+  }
+
+  String get _resolvedModeOfPurchase {
+    return _resolvedDropdownValue(
+      selectedModeOfPurchase,
+      customModeOfPurchaseController,
+    );
+  }
+
+  String get _resolvedPackSize {
+    return _resolvedDropdownValue(selectedPackSize, customPackSizeController);
+  }
+
+  String get _resolvedQuantity {
+    return _resolvedDropdownValue(selectedQuantity, quantityController);
+  }
+
+  String get _resolvedConsumableCategory {
+    if (isCustomConsumableCategory) {
+      return customConsumableCategoryController.text.trim();
+    }
+    return selectedConsumableCategory?.trim() ?? '';
+  }
+
   String _buildConsumableTypeValue() {
-    final category = selectedConsumableCategory?.trim() ?? '';
+    final category = _resolvedConsumableCategory;
     final variant = selectedConsumableVariant?.trim() ?? '';
     final manualVariant = manualConsumableVariantController.text.trim();
     final manualName = manualConsumableNameController.text.trim();
@@ -213,6 +338,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     selectedConsumableCategory = null;
     selectedConsumableVariant = null;
     selectedConsumableType = null;
+    customConsumableCategoryController.clear();
     manualConsumableVariantController.clear();
     manualConsumableNameController.clear();
   }
@@ -277,6 +403,203 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     );
   }
 
+  bool _matchesAnyOption(String value, Iterable<String> options) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return options.any((option) => option.trim().toLowerCase() == normalized);
+  }
+
+  List<String> _distinctCustomValues(
+    Iterable<String> values,
+    Iterable<String> baseValues,
+  ) {
+    final baseNormalized = baseValues
+        .map((value) => value.trim().toLowerCase())
+        .toSet();
+    final uniqueValues = <String, String>{};
+
+    for (final value in values) {
+      final trimmed = value.trim();
+      final normalized = trimmed.toLowerCase();
+      if (trimmed.isEmpty ||
+          trimmed == _customOption ||
+          baseNormalized.contains(normalized)) {
+        continue;
+      }
+      uniqueValues.putIfAbsent(normalized, () => trimmed);
+    }
+
+    final items = uniqueValues.values.toList();
+    items.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return items;
+  }
+
+  List<String> _mergedOptions(
+    List<String> builtInOptions,
+    List<String> customOptions,
+  ) {
+    final custom = _distinctCustomValues(customOptions, builtInOptions);
+    return [...builtInOptions, ...custom, _customOption];
+  }
+
+  List<DropdownMenuItem<String>> _dropdownItems(List<String> options) {
+    final colorScheme = context.colorScheme;
+    return options
+        .map(
+          (item) => DropdownMenuItem<String>(
+            value: item,
+            child: Text(item, style: TextStyle(color: colorScheme.onSurface)),
+          ),
+        )
+        .toList();
+  }
+
+  Widget buildCustomizableDropdown({
+    required String label,
+    required String? value,
+    required List<String> builtInOptions,
+    required List<String> customOptions,
+    required ValueChanged<String?> onChanged,
+    String? Function(String?)? validator,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final options = _mergedOptions(builtInOptions, customOptions);
+    final safeValue = options.contains(value) ? value : null;
+
+    return DropdownButtonFormField<String>(
+      key: ValueKey('${label}_${safeValue ?? ''}_${customOptions.join('|')}'),
+      initialValue: safeValue,
+      dropdownColor: palette.panel,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration(label),
+      items: _dropdownItems(options),
+      onChanged: (value) {
+        setState(() {
+          onChanged(value);
+        });
+      },
+      validator:
+          validator ??
+          (value) {
+            if (value == null || value.isEmpty) {
+              return 'Required';
+            }
+            return null;
+          },
+    );
+  }
+
+  Widget buildCustomTextField({
+    required TextEditingController controller,
+    required String label,
+    required String errorText,
+    TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.words,
+  }) {
+    final colorScheme = context.colorScheme;
+    return TextFormField(
+      controller: controller,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration(label),
+      keyboardType: keyboardType,
+      textCapitalization: textCapitalization,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return errorText;
+        }
+        return null;
+      },
+      onChanged: (_) {
+        if (controller == customConsumableCategoryController) {
+          setState(() {
+            _refreshConsumableTypePreview();
+          });
+        } else if (controller == quantityController) {
+          setState(() {});
+        }
+      },
+    );
+  }
+
+  String? _matchingConsumableCategory(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized.isEmpty) return null;
+
+    for (final entry in _categoryAliases.entries) {
+      if (entry.value.any(
+        (alias) => normalized == alias || normalized.startsWith('$alias '),
+      )) {
+        return entry.key;
+      }
+    }
+
+    return null;
+  }
+
+  String _categoryFromConsumableType(String value) {
+    final cleanValue = value.trim();
+    if (cleanValue.isEmpty) return '';
+
+    final parts = cleanValue.split(RegExp(r'\s*-\s*'));
+    final possibleCategory = parts.first.trim();
+    final knownCategory = _matchingConsumableCategory(possibleCategory);
+    final category = knownCategory ?? possibleCategory;
+
+    if (category.isEmpty ||
+        category == 'Others' ||
+        _matchesAnyOption(category, consumableCategories)) {
+      return '';
+    }
+
+    return category;
+  }
+
+  Future<void> _loadExistingDropdownOptions() async {
+    try {
+      final docs = await _requirementService.getRequirementDocsOnce();
+      if (!mounted) return;
+
+      setState(() {
+        customBrandOptions = _distinctCustomValues(
+          docs.map((doc) => (doc.data()['brand'] ?? '').toString()),
+          brands,
+        );
+        customVendorOptions = _distinctCustomValues(
+          docs.map((doc) => (doc.data()['vendor'] ?? '').toString()),
+          vendors,
+        );
+        customChemicalTypeOptions = _distinctCustomValues(
+          docs.map((doc) => (doc.data()['chemicalType'] ?? '').toString()),
+          chemicalTypes,
+        );
+        customConsumableCategoryOptions = _distinctCustomValues(
+          docs.map((doc) {
+            final data = doc.data();
+            return _categoryFromConsumableType(
+              (data['consumableType'] ?? '').toString(),
+            );
+          }),
+          consumableCategories,
+        );
+        customModeOfPurchaseOptions = _distinctCustomValues(
+          docs.map((doc) => (doc.data()['modeOfPurchase'] ?? '').toString()),
+          purchaseModes,
+        );
+        customPackSizeOptions = _distinctCustomValues(
+          docs.map((doc) => (doc.data()['packSize'] ?? '').toString()),
+          packSizes,
+        );
+        customQuantityOptions = _distinctCustomValues(
+          docs.map((doc) => (doc.data()['quantity'] ?? '').toString()),
+          quantities,
+        );
+      });
+    } catch (_) {
+      // Built-in values remain available if historical requirement options fail.
+    }
+  }
+
   bool _matchesCurrentLab(Map<String, dynamic> data) {
     final labId = (data['labId'] ?? '').toString().trim();
     return AppState.instance.matchesSelectedLabId(labId);
@@ -335,16 +658,29 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
           catalogNoController.text = fetchedCatNumber;
         }
 
-        if (fetchedPackSize.isNotEmpty && packSizes.contains(fetchedPackSize)) {
-          selectedPackSize = fetchedPackSize;
+        if (fetchedPackSize.isNotEmpty) {
+          final matchedPackSize = packSizes.where(
+            (packSize) =>
+                packSize.trim().toLowerCase() == fetchedPackSize.toLowerCase(),
+          );
+          if (matchedPackSize.isNotEmpty) {
+            selectedPackSize = matchedPackSize.first;
+            customPackSizeController.clear();
+          } else {
+            selectedPackSize = _customOption;
+            customPackSizeController.text = fetchedPackSize;
+          }
         }
 
         if (fetchedBrand.isNotEmpty) {
-          if (brands.contains(fetchedBrand)) {
-            selectedBrand = fetchedBrand;
+          final matchedBrand = brands.where(
+            (brand) => brand.trim().toLowerCase() == fetchedBrand.toLowerCase(),
+          );
+          if (matchedBrand.isNotEmpty) {
+            selectedBrand = matchedBrand.first;
             customBrandController.clear();
           } else {
-            selectedBrand = 'Others';
+            selectedBrand = _customOption;
             customBrandController.text = fetchedBrand;
           }
         }
@@ -484,17 +820,13 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
       id: '',
       labId: AppState.instance.resolveWriteLabId(),
       mainType: selectedMainType,
-      brand: selectedBrand == 'Others'
-          ? customBrandController.text.trim()
-          : (selectedBrand ?? ''),
-      vendor: selectedVendor == 'Others'
-          ? customVendorController.text.trim()
-          : (selectedVendor ?? ''),
-      quantity: selectedQuantity ?? quantityController.text.trim(),
+      brand: _resolvedBrand,
+      vendor: _resolvedVendor,
+      quantity: _resolvedQuantity,
       estimatedCost: estimatedCostController.text.trim(),
       estimatedTotal: totalPrice.toStringAsFixed(2),
-      modeOfPurchase: selectedModeOfPurchase ?? '',
-      packSize: selectedMainType == 'chemical' ? (selectedPackSize ?? '') : '',
+      modeOfPurchase: _resolvedModeOfPurchase,
+      packSize: selectedMainType == 'chemical' ? _resolvedPackSize : '',
       chemicalName: selectedMainType == 'chemical'
           ? chemicalNameController.text.trim()
           : '',
@@ -502,9 +834,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
       catalogNo: selectedMainType == 'chemical'
           ? catalogNoController.text.trim()
           : '',
-      chemicalType: selectedMainType == 'chemical'
-          ? (selectedChemicalType ?? '')
-          : '',
+      chemicalType: selectedMainType == 'chemical' ? _resolvedChemicalType : '',
       consumableType: selectedMainType == 'consumable'
           ? consumableTypeValue
           : '',
@@ -546,6 +876,10 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     manualConsumableNameController.dispose();
     customBrandController.dispose();
     customVendorController.dispose();
+    customModeOfPurchaseController.dispose();
+    customChemicalTypeController.dispose();
+    customConsumableCategoryController.dispose();
+    customPackSizeController.dispose();
     super.dispose();
   }
 
@@ -631,10 +965,11 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                   },
                 ),
                 const SizedBox(height: 14),
-                buildDropdown(
+                buildCustomizableDropdown(
                   label: 'Pack Size',
                   value: selectedPackSize,
-                  items: packSizes,
+                  builtInOptions: packSizes,
+                  customOptions: customPackSizeOptions,
                   onChanged: (value) => selectedPackSize = value,
                   validator: (value) {
                     if (selectedMainType == 'chemical' &&
@@ -645,20 +980,41 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                   },
                 ),
                 const SizedBox(height: 14),
-                buildDropdown(
+                if (isCustomPackSizeSelection) ...[
+                  buildCustomTextField(
+                    controller: customPackSizeController,
+                    label: 'Custom pack size',
+                    errorText: 'Enter pack size',
+                    textCapitalization: TextCapitalization.none,
+                  ),
+                  const SizedBox(height: 14),
+                ],
+                buildCustomizableDropdown(
                   label: 'Type of Chemical',
                   value: selectedChemicalType,
-                  items: chemicalTypes,
-                  onChanged: (value) => selectedChemicalType = value,
+                  builtInOptions: chemicalTypes,
+                  customOptions: customChemicalTypeOptions,
+                  onChanged: (value) {
+                    selectedChemicalType = value;
+                  },
                 ),
                 const SizedBox(height: 14),
+                if (isCustomChemicalTypeSelection) ...[
+                  buildCustomTextField(
+                    controller: customChemicalTypeController,
+                    label: 'Custom chemical type',
+                    errorText: 'Enter custom chemical type',
+                  ),
+                  const SizedBox(height: 14),
+                ],
               ],
 
               if (selectedMainType == 'consumable') ...[
-                buildDropdown(
+                buildCustomizableDropdown(
                   label: 'Consumable Category',
                   value: selectedConsumableCategory,
-                  items: consumableCategories,
+                  builtInOptions: consumableCategories,
+                  customOptions: customConsumableCategoryOptions,
                   onChanged: (value) {
                     selectedConsumableCategory = value;
                     selectedConsumableVariant = null;
@@ -675,6 +1031,14 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                   },
                 ),
                 const SizedBox(height: 14),
+                if (isCustomConsumableCategory) ...[
+                  buildCustomTextField(
+                    controller: customConsumableCategoryController,
+                    label: 'Custom consumable category',
+                    errorText: 'Enter custom consumable category',
+                  ),
+                  const SizedBox(height: 14),
+                ],
                 if (hasFixedConsumableVariants) ...[
                   buildDropdown(
                     label: 'Consumable Subcategory / Variant',
@@ -768,57 +1132,56 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                 ],
               ],
 
-              buildDropdown(
+              buildCustomizableDropdown(
                 label: 'Brand',
                 value: selectedBrand,
-                items: brands,
+                builtInOptions: brands,
+                customOptions: customBrandOptions,
                 onChanged: (value) => selectedBrand = value,
               ),
-              if (selectedBrand == 'Others') ...[
+              if (isCustomBrandSelection) ...[
                 const SizedBox(height: 14),
-                TextFormField(
+                buildCustomTextField(
                   controller: customBrandController,
-                  style: TextStyle(color: colorScheme.onSurface),
-                  decoration: inputDecoration('Enter Brand'),
-                  validator: (value) {
-                    if (selectedBrand == 'Others' &&
-                        (value == null || value.trim().isEmpty)) {
-                      return 'Enter brand name';
-                    }
-                    return null;
-                  },
+                  label: 'Custom brand',
+                  errorText: 'Enter brand name',
                 ),
               ],
               const SizedBox(height: 14),
-              buildDropdown(
+              buildCustomizableDropdown(
                 label: 'Vendor Name',
                 value: selectedVendor,
-                items: vendors,
+                builtInOptions: vendors,
+                customOptions: customVendorOptions,
                 onChanged: (value) => selectedVendor = value,
               ),
-              if (selectedVendor == 'Others') ...[
+              if (isCustomVendorSelection) ...[
                 const SizedBox(height: 14),
-                TextFormField(
+                buildCustomTextField(
                   controller: customVendorController,
-                  style: TextStyle(color: colorScheme.onSurface),
-                  decoration: inputDecoration('Enter Vendor'),
-                  validator: (value) {
-                    if (selectedVendor == 'Others' &&
-                        (value == null || value.trim().isEmpty)) {
-                      return 'Enter vendor name';
-                    }
-                    return null;
-                  },
+                  label: 'Custom vendor',
+                  errorText: 'Enter vendor name',
                 ),
               ],
               const SizedBox(height: 14),
-              buildDropdown(
+              buildCustomizableDropdown(
                 label: 'Quantity',
                 value: selectedQuantity,
-                items: quantities,
+                builtInOptions: quantities,
+                customOptions: customQuantityOptions,
                 onChanged: (value) => selectedQuantity = value,
               ),
               const SizedBox(height: 14),
+              if (isCustomQuantitySelection) ...[
+                buildCustomTextField(
+                  controller: quantityController,
+                  label: 'Custom quantity',
+                  errorText: 'Enter quantity',
+                  keyboardType: TextInputType.number,
+                  textCapitalization: TextCapitalization.none,
+                ),
+                const SizedBox(height: 14),
+              ],
               TextFormField(
                 controller: estimatedCostController,
                 keyboardType: TextInputType.number,
@@ -836,12 +1199,21 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
                 },
               ),
               const SizedBox(height: 14),
-              buildDropdown(
+              buildCustomizableDropdown(
                 label: 'Mode of Purchase',
                 value: selectedModeOfPurchase,
-                items: purchaseModes,
+                builtInOptions: purchaseModes,
+                customOptions: customModeOfPurchaseOptions,
                 onChanged: (value) => selectedModeOfPurchase = value,
               ),
+              if (isCustomModeOfPurchaseSelection) ...[
+                const SizedBox(height: 14),
+                buildCustomTextField(
+                  controller: customModeOfPurchaseController,
+                  label: 'Custom mode of purchase',
+                  errorText: 'Enter mode of purchase',
+                ),
+              ],
               const SizedBox(height: 18),
               Container(
                 padding: const EdgeInsets.all(16),
