@@ -64,6 +64,36 @@ class GlassApparatusService {
     );
   }
 
+  Future<List<GlassApparatusModel>> getApparatusOnce() async {
+    return _runGuarded(() async {
+      final appState = AppState.instance;
+      final selectedLabId = appState.selectedLabId.trim();
+
+      final snapshot = appState.isDemoLabSelected
+          ? await _apparatusRef.get()
+          : await _apparatusRef.where('labId', isEqualTo: selectedLabId).get();
+
+      final docs = appState.isDemoLabSelected
+          ? snapshot.docs.where((doc) => _matchesCurrentLab(doc.data()))
+          : snapshot.docs;
+
+      final apparatus = docs.map(GlassApparatusModel.fromFirestore).toList();
+      apparatus.sort((a, b) {
+        final categoryComparison = a.normalizedCategory.toLowerCase().compareTo(
+          b.normalizedCategory.toLowerCase(),
+        );
+        if (categoryComparison != 0) {
+          return categoryComparison;
+        }
+
+        return a.normalizedName.toLowerCase().compareTo(
+          b.normalizedName.toLowerCase(),
+        );
+      });
+      return apparatus;
+    });
+  }
+
   String createApparatusId() {
     return _apparatusRef.doc().id;
   }

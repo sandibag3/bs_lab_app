@@ -20,6 +20,7 @@ class AddGlassApparatusScreen extends StatefulWidget {
 
 class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
   static const String _customCategoryOption = 'Add custom category...';
+  static const String _customConditionOption = 'Add custom condition...';
 
   final _formKey = GlobalKey<FormState>();
   final GlassApparatusService _apparatusService = GlassApparatusService();
@@ -31,15 +32,22 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
   late final TextEditingController _inchargeController;
   late final TextEditingController _notesController;
   late final TextEditingController _customCategoryController;
+  late final TextEditingController _customConditionController;
 
   String _selectedCategory = GlassApparatusModel.categories.first;
   String _selectedCondition = GlassApparatusModel.conditionOptions.first;
   bool _isSaving = false;
+  List<String> _customCategoryOptions = const [];
+  List<String> _customConditionOptions = const [];
 
   bool get _isEditMode => widget.existingApparatus != null;
 
   bool get _isCustomCategorySelected {
     return _selectedCategory == _customCategoryOption;
+  }
+
+  bool get _isCustomConditionSelected {
+    return _selectedCondition == _customConditionOption;
   }
 
   String get _resolvedCategory {
@@ -48,6 +56,14 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     }
 
     return _selectedCategory.trim();
+  }
+
+  String get _resolvedCondition {
+    if (_isCustomConditionSelected) {
+      return _customConditionController.text.trim();
+    }
+
+    return _selectedCondition.trim();
   }
 
   @override
@@ -64,6 +80,7 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     _inchargeController = TextEditingController(text: existing?.incharge ?? '');
     _notesController = TextEditingController(text: existing?.notes ?? '');
     _customCategoryController = TextEditingController();
+    _customConditionController = TextEditingController();
 
     if (existing != null) {
       final existingCategory = existing.category.trim();
@@ -73,8 +90,16 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
         _selectedCategory = _customCategoryOption;
         _customCategoryController.text = existingCategory;
       }
-      _selectedCondition = existing.normalizedCondition;
+      final existingCondition = existing.normalizedCondition;
+      if (GlassApparatusModel.conditionOptions.contains(existingCondition)) {
+        _selectedCondition = existingCondition;
+      } else if (existingCondition.isNotEmpty) {
+        _selectedCondition = _customConditionOption;
+        _customConditionController.text = existingCondition;
+      }
     }
+
+    _loadExistingDropdownOptions();
   }
 
   @override
@@ -86,7 +111,61 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     _inchargeController.dispose();
     _notesController.dispose();
     _customCategoryController.dispose();
+    _customConditionController.dispose();
     super.dispose();
+  }
+
+  List<String> _distinctCustomValues(
+    Iterable<String> values,
+    Iterable<String> baseValues,
+  ) {
+    final baseNormalized = baseValues
+        .map((value) => value.trim().toLowerCase())
+        .toSet();
+    final uniqueValues = <String, String>{};
+
+    for (final value in values) {
+      final trimmed = value.trim();
+      final normalized = trimmed.toLowerCase();
+      if (trimmed.isEmpty || baseNormalized.contains(normalized)) {
+        continue;
+      }
+      uniqueValues.putIfAbsent(normalized, () => trimmed);
+    }
+
+    final items = uniqueValues.values.toList();
+    items.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return items;
+  }
+
+  Future<void> _loadExistingDropdownOptions() async {
+    if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+      return;
+    }
+
+    try {
+      final apparatus = await _apparatusService.getApparatusOnce();
+      final customCategories = _distinctCustomValues(
+        apparatus.map((item) => item.normalizedCategory),
+        GlassApparatusModel.categories,
+      );
+
+      final customConditions = _distinctCustomValues(
+        apparatus.map((item) => item.normalizedCondition),
+        GlassApparatusModel.conditionOptions,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _customCategoryOptions = customCategories;
+        _customConditionOptions = customConditions;
+      });
+    } catch (_) {
+      // Keep built-in options available even if custom values fail to load.
+    }
   }
 
   InputDecoration _inputDecoration(String label) {
@@ -204,9 +283,33 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
       ...GlassApparatusModel.categories.map((category) {
         return DropdownMenuItem<String>(value: category, child: Text(category));
       }),
+      ..._customCategoryOptions.map((category) {
+        return DropdownMenuItem<String>(value: category, child: Text(category));
+      }),
       const DropdownMenuItem<String>(
         value: _customCategoryOption,
         child: Text(_customCategoryOption),
+      ),
+    ];
+  }
+
+  List<DropdownMenuItem<String>> _conditionItems() {
+    return [
+      ...GlassApparatusModel.conditionOptions.map((condition) {
+        return DropdownMenuItem<String>(
+          value: condition,
+          child: Text(condition),
+        );
+      }),
+      ..._customConditionOptions.map((condition) {
+        return DropdownMenuItem<String>(
+          value: condition,
+          child: Text(condition),
+        );
+      }),
+      const DropdownMenuItem<String>(
+        value: _customConditionOption,
+        child: Text(_customConditionOption),
       ),
     ];
   }
@@ -258,6 +361,53 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     );
   }
 
+  Widget _buildConditionDropdown() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    return DropdownButtonFormField<String>(
+      initialValue: _selectedCondition,
+      dropdownColor: palette.panel,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: _inputDecoration('Condition'),
+      items: _conditionItems(),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Select condition';
+        }
+        return null;
+      },
+      onChanged: _isSaving
+          ? null
+          : (value) {
+              if (value == null) return;
+              setState(() {
+                _selectedCondition = value;
+              });
+            },
+    );
+  }
+
+  Widget _buildCustomConditionField() {
+    final colorScheme = context.colorScheme;
+    return TextFormField(
+      controller: _customConditionController,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: _inputDecoration('Custom condition'),
+      textCapitalization: TextCapitalization.words,
+      validator: (value) {
+        if (!_isCustomConditionSelected) {
+          return null;
+        }
+
+        if (value == null || value.trim().isEmpty) {
+          return 'Enter custom condition';
+        }
+
+        return null;
+      },
+    );
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) {
       return;
@@ -286,6 +436,12 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
       return;
     }
 
+    final condition = _resolvedCondition;
+    if (condition.isEmpty) {
+      _showMessage('Enter a condition.');
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
@@ -304,7 +460,7 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
         category: category,
         size: _sizeController.text.trim(),
         quantity: quantity,
-        condition: _selectedCondition,
+        condition: condition,
         location: _locationController.text.trim(),
         incharge: _inchargeController.text.trim(),
         notes: _notesController.text.trim(),
@@ -342,7 +498,6 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.labmate;
     final colorScheme = context.colorScheme;
     return Scaffold(
       appBar: AppBar(
@@ -420,28 +575,9 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
                         _fieldGrid(
                           isDesktop: isDesktop,
                           children: [
-                            DropdownButtonFormField<String>(
-                              initialValue: _selectedCondition,
-                              dropdownColor: palette.panel,
-                              style: TextStyle(color: colorScheme.onSurface),
-                              decoration: _inputDecoration('Condition'),
-                              items: GlassApparatusModel.conditionOptions.map((
-                                status,
-                              ) {
-                                return DropdownMenuItem<String>(
-                                  value: status,
-                                  child: Text(status),
-                                );
-                              }).toList(),
-                              onChanged: _isSaving
-                                  ? null
-                                  : (value) {
-                                      if (value == null) return;
-                                      setState(() {
-                                        _selectedCondition = value;
-                                      });
-                                    },
-                            ),
+                            _buildConditionDropdown(),
+                            if (_isCustomConditionSelected)
+                              _buildCustomConditionField(),
                             TextFormField(
                               controller: _locationController,
                               style: TextStyle(color: colorScheme.onSurface),

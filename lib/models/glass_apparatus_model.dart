@@ -98,11 +98,7 @@ class GlassApparatusModel {
 
   static String _readCondition(dynamic value) {
     final raw = (value ?? '').toString().trim();
-    if (conditionOptions.contains(raw)) {
-      return raw;
-    }
-
-    return conditionOptions.first;
+    return raw.isEmpty ? conditionOptions.first : raw;
   }
 
   String get normalizedName => name.isEmpty ? 'Unnamed apparatus' : name;
@@ -113,9 +109,8 @@ class GlassApparatusModel {
   }
 
   String get normalizedCondition {
-    return conditionOptions.contains(condition)
-        ? condition
-        : conditionOptions.first;
+    final cleanCondition = condition.trim();
+    return cleanCondition.isEmpty ? conditionOptions.first : cleanCondition;
   }
 
   String get displaySize => size.isEmpty ? 'Size not set' : size;

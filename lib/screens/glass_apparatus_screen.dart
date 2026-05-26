@@ -25,16 +25,8 @@ class GlassApparatusScreen extends StatefulWidget {
 }
 
 class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
-  static const List<String> _conditionFilterOptions = [
-    'All',
-    'Available',
-    'Limited',
-    'Damaged',
-    'Missing',
-  ];
-
   final TextEditingController _searchController = TextEditingController();
-  String _selectedConditionFilter = _conditionFilterOptions.first;
+  String _selectedConditionFilter = 'All';
   GlassApparatusSortOption _sortOption = GlassApparatusSortOption.nameAsc;
 
   @override
@@ -68,14 +60,49 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
     return searchableText.contains(normalizedQuery);
   }
 
-  List<GlassApparatusModel> _applyFilters(List<GlassApparatusModel> apparatus) {
+  List<String> _distinctCustomConditions(Iterable<String> values) {
+    final baseNormalized = GlassApparatusModel.conditionOptions
+        .map((value) => value.trim().toLowerCase())
+        .toSet();
+    final uniqueValues = <String, String>{};
+
+    for (final value in values) {
+      final trimmed = value.trim();
+      final normalized = trimmed.toLowerCase();
+      if (trimmed.isEmpty || baseNormalized.contains(normalized)) {
+        continue;
+      }
+      uniqueValues.putIfAbsent(normalized, () => trimmed);
+    }
+
+    final items = uniqueValues.values.toList();
+    items.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return items;
+  }
+
+  List<String> _conditionFilterOptions(List<GlassApparatusModel> apparatus) {
+    final customConditions = _distinctCustomConditions(
+      apparatus.map((item) => item.normalizedCondition),
+    );
+
+    return [
+      'All',
+      ...GlassApparatusModel.conditionOptions,
+      ...customConditions,
+    ];
+  }
+
+  List<GlassApparatusModel> _applyFilters(
+    List<GlassApparatusModel> apparatus, {
+    required String selectedConditionFilter,
+  }) {
     final query = _searchController.text.trim();
 
     return apparatus.where((item) {
       final matchesSearch = _matchesSearch(item, query);
-      final matchesCondition = _selectedConditionFilter == 'All'
+      final matchesCondition = selectedConditionFilter == 'All'
           ? true
-          : item.normalizedCondition == _selectedConditionFilter;
+          : item.normalizedCondition == selectedConditionFilter;
       return matchesSearch && matchesCondition;
     }).toList();
   }
@@ -219,15 +246,19 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
     );
   }
 
-  Widget _buildConditionFilters({bool dense = false}) {
+  Widget _buildConditionFilters({
+    required List<String> options,
+    required String selectedConditionFilter,
+    bool dense = false,
+  }) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
-        children: _conditionFilterOptions.map((condition) {
-          final isSelected = condition == _selectedConditionFilter;
+        children: options.map((condition) {
+          final isSelected = condition == selectedConditionFilter;
           return Padding(
             padding: const EdgeInsets.only(right: 8),
             child: ChoiceChip(
@@ -329,7 +360,15 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
             }
 
             final apparatus = snapshot.data ?? [];
-            final filteredApparatus = _applyFilters(apparatus);
+            final conditionFilterOptions = _conditionFilterOptions(apparatus);
+            final selectedConditionFilter =
+                conditionFilterOptions.contains(_selectedConditionFilter)
+                ? _selectedConditionFilter
+                : conditionFilterOptions.first;
+            final filteredApparatus = _applyFilters(
+              apparatus,
+              selectedConditionFilter: selectedConditionFilter,
+            );
             final sortedApparatus = _sortApparatus(filteredApparatus);
             final categoryGroups = _buildCategoryGroups(sortedApparatus);
 
@@ -364,7 +403,12 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
                             const SizedBox(width: 12),
                             Expanded(
                               flex: 3,
-                              child: _buildConditionFilters(dense: true),
+                              child: _buildConditionFilters(
+                                options: conditionFilterOptions,
+                                selectedConditionFilter:
+                                    selectedConditionFilter,
+                                dense: true,
+                              ),
                             ),
                             const SizedBox(width: 12),
                             SizedBox(
@@ -376,7 +420,10 @@ class _GlassApparatusScreenState extends State<GlassApparatusScreen> {
                       else ...[
                         _buildSearchBar(),
                         const SizedBox(height: 12),
-                        _buildConditionFilters(),
+                        _buildConditionFilters(
+                          options: conditionFilterOptions,
+                          selectedConditionFilter: selectedConditionFilter,
+                        ),
                         const SizedBox(height: 12),
                         _buildSortDropdown(),
                       ],
@@ -983,7 +1030,8 @@ class _ConditionChip extends StatelessWidget {
 
   const _ConditionChip({required this.condition});
 
-  Color _backgroundColor() {
+  Color _backgroundColor(BuildContext context) {
+    final palette = context.labmate;
     switch (condition) {
       case 'Limited':
         return const Color(0xFF713F12);
@@ -991,12 +1039,15 @@ class _ConditionChip extends StatelessWidget {
         return const Color(0xFF7C2D12);
       case 'Missing':
         return const Color(0xFF7F1D1D);
-      default:
+      case 'Available':
         return const Color(0xFF14532D);
+      default:
+        return palette.panelAlt;
     }
   }
 
-  Color _textColor() {
+  Color _textColor(BuildContext context) {
+    final palette = context.labmate;
     switch (condition) {
       case 'Limited':
         return const Color(0xFFFDE68A);
@@ -1004,24 +1055,28 @@ class _ConditionChip extends StatelessWidget {
         return const Color(0xFFFDBA74);
       case 'Missing':
         return const Color(0xFFFCA5A5);
-      default:
+      case 'Available':
         return const Color(0xFFBBF7D0);
+      default:
+        return palette.mutedText;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final backgroundColor = _backgroundColor(context);
+    final textColor = _textColor(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
-        color: _backgroundColor().withValues(alpha: 0.32),
+        color: backgroundColor.withValues(alpha: 0.32),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: _textColor().withValues(alpha: 0.35)),
+        border: Border.all(color: textColor.withValues(alpha: 0.35)),
       ),
       child: Text(
         condition,
         style: TextStyle(
-          color: _textColor(),
+          color: textColor,
           fontSize: 12.2,
           fontWeight: FontWeight.w800,
         ),
