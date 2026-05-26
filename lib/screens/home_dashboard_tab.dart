@@ -431,13 +431,6 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
         onTap: widget.onOpenInstruments,
       ),
       _DashboardToolItem(
-        id: 'lab_manual',
-        title: 'Lab Manual',
-        icon: Icons.description_rounded,
-        accentColor: const Color(0xFF34D399),
-        onTap: widget.onOpenLabManual,
-      ),
-      _DashboardToolItem(
         id: 'chemdraw',
         title: 'ChemDraw',
         icon: Icons.draw_rounded,

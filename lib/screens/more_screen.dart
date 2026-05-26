@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../theme/labmate_theme.dart';
 import 'app_settings_screen.dart';
+import 'electronic_lab_manual_screen.dart';
 import 'edit_profile_screen.dart';
 import 'import_inventory_screen.dart';
 import 'inventory_analytics_screen.dart';
@@ -56,7 +57,7 @@ class MoreScreen extends StatelessWidget {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: accentColor.withOpacity(0.14),
+                  backgroundColor: accentColor.withValues(alpha: 0.14),
                   child: Icon(icon, color: accentColor),
                 ),
                 const SizedBox(width: 14),
@@ -167,6 +168,20 @@ class MoreScreen extends StatelessWidget {
     );
   }
 
+  void _openLabManual(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('Electronic Lab Manual')),
+            body: const ElectronicLabManualScreen(),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -228,6 +243,14 @@ class MoreScreen extends StatelessWidget {
               title: 'Settings',
               subtitle: 'Theme, app behavior, and preferences.',
               onTap: () => _openSettings(context),
+            ),
+            buildOptionCard(
+              context: context,
+              icon: Icons.description_rounded,
+              title: 'Lab Manual',
+              subtitle: 'Open lab guidance, SOP notes, and manual references.',
+              accentColor: const Color(0xFF34D399),
+              onTap: () => _openLabManual(context),
             ),
             buildOptionCard(
               context: context,
