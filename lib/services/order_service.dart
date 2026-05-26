@@ -30,6 +30,27 @@ class OrderService {
     return doc.id;
   }
 
+  Future<String> placeOrderAndMarkRequirementOrdered({
+    required OrderModel order,
+    required String updatedBy,
+  }) async {
+    final orderRef = _firestore.collection('orders').doc();
+    final requirementRef = _firestore
+        .collection('requirements')
+        .doc(order.requirementId);
+    final batch = _firestore.batch();
+
+    batch.set(orderRef, order.toMap());
+    batch.update(requirementRef, {
+      'status': 'ordered',
+      'approvedBy': updatedBy,
+      'approvedAt': FieldValue.serverTimestamp(),
+    });
+
+    await batch.commit();
+    return orderRef.id;
+  }
+
   Stream<List<OrderModel>> getOrders() {
     return FirestoreAccessGuard.guardLabStream<List<OrderModel>>(
       source: _ordersSnapshots(),
@@ -39,7 +60,9 @@ class OrderService {
             ? snapshot.docs.where((doc) => _matchesCurrentLab(doc.data()))
             : snapshot.docs;
 
-        final orders = docs.map((doc) => OrderModel.fromFirestore(doc)).toList();
+        final orders = docs
+            .map((doc) => OrderModel.fromFirestore(doc))
+            .toList();
         orders.sort((a, b) => b.orderedAt.compareTo(a.orderedAt));
         return orders;
       },

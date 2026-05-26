@@ -142,7 +142,20 @@ class _CartScreenState extends State<CartScreen> {
 
   bool _isVisibleCartRequirement(RequirementModel req) {
     final status = req.status.trim().toLowerCase();
-    return status == 'pending' || status == 'approved';
+    switch (status) {
+      case 'pending':
+      case 'approved':
+        return true;
+      case 'ordered':
+      case 'delivered':
+      case 'completed':
+      case 'cancelled':
+      case 'rejected':
+      case 'received':
+        return false;
+      default:
+        return false;
+    }
   }
 
   List<RequirementModel> _visibleCartRequirements(
@@ -201,20 +214,43 @@ class _CartScreenState extends State<CartScreen> {
       inventoryAdded: false,
     );
 
-    final orderId = await orderService.addOrder(order);
-
-    await requirementService.markRequirementOrdered(
-      docId: req.id,
+    final orderId = await orderService.placeOrderAndMarkRequirementOrdered(
+      order: order,
       updatedBy: currentUserName,
     );
-    await ActivityService().addActivity(
-      labId: order.labId,
-      type: 'order_placed',
-      message: 'Order placed for ${order.displayName}',
-      actorName: currentUserName,
-      createdBy: appState.authenticatedUserId,
-      relatedId: orderId,
-    );
+    try {
+      await ActivityService().addActivity(
+        labId: order.labId,
+        type: 'order_placed',
+        message: 'Order placed for ${order.displayName}',
+        actorName: currentUserName,
+        createdBy: appState.authenticatedUserId,
+        relatedId: orderId,
+      );
+    } catch (error) {
+      debugPrint('Failed to record order activity: $error');
+    }
+  }
+
+  Future<void> _handlePlaceOrder({
+    required BuildContext context,
+    required RequirementModel req,
+  }) async {
+    try {
+      await _placeOrder(req);
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Order placed successfully')),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to place order. Please try again.'),
+        ),
+      );
+    }
   }
 
   Widget _buildViewToggle() {
@@ -228,7 +264,7 @@ class _CartScreenState extends State<CartScreen> {
         ChoiceChip(
           label: const Text('Compact'),
           selected: _viewMode == CartViewMode.compact,
-          selectedColor: colorScheme.primary.withOpacity(0.16),
+          selectedColor: colorScheme.primary.withValues(alpha: 0.16),
           backgroundColor: palette.panelAlt,
           labelStyle: TextStyle(
             color: _viewMode == CartViewMode.compact
@@ -245,7 +281,7 @@ class _CartScreenState extends State<CartScreen> {
         ChoiceChip(
           label: const Text('Detailed'),
           selected: _viewMode == CartViewMode.detailed,
-          selectedColor: colorScheme.primary.withOpacity(0.16),
+          selectedColor: colorScheme.primary.withValues(alpha: 0.16),
           backgroundColor: palette.panelAlt,
           labelStyle: TextStyle(
             color: _viewMode == CartViewMode.detailed
@@ -357,7 +393,7 @@ class _CartScreenState extends State<CartScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: _statusColor(req.status).withOpacity(0.14),
+        color: _statusColor(req.status).withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Text(
@@ -427,12 +463,7 @@ class _CartScreenState extends State<CartScreen> {
         width: double.infinity,
         child: ElevatedButton(
           onPressed: () async {
-            await _placeOrder(req);
-
-            if (!context.mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Order placed successfully')),
-            );
+            await _handlePlaceOrder(context: context, req: req);
           },
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF14B8A6),
@@ -583,12 +614,7 @@ class _CartScreenState extends State<CartScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () async {
-                  await _placeOrder(req);
-
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Order placed successfully')),
-                  );
+                  await _handlePlaceOrder(context: context, req: req);
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF14B8A6),
