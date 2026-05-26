@@ -6,6 +6,7 @@ import '../models/glass_apparatus_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/glass_apparatus_service.dart';
 import '../theme/labmate_theme.dart';
+import '../widgets/customizable_dropdown_field.dart';
 import '../widgets/responsive_page_container.dart';
 
 class AddGlassApparatusScreen extends StatefulWidget {
@@ -19,9 +20,6 @@ class AddGlassApparatusScreen extends StatefulWidget {
 }
 
 class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
-  static const String _customCategoryOption = 'Add custom category...';
-  static const String _customConditionOption = 'Add custom condition...';
-
   final _formKey = GlobalKey<FormState>();
   final GlassApparatusService _apparatusService = GlassApparatusService();
 
@@ -31,8 +29,6 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
   late final TextEditingController _locationController;
   late final TextEditingController _inchargeController;
   late final TextEditingController _notesController;
-  late final TextEditingController _customCategoryController;
-  late final TextEditingController _customConditionController;
 
   String _selectedCategory = GlassApparatusModel.categories.first;
   String _selectedCondition = GlassApparatusModel.conditionOptions.first;
@@ -42,29 +38,9 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
 
   bool get _isEditMode => widget.existingApparatus != null;
 
-  bool get _isCustomCategorySelected {
-    return _selectedCategory == _customCategoryOption;
-  }
+  String get _resolvedCategory => _selectedCategory.trim();
 
-  bool get _isCustomConditionSelected {
-    return _selectedCondition == _customConditionOption;
-  }
-
-  String get _resolvedCategory {
-    if (_isCustomCategorySelected) {
-      return _customCategoryController.text.trim();
-    }
-
-    return _selectedCategory.trim();
-  }
-
-  String get _resolvedCondition {
-    if (_isCustomConditionSelected) {
-      return _customConditionController.text.trim();
-    }
-
-    return _selectedCondition.trim();
-  }
+  String get _resolvedCondition => _selectedCondition.trim();
 
   @override
   void initState() {
@@ -79,23 +55,16 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     _locationController = TextEditingController(text: existing?.location ?? '');
     _inchargeController = TextEditingController(text: existing?.incharge ?? '');
     _notesController = TextEditingController(text: existing?.notes ?? '');
-    _customCategoryController = TextEditingController();
-    _customConditionController = TextEditingController();
 
     if (existing != null) {
       final existingCategory = existing.category.trim();
-      if (GlassApparatusModel.categories.contains(existingCategory)) {
+      if (existingCategory.isNotEmpty) {
         _selectedCategory = existingCategory;
-      } else if (existingCategory.isNotEmpty) {
-        _selectedCategory = _customCategoryOption;
-        _customCategoryController.text = existingCategory;
       }
+
       final existingCondition = existing.normalizedCondition;
-      if (GlassApparatusModel.conditionOptions.contains(existingCondition)) {
+      if (existingCondition.isNotEmpty) {
         _selectedCondition = existingCondition;
-      } else if (existingCondition.isNotEmpty) {
-        _selectedCondition = _customConditionOption;
-        _customConditionController.text = existingCondition;
       }
     }
 
@@ -110,8 +79,6 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     _locationController.dispose();
     _inchargeController.dispose();
     _notesController.dispose();
-    _customCategoryController.dispose();
-    _customConditionController.dispose();
     super.dispose();
   }
 
@@ -136,6 +103,14 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     final items = uniqueValues.values.toList();
     items.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return items;
+  }
+
+  List<String> _addCustomOption(
+    List<String> currentOptions,
+    String value,
+    List<String> baseOptions,
+  ) {
+    return _distinctCustomValues([...currentOptions, value], baseOptions);
   }
 
   Future<void> _loadExistingDropdownOptions() async {
@@ -278,132 +253,66 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
     return SizedBox(width: double.infinity, child: child);
   }
 
-  List<DropdownMenuItem<String>> _categoryItems() {
-    return [
-      ...GlassApparatusModel.categories.map((category) {
-        return DropdownMenuItem<String>(value: category, child: Text(category));
-      }),
-      ..._customCategoryOptions.map((category) {
-        return DropdownMenuItem<String>(value: category, child: Text(category));
-      }),
-      const DropdownMenuItem<String>(
-        value: _customCategoryOption,
-        child: Text(_customCategoryOption),
-      ),
-    ];
-  }
-
-  List<DropdownMenuItem<String>> _conditionItems() {
-    return [
-      ...GlassApparatusModel.conditionOptions.map((condition) {
-        return DropdownMenuItem<String>(
-          value: condition,
-          child: Text(condition),
-        );
-      }),
-      ..._customConditionOptions.map((condition) {
-        return DropdownMenuItem<String>(
-          value: condition,
-          child: Text(condition),
-        );
-      }),
-      const DropdownMenuItem<String>(
-        value: _customConditionOption,
-        child: Text(_customConditionOption),
-      ),
-    ];
-  }
-
   Widget _buildCategoryDropdown() {
-    final palette = context.labmate;
-    final colorScheme = context.colorScheme;
-    return DropdownButtonFormField<String>(
-      initialValue: _selectedCategory,
-      dropdownColor: palette.panel,
-      style: TextStyle(color: colorScheme.onSurface),
-      decoration: _inputDecoration('Category'),
-      items: _categoryItems(),
+    return CustomizableDropdownField(
+      label: 'Category',
+      value: _selectedCategory,
+      builtInOptions: GlassApparatusModel.categories,
+      customOptions: _customCategoryOptions,
+      enabled: !_isSaving,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'Select category';
         }
         return null;
       },
-      onChanged: _isSaving
-          ? null
-          : (value) {
-              if (value == null) return;
-              setState(() {
-                _selectedCategory = value;
-              });
-            },
-    );
-  }
-
-  Widget _buildCustomCategoryField() {
-    final colorScheme = context.colorScheme;
-    return TextFormField(
-      controller: _customCategoryController,
-      style: TextStyle(color: colorScheme.onSurface),
-      decoration: _inputDecoration('Custom category'),
-      textCapitalization: TextCapitalization.words,
-      validator: (value) {
-        if (!_isCustomCategorySelected) {
-          return null;
-        }
-
-        if (value == null || value.trim().isEmpty) {
-          return 'Enter custom category';
-        }
-
-        return null;
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() {
+          _selectedCategory = value.trim();
+        });
+      },
+      onCustomValueSubmitted: (value) {
+        setState(() {
+          _selectedCategory = value;
+          _customCategoryOptions = _addCustomOption(
+            _customCategoryOptions,
+            value,
+            GlassApparatusModel.categories,
+          );
+        });
       },
     );
   }
 
   Widget _buildConditionDropdown() {
-    final palette = context.labmate;
-    final colorScheme = context.colorScheme;
-    return DropdownButtonFormField<String>(
-      initialValue: _selectedCondition,
-      dropdownColor: palette.panel,
-      style: TextStyle(color: colorScheme.onSurface),
-      decoration: _inputDecoration('Condition'),
-      items: _conditionItems(),
+    return CustomizableDropdownField(
+      label: 'Condition',
+      value: _selectedCondition,
+      builtInOptions: GlassApparatusModel.conditionOptions,
+      customOptions: _customConditionOptions,
+      enabled: !_isSaving,
       validator: (value) {
         if (value == null || value.trim().isEmpty) {
           return 'Select condition';
         }
         return null;
       },
-      onChanged: _isSaving
-          ? null
-          : (value) {
-              if (value == null) return;
-              setState(() {
-                _selectedCondition = value;
-              });
-            },
-    );
-  }
-
-  Widget _buildCustomConditionField() {
-    final colorScheme = context.colorScheme;
-    return TextFormField(
-      controller: _customConditionController,
-      style: TextStyle(color: colorScheme.onSurface),
-      decoration: _inputDecoration('Custom condition'),
-      textCapitalization: TextCapitalization.words,
-      validator: (value) {
-        if (!_isCustomConditionSelected) {
-          return null;
-        }
-
-        if (value == null || value.trim().isEmpty) {
-          return 'Enter custom condition';
-        }
-
-        return null;
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() {
+          _selectedCondition = value.trim();
+        });
+      },
+      onCustomValueSubmitted: (value) {
+        setState(() {
+          _selectedCondition = value;
+          _customConditionOptions = _addCustomOption(
+            _customConditionOptions,
+            value,
+            GlassApparatusModel.conditionOptions,
+          );
+        });
       },
     );
   }
@@ -539,8 +448,6 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
                               },
                             ),
                             _buildCategoryDropdown(),
-                            if (_isCustomCategorySelected)
-                              _buildCustomCategoryField(),
                             TextFormField(
                               controller: _sizeController,
                               style: TextStyle(color: colorScheme.onSurface),
@@ -576,8 +483,6 @@ class _AddGlassApparatusScreenState extends State<AddGlassApparatusScreen> {
                           isDesktop: isDesktop,
                           children: [
                             _buildConditionDropdown(),
-                            if (_isCustomConditionSelected)
-                              _buildCustomConditionField(),
                             TextFormField(
                               controller: _locationController,
                               style: TextStyle(color: colorScheme.onSurface),

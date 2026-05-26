@@ -42,55 +42,35 @@ class CustomizableDropdownField extends StatelessWidget {
   }
 
   Future<String?> _showCustomValueDialog(BuildContext context) async {
-    final controller = TextEditingController();
-
-    try {
-      return showDialog<String>(
-        context: context,
-        builder: (context) {
-          final theme = Theme.of(context);
-
-          return AlertDialog(
-            title: Text('Add $label'),
-            content: TextField(
-              controller: controller,
-              autofocus: true,
-              decoration: InputDecoration(labelText: label, hintText: hint),
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) {
-                final value = controller.text.trim();
-                Navigator.of(context).pop(value.isEmpty ? null : value);
-              },
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  final value = controller.text.trim();
-                  Navigator.of(context).pop(value.isEmpty ? null : value);
-                },
-                style: FilledButton.styleFrom(
-                  textStyle: theme.textTheme.labelLarge,
-                ),
-                child: const Text('Add'),
-              ),
-            ],
-          );
-        },
-      );
-    } finally {
-      controller.dispose();
-    }
+    return showDialog<String>(
+      context: context,
+      builder: (context) => _CustomOptionDialog(label: label, hint: hint),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final mergedOptions = mergeUniqueOptions(builtInOptions, customOptions);
-    final options = [...mergedOptions, addCustomDropdownOptionLabel];
-    final safeValue = options.contains(value) ? value : null;
+    final rawValue = value?.trim();
+    final selectedValue = rawValue == null || rawValue.isEmpty
+        ? null
+        : rawValue;
+    final selectedIsPresent =
+        selectedValue == null ||
+        mergedOptions.any(
+          (option) => option.toLowerCase() == selectedValue.toLowerCase(),
+        );
+    final options = <String>[
+      ...mergedOptions,
+      if (!selectedIsPresent) selectedValue,
+      addCustomDropdownOptionLabel,
+    ];
+    final safeValue = selectedValue == null
+        ? null
+        : options.firstWhere(
+            (option) => option.toLowerCase() == selectedValue.toLowerCase(),
+            orElse: () => selectedValue,
+          );
 
     return DropdownButtonFormField<String>(
       initialValue: safeValue,
@@ -105,6 +85,78 @@ class CustomizableDropdownField extends StatelessWidget {
           ? (selected) => _handleChanged(context, selected)
           : null,
       validator: validator,
+    );
+  }
+}
+
+class _CustomOptionDialog extends StatefulWidget {
+  const _CustomOptionDialog({required this.label, this.hint});
+
+  final String label;
+  final String? hint;
+
+  @override
+  State<_CustomOptionDialog> createState() => _CustomOptionDialogState();
+}
+
+class _CustomOptionDialogState extends State<_CustomOptionDialog> {
+  late final TextEditingController _controller;
+
+  bool get _canSubmit => _controller.text.trim().isNotEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+    _controller.addListener(_handleTextChanged);
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_handleTextChanged);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleTextChanged() {
+    setState(() {});
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (value.isEmpty) {
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return AlertDialog(
+      title: Text('Add ${widget.label}'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        decoration: InputDecoration(
+          labelText: widget.label,
+          hintText: widget.hint,
+        ),
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _canSubmit ? _submit : null,
+          style: FilledButton.styleFrom(textStyle: theme.textTheme.labelLarge),
+          child: const Text('Add'),
+        ),
+      ],
     );
   }
 }
