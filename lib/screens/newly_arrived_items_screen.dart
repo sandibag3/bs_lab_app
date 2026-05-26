@@ -9,13 +9,12 @@ import 'add_new_consumable_screen.dart';
 class NewlyArrivedItemsScreen extends StatelessWidget {
   const NewlyArrivedItemsScreen({super.key});
 
-  List<OrderModel> _pendingRecentOrders(List<OrderModel> orders) {
+  List<OrderModel> _recentArrivals(List<OrderModel> orders) {
     final now = DateTime.now();
 
     final recent = orders
         .where((o) => o.status.toLowerCase() == 'delivered')
         .where((o) => o.requiresInventoryIntake)
-        .where((o) => o.inventoryAdded == false)
         .where((o) {
           if (o.deliveredAt == null) return false;
           return now.difference(o.deliveredAt!.toDate()).inDays <= 7;
@@ -29,6 +28,15 @@ class NewlyArrivedItemsScreen extends StatelessWidget {
     });
 
     return recent;
+  }
+
+  String _entryStatusText(OrderModel order) {
+    return order.inventoryAdded ? 'Inventory entered' : 'Tap to confirm entry';
+  }
+
+  Color _entryStatusColor(BuildContext context, OrderModel order) {
+    final palette = context.labmate;
+    return order.inventoryAdded ? palette.success : const Color(0xFF14B8A6);
   }
 
   void _openEntryScreen(BuildContext context, OrderModel order) {
@@ -91,14 +99,14 @@ class NewlyArrivedItemsScreen extends StatelessWidget {
             return const Center(child: CircularProgressIndicator());
           }
 
-          final recent = _pendingRecentOrders(snapshot.data!);
+          final recent = _recentArrivals(snapshot.data!);
 
           if (recent.isEmpty) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'No delivered chemicals or consumables are pending entry in the last 7 days.',
+                  'No delivered chemicals or consumables arrived in the last 7 days.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: palette.mutedText,
@@ -126,7 +134,9 @@ class NewlyArrivedItemsScreen extends StatelessWidget {
                   borderRadius: BorderRadius.circular(18),
                   child: InkWell(
                     borderRadius: BorderRadius.circular(18),
-                    onTap: () => _openEntryScreen(context, order),
+                    onTap: order.inventoryAdded
+                        ? null
+                        : () => _openEntryScreen(context, order),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -198,10 +208,10 @@ class NewlyArrivedItemsScreen extends StatelessWidget {
                             ),
                           ],
                           const SizedBox(height: 10),
-                          const Text(
-                            'Tap to confirm entry',
+                          Text(
+                            _entryStatusText(order),
                             style: TextStyle(
-                              color: Color(0xFF14B8A6),
+                              color: _entryStatusColor(context, order),
                               fontSize: 12.5,
                               fontWeight: FontWeight.w600,
                             ),

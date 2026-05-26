@@ -44,13 +44,12 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
     super.dispose();
   }
 
-  List<OrderModel> _pendingRecentOrders(List<OrderModel> orders) {
+  List<OrderModel> _recentArrivals(List<OrderModel> orders) {
     final now = DateTime.now();
 
     final recent = orders
         .where((o) => o.status.toLowerCase() == 'delivered')
         .where((o) => o.requiresInventoryIntake)
-        .where((o) => o.inventoryAdded == false)
         .where((o) {
           if (o.deliveredAt == null) return false;
           return now.difference(o.deliveredAt!.toDate()).inDays <= 7;
@@ -64,6 +63,136 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
     });
 
     return recent;
+  }
+
+  Color _entryStatusColor(BuildContext context, OrderModel order) {
+    final palette = context.labmate;
+    return order.inventoryAdded ? palette.success : context.colorScheme.primary;
+  }
+
+  Widget _buildTypeBadge(OrderModel order) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: order.isConsumable
+            ? const Color(0x2238BDF8)
+            : const Color(0x2214B8A6),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        order.typeLabel,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: order.isConsumable
+              ? const Color(0xFF38BDF8)
+              : const Color(0xFF14B8A6),
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEntryBadge(BuildContext context, OrderModel order) {
+    final color = _entryStatusColor(context, order);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Text(
+        order.inventoryAdded ? 'Entered' : 'Pending entry',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildArrivalCard({
+    required BuildContext context,
+    required OrderModel order,
+    required bool isDesktopCard,
+    required double cardWidth,
+    required double cardPadding,
+    required Color cardColor,
+    required BorderRadius borderRadius,
+    required List<BoxShadow> boxShadow,
+    required double rightMargin,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final secondary = order.brand.trim().isNotEmpty
+        ? order.brand
+        : order.vendor;
+
+    return InkWell(
+      borderRadius: borderRadius,
+      onTap: order.inventoryAdded
+          ? null
+          : () => _openEntryScreen(context, order),
+      child: ClipRRect(
+        borderRadius: borderRadius,
+        child: Container(
+          width: cardWidth,
+          margin: EdgeInsets.only(right: rightMargin),
+          padding: EdgeInsets.all(cardPadding),
+          decoration: BoxDecoration(
+            color: cardColor,
+            borderRadius: borderRadius,
+            border: Border.all(color: palette.border),
+            boxShadow: boxShadow,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      order.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: isDesktopCard ? 14.5 : 15,
+                        fontWeight: FontWeight.w800,
+                        height: 1.15,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  _buildTypeBadge(order),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                secondary.trim().isEmpty ? 'Details not set' : secondary,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: palette.mutedText,
+                  fontSize: 12.8,
+                  fontWeight: FontWeight.w500,
+                  height: 1.2,
+                ),
+              ),
+              const SizedBox(height: 10),
+              _buildEntryBadge(context, order),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _openEntryScreen(BuildContext context, OrderModel order) {
@@ -88,7 +217,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
   Widget build(BuildContext context) {
     final orderService = OrderService();
     final isDesktopLayout = MediaQuery.sizeOf(context).width >= 900;
-    final cardHeight = isDesktopLayout ? 82.0 : 104.0;
+    final cardHeight = isDesktopLayout ? 110.0 : 116.0;
     final cardWidth = isDesktopLayout ? 220.0 : 240.0;
     final cardPadding = isDesktopLayout ? 11.0 : 14.0;
     final headingFontSize = isDesktopLayout ? 16.0 : 20.0;
@@ -116,7 +245,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
               stream: OrderService().getOrders(),
               builder: (context, snapshot) {
                 final count = snapshot.hasData
-                    ? _pendingRecentOrders(snapshot.data!).length
+                    ? _recentArrivals(snapshot.data!).length
                     : 0;
                 if (count == 0) {
                   return const SizedBox.shrink();
@@ -216,7 +345,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
               );
             }
 
-            final recent = _pendingRecentOrders(snapshot.data!);
+            final recent = _recentArrivals(snapshot.data!);
 
             if (recent.isEmpty) {
               return InkWell(
@@ -252,104 +381,16 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                 itemCount: displayList.length,
                 itemBuilder: (context, index) {
                   final order = displayList[index];
-                  final secondary = order.brand.trim().isNotEmpty
-                      ? order.brand
-                      : order.vendor;
-
-                  return InkWell(
+                  return _buildArrivalCard(
+                    context: context,
+                    order: order,
+                    isDesktopCard: true,
+                    cardWidth: cardWidth,
+                    cardPadding: cardPadding,
+                    cardColor: palette.panelAlt,
                     borderRadius: BorderRadius.circular(14),
-                    onTap: () => _openEntryScreen(context, order),
-                    child: Container(
-                      width: cardWidth,
-                      margin: const EdgeInsets.only(right: 10),
-                      padding: EdgeInsets.all(cardPadding),
-                      decoration: BoxDecoration(
-                        color: isDesktopLayout
-                            ? palette.panelAlt
-                            : palette.panel,
-                        borderRadius: BorderRadius.circular(
-                          isDesktopLayout ? 14 : 18,
-                        ),
-                        border: Border.all(color: palette.border),
-                        boxShadow: isDesktopLayout
-                            ? const []
-                            : [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.08),
-                                  blurRadius: 8,
-                                  offset: Offset(0, 3),
-                                ),
-                              ],
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  order.displayName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: colorScheme.onSurface,
-                                    fontSize: 14.5,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: order.isConsumable
-                                      ? const Color(0x2238BDF8)
-                                      : const Color(0x2214B8A6),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  order.typeLabel,
-                                  style: TextStyle(
-                                    color: order.isConsumable
-                                        ? const Color(0xFF38BDF8)
-                                        : const Color(0xFF14B8A6),
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            secondary.trim().isEmpty
-                                ? 'Details not set'
-                                : secondary,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: palette.mutedText,
-                              fontSize: 12.8,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            'Tap to confirm entry',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    boxShadow: const [],
+                    rightMargin: 10,
                   );
                 },
               ),
@@ -393,7 +434,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
               stream: OrderService().getOrders(),
               builder: (context, snapshot) {
                 final count = snapshot.hasData
-                    ? _pendingRecentOrders(snapshot.data!).length
+                    ? _recentArrivals(snapshot.data!).length
                     : 0;
                 if (count == 0) {
                   return const SizedBox.shrink();
@@ -480,7 +521,7 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
               );
             }
 
-            final recent = _pendingRecentOrders(snapshot.data!);
+            final recent = _recentArrivals(snapshot.data!);
 
             if (recent.isEmpty) {
               return InkWell(
@@ -515,101 +556,24 @@ class _NewlyArrivedSectionState extends State<NewlyArrivedSection> {
                 itemCount: displayList.length,
                 itemBuilder: (context, index) {
                   final order = displayList[index];
-                  final secondary = order.brand.trim().isNotEmpty
-                      ? order.brand
-                      : order.vendor;
-
-                  return InkWell(
+                  return _buildArrivalCard(
+                    context: context,
+                    order: order,
+                    isDesktopCard: false,
+                    cardWidth: cardWidth,
+                    cardPadding: cardPadding,
+                    cardColor: palette.panel,
                     borderRadius: BorderRadius.circular(18),
-                    onTap: () => _openEntryScreen(context, order),
-                    child: Container(
-                      width: cardWidth,
-                      margin: const EdgeInsets.only(right: 12),
-                      padding: EdgeInsets.all(cardPadding),
-                      decoration: BoxDecoration(
-                        color: palette.panel,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: palette.border),
-                        boxShadow:
-                            Theme.of(context).brightness == Brightness.dark
-                            ? const [
-                                BoxShadow(
-                                  color: Colors.black26,
-                                  blurRadius: 8,
-                                  offset: Offset(0, 3),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  order.displayName,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: colorScheme.onSurface,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w800,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: order.isConsumable
-                                      ? const Color(0x2238BDF8)
-                                      : const Color(0x2214B8A6),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Text(
-                                  order.typeLabel,
-                                  style: TextStyle(
-                                    color: order.isConsumable
-                                        ? const Color(0xFF38BDF8)
-                                        : const Color(0xFF14B8A6),
-                                    fontSize: 11.5,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            secondary.trim().isEmpty
-                                ? 'Details not set'
-                                : secondary,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: palette.mutedText,
-                              fontSize: 12.8,
-                              fontWeight: FontWeight.w500,
+                    boxShadow: Theme.of(context).brightness == Brightness.dark
+                        ? const [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 8,
+                              offset: Offset(0, 3),
                             ),
-                          ),
-                          const Spacer(),
-                          Text(
-                            'Tap to confirm entry',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: colorScheme.primary,
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                          ]
+                        : const [],
+                    rightMargin: 12,
                   );
                 },
               ),
