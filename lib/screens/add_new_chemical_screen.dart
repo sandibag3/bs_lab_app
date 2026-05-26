@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../app_state.dart';
 import '../models/chemical_model.dart';
 import '../models/order_model.dart';
@@ -87,6 +88,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   List<String> customVendorOptions = const [];
   List<String> customLocationOptions = const [];
   List<String> customCategoryOptions = const [];
+  Set<String> hiddenChemicalBrandOptions = const {};
+  Set<String> hiddenChemicalLocationOptions = const {};
 
   final List<String> categories = [
     'General',
@@ -248,6 +251,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           .toList();
     }
 
+    _loadHiddenDropdownOptionPreferences();
     _loadExistingDropdownOptions();
     _prefillFromCas();
   }
@@ -256,6 +260,29 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     final normalized = value.trim().toLowerCase();
     if (normalized.isEmpty) return false;
     return options.any((option) => option.trim().toLowerCase() == normalized);
+  }
+
+  String _normalizedOption(String value) {
+    return value.trim().toLowerCase();
+  }
+
+  bool _optionSetsContain(Iterable<String> options, String value) {
+    final normalized = _normalizedOption(value);
+    if (normalized.isEmpty) return false;
+    return options.any((option) => _normalizedOption(option) == normalized);
+  }
+
+  String get _optionPreferenceLabId {
+    final labId = AppState.instance.resolveWriteLabId().trim();
+    return labId.isEmpty ? 'no_lab_selected' : labId;
+  }
+
+  String get _hiddenBrandOptionsKey {
+    return 'hiddenChemicalBrandOptions_$_optionPreferenceLabId';
+  }
+
+  String get _hiddenLocationOptionsKey {
+    return 'hiddenChemicalLocationOptions_$_optionPreferenceLabId';
   }
 
   void _setDropdownSelection({
@@ -312,6 +339,35 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   ) {
     final custom = _distinctCustomValues(customOptions, builtInOptions);
     return [...builtInOptions, ...custom, _customOption];
+  }
+
+  List<String> _baseManageableOptions(
+    List<String> builtInOptions,
+    List<String> customOptions,
+  ) {
+    return _mergedOptions(
+      builtInOptions,
+      customOptions,
+    ).where((option) => option != _customOption).toList();
+  }
+
+  List<String> _filterHiddenOptions({
+    required List<String> options,
+    required Set<String> hiddenOptions,
+    String? selectedValue,
+  }) {
+    final selected = selectedValue?.trim() ?? '';
+
+    return options.where((option) {
+      if (option == _customOption) {
+        return true;
+      }
+      if (selected.isNotEmpty &&
+          _normalizedOption(option) == _normalizedOption(selected)) {
+        return true;
+      }
+      return !_optionSetsContain(hiddenOptions, option);
+    }).toList();
   }
 
   String _resolvedDropdownValue(
@@ -404,6 +460,55 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     }
 
     return category;
+  }
+
+  Set<String> _cleanHiddenOptions(Iterable<String> values) {
+    final unique = <String, String>{};
+    for (final value in values) {
+      final trimmed = value.trim();
+      final normalized = _normalizedOption(trimmed);
+      if (trimmed.isEmpty) {
+        continue;
+      }
+      unique.putIfAbsent(normalized, () => trimmed);
+    }
+    return unique.values.toSet();
+  }
+
+  Future<void> _loadHiddenDropdownOptionPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+
+    setState(() {
+      hiddenChemicalBrandOptions = _cleanHiddenOptions(
+        prefs.getStringList(_hiddenBrandOptionsKey) ?? const <String>[],
+      );
+      hiddenChemicalLocationOptions = _cleanHiddenOptions(
+        prefs.getStringList(_hiddenLocationOptionsKey) ?? const <String>[],
+      );
+    });
+  }
+
+  Future<void> _saveHiddenBrandOptions(Set<String> hiddenOptions) async {
+    final cleanOptions = _cleanHiddenOptions(hiddenOptions);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_hiddenBrandOptionsKey, cleanOptions.toList());
+    if (!mounted) return;
+
+    setState(() {
+      hiddenChemicalBrandOptions = cleanOptions;
+    });
+  }
+
+  Future<void> _saveHiddenLocationOptions(Set<String> hiddenOptions) async {
+    final cleanOptions = _cleanHiddenOptions(hiddenOptions);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_hiddenLocationOptionsKey, cleanOptions.toList());
+    if (!mounted) return;
+
+    setState(() {
+      hiddenChemicalLocationOptions = cleanOptions;
+    });
   }
 
   Future<void> _loadExistingDropdownOptions() async {
@@ -722,19 +827,42 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     required ValueChanged<String?> onChanged,
     bool enabled = true,
     FormFieldValidator<String>? validator,
+    Set<String> hiddenOptions = const {},
   }) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
-    final options = _mergedOptions(builtInOptions, customOptions);
-    final safeValue = options.contains(value) ? value : null;
+    final options = _filterHiddenOptions(
+      options: _mergedOptions(builtInOptions, customOptions),
+      hiddenOptions: hiddenOptions,
+      selectedValue: value,
+    );
+    final cleanValue = value?.trim() ?? '';
+    final dropdownOptions = [
+      ...options,
+      if (cleanValue.isNotEmpty &&
+          !options.any(
+            (option) =>
+                _normalizedOption(option) == _normalizedOption(cleanValue),
+          ))
+        cleanValue,
+    ];
+    final safeValue = cleanValue.isEmpty
+        ? null
+        : dropdownOptions.firstWhere(
+            (option) =>
+                _normalizedOption(option) == _normalizedOption(cleanValue),
+            orElse: () => cleanValue,
+          );
 
     return DropdownButtonFormField<String>(
-      key: ValueKey('${label}_${safeValue ?? ''}_${customOptions.join('|')}'),
+      key: ValueKey(
+        '${label}_${safeValue ?? ''}_${customOptions.join('|')}_${hiddenOptions.join('|')}',
+      ),
       initialValue: safeValue,
       dropdownColor: palette.panel,
       style: TextStyle(color: colorScheme.onSurface),
       decoration: inputDecoration(label),
-      items: _dropdownItems(options),
+      items: _dropdownItems(dropdownOptions),
       onChanged: enabled ? onChanged : null,
       validator: validator,
     );
@@ -759,6 +887,167 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         }
         return null;
       },
+    );
+  }
+
+  Widget _buildManageOptionsButton({
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    final palette = context.labmate;
+    return Align(
+      alignment: Alignment.centerRight,
+      child: TextButton.icon(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          minimumSize: const Size(0, 32),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          foregroundColor: palette.mutedText,
+        ),
+        icon: const Icon(Icons.tune_rounded, size: 16),
+        label: Text('Manage $label'),
+      ),
+    );
+  }
+
+  Future<bool> _confirmHideOption(String option) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Hide option?'),
+          content: Text(
+            'Hide "$option" from future dropdowns? Existing inventory records will not be changed.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Hide'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result == true;
+  }
+
+  Future<void> _showManageOptionsDialog({
+    required String title,
+    required List<String> builtInOptions,
+    required List<String> customOptions,
+    required Set<String> hiddenOptions,
+    required Future<void> Function(Set<String> hiddenOptions)
+    onHiddenOptionsChanged,
+  }) async {
+    var dialogHiddenOptions = _cleanHiddenOptions(hiddenOptions);
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final visibleOptions = _filterHiddenOptions(
+              options: _baseManageableOptions(builtInOptions, customOptions),
+              hiddenOptions: dialogHiddenOptions,
+            );
+
+            return AlertDialog(
+              title: Text(title),
+              content: SizedBox(
+                width: 420,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 420),
+                  child: visibleOptions.isEmpty
+                      ? Text(
+                          'No visible options. Reset hidden options to restore this list.',
+                          style: TextStyle(color: context.labmate.mutedText),
+                        )
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          itemCount: visibleOptions.length,
+                          separatorBuilder: (_, _) =>
+                              Divider(height: 1, color: context.labmate.border),
+                          itemBuilder: (context, index) {
+                            final option = visibleOptions[index];
+                            return ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(option),
+                              trailing: IconButton(
+                                tooltip: 'Hide',
+                                icon: const Icon(Icons.visibility_off_outlined),
+                                onPressed: () async {
+                                  final shouldHide = await _confirmHideOption(
+                                    option,
+                                  );
+                                  if (!shouldHide) {
+                                    return;
+                                  }
+
+                                  final nextHiddenOptions = _cleanHiddenOptions(
+                                    [...dialogHiddenOptions, option],
+                                  );
+                                  setDialogState(() {
+                                    dialogHiddenOptions = nextHiddenOptions;
+                                  });
+                                  await onHiddenOptionsChanged(
+                                    nextHiddenOptions,
+                                  );
+                                },
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: dialogHiddenOptions.isEmpty
+                      ? null
+                      : () async {
+                          const nextHiddenOptions = <String>{};
+                          setDialogState(() {
+                            dialogHiddenOptions = nextHiddenOptions;
+                          });
+                          await onHiddenOptionsChanged(nextHiddenOptions);
+                        },
+                  child: const Text('Reset hidden options'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _showManageBrandOptionsDialog() async {
+    await _showManageOptionsDialog(
+      title: 'Manage Brand Options',
+      builtInOptions: brandOptions,
+      customOptions: customBrandOptions,
+      hiddenOptions: hiddenChemicalBrandOptions,
+      onHiddenOptionsChanged: _saveHiddenBrandOptions,
+    );
+  }
+
+  Future<void> _showManageLocationOptionsDialog() async {
+    await _showManageOptionsDialog(
+      title: 'Manage Location Options',
+      builtInOptions: locationOptions,
+      customOptions: customLocationOptions,
+      hiddenOptions: hiddenChemicalLocationOptions,
+      onHiddenOptionsChanged: _saveHiddenLocationOptions,
     );
   }
 
@@ -1103,12 +1392,18 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Molecular Weight'),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 8),
+                    _buildManageOptionsButton(
+                      label: 'Brand',
+                      onPressed: _showManageBrandOptionsDialog,
+                    ),
+                    const SizedBox(height: 6),
                     _buildCustomizableDropdown(
                       label: 'Brand',
                       value: selectedBrand,
                       builtInOptions: brandOptions,
                       customOptions: customBrandOptions,
+                      hiddenOptions: hiddenChemicalBrandOptions,
                       onChanged: (value) {
                         setState(() {
                           selectedBrand = value;
@@ -1156,12 +1451,18 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Generated Label'),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 8),
+                    _buildManageOptionsButton(
+                      label: 'Location',
+                      onPressed: _showManageLocationOptionsDialog,
+                    ),
+                    const SizedBox(height: 6),
                     _buildCustomizableDropdown(
                       label: 'Location',
                       value: selectedLocation,
                       builtInOptions: locationOptions,
                       customOptions: customLocationOptions,
+                      hiddenOptions: hiddenChemicalLocationOptions,
                       onChanged: (value) {
                         setState(() {
                           selectedLocation = value;
