@@ -13,6 +13,7 @@ class ChemicalModel {
   final String location;
   final String quantity;
   final String brand;
+  final String vendor;
   final String catNumber;
   final String arrivalDate;
   final String orderedBy;
@@ -32,6 +33,7 @@ class ChemicalModel {
     required this.location,
     required this.quantity,
     required this.brand,
+    required this.vendor,
     required this.catNumber,
     required this.arrivalDate,
     required this.orderedBy,
@@ -55,6 +57,7 @@ class ChemicalModel {
       location: data['location'] ?? '',
       quantity: data['quantity'] ?? '',
       brand: data['brand'] ?? '',
+      vendor: data['vendor'] ?? '',
       catNumber: data['catNumber'] ?? '',
       arrivalDate: data['arrivalDate'] ?? '',
       orderedBy: data['orderedBy'] ?? '',
@@ -76,6 +79,7 @@ class ChemicalModel {
       'location': location,
       'quantity': quantity,
       'brand': brand,
+      'vendor': vendor,
       'catNumber': catNumber,
       'arrivalDate': arrivalDate,
       'orderedBy': orderedBy,

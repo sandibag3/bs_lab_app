@@ -20,6 +20,8 @@ class AddNewChemicalScreen extends StatefulWidget {
 }
 
 class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
+  static const String _customOption = 'Add custom...';
+
   final _formKey = GlobalKey<FormState>();
   final InventoryService inventoryService = InventoryService();
   final OrderService orderService = OrderService();
@@ -32,6 +34,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   late final TextEditingController quantityController;
   late final TextEditingController formulaController;
   late final TextEditingController molWtController;
+  late final TextEditingController vendorController;
   late final TextEditingController catNumberController;
   late final TextEditingController arrivalDateController;
   late final TextEditingController orderedByController;
@@ -39,6 +42,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   late final TextEditingController sheetTabController;
   late final TextEditingController carbonCountController;
   late final TextEditingController catalystMetalController;
+  late final TextEditingController customLocationController;
+  late final TextEditingController customCategoryController;
 
   String? selectedEntryType;
   bool isLoadingMetadata = true;
@@ -47,12 +52,41 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
   String selectedCategory = 'General';
   String? selectedSubcategory;
+  String? selectedBrand;
+  String? selectedVendor;
 
   String? selectedLocation;
   String? selectedTexture;
   List<String> selectedFunctionalGroups = [];
 
   int existingBottleCount = 0;
+
+  final List<String> brandOptions = const [
+    'Merck',
+    'Sigma',
+    'TCI',
+    'Spectrochem',
+    'Hyma (Avra)',
+    'BLD Pharm',
+    'ChemScene',
+    'SRL',
+    'Others',
+  ];
+
+  final List<String> vendorOptions = const [
+    'Merck',
+    'Sigma',
+    'Globe Scientific',
+    'APJ Scientific',
+    'Chemical House',
+    'BLD Pharm',
+    'Others',
+  ];
+
+  List<String> customBrandOptions = const [];
+  List<String> customVendorOptions = const [];
+  List<String> customLocationOptions = const [];
+  List<String> customCategoryOptions = const [];
 
   final List<String> categories = [
     'General',
@@ -150,6 +184,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       text: manualPrefill?.formula ?? '',
     );
     molWtController = TextEditingController(text: manualPrefill?.molWt ?? '');
+    vendorController = TextEditingController();
     catNumberController = TextEditingController(
       text: manualPrefill?.catNumber ?? '',
     );
@@ -167,10 +202,41 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     sheetTabController = TextEditingController();
     carbonCountController = TextEditingController();
     catalystMetalController = TextEditingController();
+    customLocationController = TextEditingController();
+    customCategoryController = TextEditingController();
 
-    selectedLocation = locationOptions.contains(manualPrefill?.location)
-        ? manualPrefill!.location
-        : null;
+    _setDropdownSelection(
+      value: manualPrefill?.brand ?? order?.brand ?? '',
+      builtInOptions: brandOptions,
+      onKnownValue: (value) => selectedBrand = value,
+      onCustomValue: (value) {
+        selectedBrand = _customOption;
+        brandController.text = value;
+      },
+    );
+
+    _setDropdownSelection(
+      value: manualPrefill?.vendor ?? order?.vendor ?? '',
+      builtInOptions: vendorOptions,
+      onKnownValue: (value) => selectedVendor = value,
+      onCustomValue: (value) {
+        selectedVendor = _customOption;
+        vendorController.text = value;
+      },
+    );
+
+    _setDropdownSelection(
+      value: manualPrefill?.location ?? '',
+      builtInOptions: locationOptions,
+      onKnownValue: (value) => selectedLocation = value,
+      onCustomValue: (value) {
+        selectedLocation = _customOption;
+        customLocationController.text = value;
+      },
+    );
+
+    _setInitialCategoryFromPrefill(manualPrefill?.sheetTab ?? '');
+
     selectedTexture = textureOptions.contains(manualPrefill?.texture)
         ? manualPrefill!.texture
         : null;
@@ -182,7 +248,190 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           .toList();
     }
 
+    _loadExistingDropdownOptions();
     _prefillFromCas();
+  }
+
+  bool _matchesAnyOption(String value, Iterable<String> options) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return options.any((option) => option.trim().toLowerCase() == normalized);
+  }
+
+  void _setDropdownSelection({
+    required String value,
+    required List<String> builtInOptions,
+    required ValueChanged<String?> onKnownValue,
+    required ValueChanged<String> onCustomValue,
+  }) {
+    final cleanValue = value.trim();
+    if (cleanValue.isEmpty) {
+      onKnownValue(null);
+      return;
+    }
+
+    final knownOption = builtInOptions.where(
+      (option) => option.trim().toLowerCase() == cleanValue.toLowerCase(),
+    );
+    if (knownOption.isNotEmpty) {
+      onKnownValue(knownOption.first);
+      return;
+    }
+
+    onCustomValue(cleanValue);
+  }
+
+  List<String> _distinctCustomValues(
+    Iterable<String> values,
+    Iterable<String> baseValues,
+  ) {
+    final baseNormalized = baseValues
+        .map((value) => value.trim().toLowerCase())
+        .toSet();
+    final uniqueValues = <String, String>{};
+
+    for (final value in values) {
+      final trimmed = value.trim();
+      final normalized = trimmed.toLowerCase();
+      if (trimmed.isEmpty ||
+          trimmed == _customOption ||
+          baseNormalized.contains(normalized)) {
+        continue;
+      }
+      uniqueValues.putIfAbsent(normalized, () => trimmed);
+    }
+
+    final items = uniqueValues.values.toList();
+    items.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return items;
+  }
+
+  List<String> _mergedOptions(
+    List<String> builtInOptions,
+    List<String> customOptions,
+  ) {
+    final custom = _distinctCustomValues(customOptions, builtInOptions);
+    return [...builtInOptions, ...custom, _customOption];
+  }
+
+  String _resolvedDropdownValue(
+    String? selectedValue,
+    TextEditingController customController,
+  ) {
+    if (selectedValue == _customOption) {
+      return customController.text.trim();
+    }
+    return selectedValue?.trim() ?? '';
+  }
+
+  String get _resolvedBrand {
+    return _resolvedDropdownValue(selectedBrand, brandController);
+  }
+
+  String get _resolvedVendor {
+    return _resolvedDropdownValue(selectedVendor, vendorController);
+  }
+
+  String get _resolvedLocation {
+    return _resolvedDropdownValue(selectedLocation, customLocationController);
+  }
+
+  String get _resolvedCategory {
+    if (selectedCategory == _customOption) {
+      return customCategoryController.text.trim();
+    }
+    return selectedCategory.trim();
+  }
+
+  bool get _isCustomBrandSelected => selectedBrand == _customOption;
+  bool get _isCustomVendorSelected => selectedVendor == _customOption;
+  bool get _isCustomLocationSelected => selectedLocation == _customOption;
+  bool get _isCustomCategorySelected => selectedCategory == _customOption;
+
+  void _setInitialCategoryFromPrefill(String sheetTab) {
+    final category = _categoryFromSheetTab(sheetTab);
+    if (category == null) {
+      return;
+    }
+
+    if (_matchesAnyOption(category, categories)) {
+      selectedCategory = categories.firstWhere(
+        (option) => option.trim().toLowerCase() == category.toLowerCase(),
+      );
+      return;
+    }
+
+    selectedCategory = _customOption;
+    customCategoryController.text = category;
+  }
+
+  String? _categoryFromSheetTab(String sheetTab) {
+    final value = sheetTab.trim();
+    if (value.isEmpty) {
+      return null;
+    }
+
+    final normalized = value.toLowerCase();
+    const builtInSheetTabs = {
+      'acids': 'Acid',
+      'bases': 'Base',
+      'salts': 'Salt',
+      'metals': 'Metal',
+      'catalysts': 'Catalyst',
+      'ligands': 'Ligand',
+    };
+
+    if (builtInSheetTabs.containsKey(normalized)) {
+      return builtInSheetTabs[normalized];
+    }
+
+    if (RegExp(r'^c\d+$', caseSensitive: false).hasMatch(value)) {
+      return 'General';
+    }
+
+    return value;
+  }
+
+  String _customTypeFromChemical(ChemicalModel chemical) {
+    final sheetTab = chemical.sheetTab.trim();
+    if (sheetTab.isEmpty) {
+      return '';
+    }
+
+    final category = _categoryFromSheetTab(sheetTab);
+    if (category == null || _matchesAnyOption(category, categories)) {
+      return '';
+    }
+
+    return category;
+  }
+
+  Future<void> _loadExistingDropdownOptions() async {
+    try {
+      final chemicals = await inventoryService.getChemicalsOnce();
+      if (!mounted) return;
+
+      setState(() {
+        customBrandOptions = _distinctCustomValues(
+          chemicals.map((chemical) => chemical.brand),
+          brandOptions,
+        );
+        customVendorOptions = _distinctCustomValues(
+          chemicals.map((chemical) => chemical.vendor),
+          vendorOptions,
+        );
+        customLocationOptions = _distinctCustomValues(
+          chemicals.map((chemical) => chemical.location),
+          locationOptions,
+        );
+        customCategoryOptions = _distinctCustomValues(
+          chemicals.map(_customTypeFromChemical),
+          categories,
+        );
+      });
+    } catch (_) {
+      // Keep the built-in dropdown options usable if lab-scoped values fail.
+    }
   }
 
   List<String> getSubcategories(String category) {
@@ -197,7 +446,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   }
 
   String _getSheetTabFromSelection() {
-    switch (selectedCategory) {
+    final category = _resolvedCategory;
+    switch (category) {
       case 'Acid':
         return 'Acids';
       case 'Base':
@@ -217,7 +467,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         }
         return '';
       default:
-        return '';
+        return category;
     }
   }
 
@@ -244,7 +494,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       final carbonCount = int.tryParse(carbonCountController.text.trim());
 
       final prefix = chemicalLabelService.getPrefix(
-        category: selectedCategory,
+        category: _resolvedCategory,
         subcategory: selectedSubcategory,
         carbonCount: carbonCount,
         catalystMetal: catalystMetalController.text.trim().isEmpty
@@ -312,9 +562,39 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           labelController.text = existing.label;
           sheetTabController.text = existing.sheetTab;
 
-          selectedLocation = locationOptions.contains(existing.location)
-              ? existing.location
-              : null;
+          _setDropdownSelection(
+            value: existing.location,
+            builtInOptions: locationOptions,
+            onKnownValue: (value) => selectedLocation = value,
+            onCustomValue: (value) {
+              selectedLocation = _customOption;
+              customLocationController.text = value;
+            },
+          );
+
+          if (_resolvedBrand.isEmpty) {
+            _setDropdownSelection(
+              value: existing.brand,
+              builtInOptions: brandOptions,
+              onKnownValue: (value) => selectedBrand = value,
+              onCustomValue: (value) {
+                selectedBrand = _customOption;
+                brandController.text = value;
+              },
+            );
+          }
+
+          if (_resolvedVendor.isEmpty) {
+            _setDropdownSelection(
+              value: existing.vendor,
+              builtInOptions: vendorOptions,
+              onKnownValue: (value) => selectedVendor = value,
+              onCustomValue: (value) {
+                selectedVendor = _customOption;
+                vendorController.text = value;
+              },
+            );
+          }
 
           selectedTexture = textureOptions.contains(existing.texture)
               ? existing.texture
@@ -355,9 +635,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     } catch (_) {
       if (!mounted) return;
       setState(() {
-        if (selectedEntryType == null) {
-          selectedEntryType = 'New Chemical';
-        }
+        selectedEntryType ??= 'New Chemical';
       });
     } finally {
       if (mounted) {
@@ -376,10 +654,11 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     try {
       await _fetchFromCasAndCheckInventory();
     } finally {
-      if (!mounted) return;
-      setState(() {
-        isLoadingMetadata = false;
-      });
+      if (mounted) {
+        setState(() {
+          isLoadingMetadata = false;
+        });
+      }
     }
   }
 
@@ -391,6 +670,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     quantityController.dispose();
     formulaController.dispose();
     molWtController.dispose();
+    vendorController.dispose();
     catNumberController.dispose();
     arrivalDateController.dispose();
     orderedByController.dispose();
@@ -398,6 +678,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     sheetTabController.dispose();
     carbonCountController.dispose();
     catalystMetalController.dispose();
+    customLocationController.dispose();
+    customCategoryController.dispose();
     super.dispose();
   }
 
@@ -417,6 +699,66 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide.none,
       ),
+    );
+  }
+
+  List<DropdownMenuItem<String>> _dropdownItems(List<String> options) {
+    final colorScheme = context.colorScheme;
+    return options
+        .map(
+          (item) => DropdownMenuItem<String>(
+            value: item,
+            child: Text(item, style: TextStyle(color: colorScheme.onSurface)),
+          ),
+        )
+        .toList();
+  }
+
+  Widget _buildCustomizableDropdown({
+    required String label,
+    required String? value,
+    required List<String> builtInOptions,
+    required List<String> customOptions,
+    required ValueChanged<String?> onChanged,
+    bool enabled = true,
+    FormFieldValidator<String>? validator,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final options = _mergedOptions(builtInOptions, customOptions);
+    final safeValue = options.contains(value) ? value : null;
+
+    return DropdownButtonFormField<String>(
+      key: ValueKey('${label}_${safeValue ?? ''}_${customOptions.join('|')}'),
+      initialValue: safeValue,
+      dropdownColor: palette.panel,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration(label),
+      items: _dropdownItems(options),
+      onChanged: enabled ? onChanged : null,
+      validator: validator,
+    );
+  }
+
+  Widget _buildCustomTextField({
+    required TextEditingController controller,
+    required String label,
+    required String errorText,
+    ValueChanged<String>? onChanged,
+  }) {
+    final colorScheme = context.colorScheme;
+    return TextFormField(
+      controller: controller,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration(label),
+      textCapitalization: TextCapitalization.words,
+      onChanged: onChanged,
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return errorText;
+        }
+        return null;
+      },
     );
   }
 
@@ -483,6 +825,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   }
 
   Future<void> submitChemicalEntry() async {
+    sheetTabController.text = _getSheetTabFromSelection();
+
     if (!_formKey.currentState!.validate()) return;
 
     final chemical = ChemicalModel(
@@ -495,9 +839,10 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       molWt: molWtController.text.trim(),
       availability: 'Available',
       texture: selectedTexture ?? '',
-      location: selectedLocation ?? '',
+      location: _resolvedLocation,
       quantity: quantityController.text.trim(),
-      brand: brandController.text.trim(),
+      brand: _resolvedBrand,
+      vendor: _resolvedVendor,
       catNumber: catNumberController.text.trim(),
       arrivalDate: arrivalDateController.text.trim(),
       orderedBy: orderedByController.text.trim(),
@@ -622,40 +967,37 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                         ),
                       ),
                     if (isExisting) const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey('category_$selectedCategory'),
-                      initialValue: selectedCategory,
-                      dropdownColor: palette.panel,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Category'),
-                      items: categories
-                          .map(
-                            (item) => DropdownMenuItem<String>(
-                              value: item,
-                              child: Text(
-                                item,
-                                style: TextStyle(color: colorScheme.onSurface),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: isExisting
-                          ? null
-                          : (value) async {
-                              if (value == null) return;
+                    _buildCustomizableDropdown(
+                      label: 'Type of chemical',
+                      value: selectedCategory,
+                      builtInOptions: categories,
+                      customOptions: customCategoryOptions,
+                      enabled: !isExisting,
+                      onChanged: (value) async {
+                        if (value == null) return;
 
-                              setState(() {
-                                selectedCategory = value;
-                                selectedSubcategory = null;
-                                labelController.clear();
-                                sheetTabController.text =
-                                    _getSheetTabFromSelection();
-                              });
+                        setState(() {
+                          selectedCategory = value;
+                          selectedSubcategory = null;
+                          labelController.clear();
+                          sheetTabController.text = _getSheetTabFromSelection();
+                        });
 
-                              await _generateLabelForNewChemical();
-                            },
+                        await _generateLabelForNewChemical();
+                      },
                     ),
                     const SizedBox(height: 14),
+                    if (_isCustomCategorySelected) ...[
+                      _buildCustomTextField(
+                        controller: customCategoryController,
+                        label: 'Custom chemical type',
+                        errorText: 'Enter custom chemical type',
+                        onChanged: (_) {
+                          sheetTabController.text = _getSheetTabFromSelection();
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                     if (subcategories.isNotEmpty) ...[
                       DropdownButtonFormField<String>(
                         key: ValueKey(
@@ -762,12 +1104,46 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       decoration: inputDecoration('Molecular Weight'),
                     ),
                     const SizedBox(height: 14),
-                    TextFormField(
-                      controller: brandController,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Brand'),
+                    _buildCustomizableDropdown(
+                      label: 'Brand',
+                      value: selectedBrand,
+                      builtInOptions: brandOptions,
+                      customOptions: customBrandOptions,
+                      onChanged: (value) {
+                        setState(() {
+                          selectedBrand = value;
+                        });
+                      },
                     ),
                     const SizedBox(height: 14),
+                    if (_isCustomBrandSelected) ...[
+                      _buildCustomTextField(
+                        controller: brandController,
+                        label: 'Custom brand',
+                        errorText: 'Enter custom brand',
+                      ),
+                      const SizedBox(height: 14),
+                    ],
+                    _buildCustomizableDropdown(
+                      label: 'Vendor',
+                      value: selectedVendor,
+                      builtInOptions: vendorOptions,
+                      customOptions: customVendorOptions,
+                      onChanged: (value) {
+                        setState(() {
+                          selectedVendor = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    if (_isCustomVendorSelected) ...[
+                      _buildCustomTextField(
+                        controller: vendorController,
+                        label: 'Custom vendor',
+                        errorText: 'Enter custom vendor',
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                     TextFormField(
                       controller: quantityController,
                       style: TextStyle(color: colorScheme.onSurface),
@@ -781,23 +1157,11 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       decoration: inputDecoration('Generated Label'),
                     ),
                     const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey('location_${selectedLocation ?? ''}'),
-                      initialValue: selectedLocation,
-                      dropdownColor: palette.panel,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Location'),
-                      items: locationOptions
-                          .map(
-                            (item) => DropdownMenuItem<String>(
-                              value: item,
-                              child: Text(
-                                item,
-                                style: TextStyle(color: colorScheme.onSurface),
-                              ),
-                            ),
-                          )
-                          .toList(),
+                    _buildCustomizableDropdown(
+                      label: 'Location',
+                      value: selectedLocation,
+                      builtInOptions: locationOptions,
+                      customOptions: customLocationOptions,
                       onChanged: (value) {
                         setState(() {
                           selectedLocation = value;
@@ -811,6 +1175,14 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       },
                     ),
                     const SizedBox(height: 14),
+                    if (_isCustomLocationSelected) ...[
+                      _buildCustomTextField(
+                        controller: customLocationController,
+                        label: 'Custom location',
+                        errorText: 'Enter custom location',
+                      ),
+                      const SizedBox(height: 14),
+                    ],
                     _buildFunctionalGroupSelector(),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(

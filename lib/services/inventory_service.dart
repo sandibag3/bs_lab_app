@@ -4,8 +4,8 @@ import '../models/chemical_model.dart';
 import 'firestore_access_guard.dart';
 
 class InventoryService {
-  final CollectionReference inventoryRef =
-      FirebaseFirestore.instance.collection('inventory');
+  final CollectionReference inventoryRef = FirebaseFirestore.instance
+      .collection('inventory');
 
   bool _matchesCurrentLab(Map<String, dynamic> data) {
     final labId = (data['labId'] ?? '').toString().trim();
@@ -32,14 +32,39 @@ class InventoryService {
       emptyValue: <ChemicalModel>[],
       onData: (snapshot) {
         final docs = AppState.instance.isDemoLabSelected
-            ? snapshot.docs.where(
-                (doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>),
-              )
+            ? snapshot.docs.where((doc) => _matchesCurrentLab(doc.data()))
             : snapshot.docs;
 
         return docs.map((doc) => ChemicalModel.fromFirestore(doc)).toList();
       },
     );
+  }
+
+  Future<List<ChemicalModel>> getChemicalsOnce() async {
+    if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+      return <ChemicalModel>[];
+    }
+
+    try {
+      final appState = AppState.instance;
+      final selectedLabId = appState.selectedLabId.trim();
+      final snapshot = appState.isDemoLabSelected
+          ? await inventoryRef.get()
+          : await inventoryRef.where('labId', isEqualTo: selectedLabId).get();
+
+      final docs = appState.isDemoLabSelected
+          ? snapshot.docs.where(
+              (doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>),
+            )
+          : snapshot.docs;
+
+      return docs.map((doc) => ChemicalModel.fromFirestore(doc)).toList();
+    } on FirebaseException catch (error) {
+      if (FirestoreAccessGuard.isPermissionDenied(error)) {
+        throw const LabDataAccessException();
+      }
+      rethrow;
+    }
   }
 
   Future<void> addChemical(ChemicalModel chemical) async {
@@ -364,9 +389,7 @@ class InventoryService {
     return bottles;
   }
 
-  Future<void> markBottleFinishedById({
-    required String docId,
-  }) async {
+  Future<void> markBottleFinishedById({required String docId}) async {
     final cleanDocId = docId.trim();
     if (cleanDocId.isEmpty) {
       throw Exception('Bottle id is missing.');
@@ -378,9 +401,7 @@ class InventoryService {
     });
   }
 
-  Future<void> markBottleLowById({
-    required String docId,
-  }) async {
+  Future<void> markBottleLowById({required String docId}) async {
     final cleanDocId = docId.trim();
     if (cleanDocId.isEmpty) {
       throw Exception('Bottle id is missing.');
@@ -404,9 +425,7 @@ class InventoryService {
     if (snapshot.docs.isEmpty) return null;
 
     final chemicals = snapshot.docs
-        .where(
-          (doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>),
-        )
+        .where((doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>))
         .map((doc) => ChemicalModel.fromFirestore(doc))
         .toList();
 
@@ -434,9 +453,7 @@ class InventoryService {
     if (snapshot.docs.isEmpty) return null;
 
     final docs = snapshot.docs
-        .where(
-          (doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>),
-        )
+        .where((doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>))
         .toList();
 
     if (docs.isEmpty) return null;
@@ -467,14 +484,10 @@ class InventoryService {
     final cleanCas = cas.trim();
     if (cleanCas.isEmpty) return [];
 
-    final snapshot = await inventoryRef
-        .where('cas', isEqualTo: cleanCas)
-        .get();
+    final snapshot = await inventoryRef.where('cas', isEqualTo: cleanCas).get();
 
     final bottles = snapshot.docs
-        .where(
-          (doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>),
-        )
+        .where((doc) => _matchesCurrentLab(doc.data() as Map<String, dynamic>))
         .map((doc) => ChemicalModel.fromFirestore(doc))
         .toList();
 
@@ -528,8 +541,9 @@ class InventoryService {
 
       if (!label.startsWith('$cleanPrefix-')) continue;
 
-      final match = RegExp('^${RegExp.escape(cleanPrefix)}-(\\d+)\$')
-          .firstMatch(label);
+      final match = RegExp(
+        '^${RegExp.escape(cleanPrefix)}-(\\d+)\$',
+      ).firstMatch(label);
 
       if (match == null) continue;
 
