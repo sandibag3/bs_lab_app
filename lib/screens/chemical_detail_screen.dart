@@ -3,6 +3,7 @@ import '../models/chemical_model.dart';
 import '../services/inventory_service.dart';
 import '../services/pubchem_service.dart';
 import '../theme/labmate_theme.dart';
+import '../widgets/customizable_dropdown_field.dart';
 import '../widgets/responsive_page_container.dart';
 import 'add_new_chemical_screen.dart';
 
@@ -24,12 +25,58 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     'low',
     'finished',
   ];
+  static const List<String> _brandOptions = [
+    'Merck',
+    'Sigma',
+    'TCI',
+    'Spectrochem',
+    'Hyma (Avra)',
+    'BLD Pharm',
+    'ChemScene',
+    'SRL',
+    'Others',
+  ];
+  static const List<String> _locationOptions = [
+    'Yellow Cab',
+    'Acid Cabinet',
+    'Base Cabinet',
+    'Solvent Rack',
+    'Dry Solvent Rack',
+    'Deuterated Solvent Rack',
+    'Refrigerator',
+    'Freezer 1A',
+    'Freezer 1B',
+    'Freezer 1C',
+    'Freezer 1D',
+    'Freezer 1E',
+    'Desiccator',
+    'Glovebox',
+    'Drawer 1',
+    'Drawer 2',
+    'Drawer 3',
+    'Other',
+  ];
+  static const List<String> _textureOptions = [
+    'Solid',
+    'Liquid',
+    'Oil',
+    'Powder',
+    'Crystals',
+    'Solution',
+    'Suspension',
+    'Gas',
+    'Paste',
+    'Other',
+  ];
 
   late Future<PubChemChemicalDetails?> pubChemFuture;
   late AnimationController _animationController;
   late Animation<double> _pulseAnimation;
   late Animation<double> _rotateAnimation;
   String? editingBottleId;
+  List<String> customBrandOptions = const [];
+  List<String> customLocationOptions = const [];
+  List<String> customTextureOptions = const [];
   final TextEditingController editBrandController = TextEditingController();
   final TextEditingController editQuantityController = TextEditingController();
   final TextEditingController editLocationController = TextEditingController();
@@ -41,6 +88,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   void initState() {
     super.initState();
     pubChemFuture = pubChemService.fetchByCas(widget.chemical.cas.trim());
+    _loadExistingDropdownOptions();
 
     _animationController = AnimationController(
       vsync: this,
@@ -75,6 +123,85 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
         builder: (_) => AddNewChemicalScreen(manualPrefill: widget.chemical),
       ),
     );
+  }
+
+  String _normalizedOption(String value) {
+    return value.trim().toLowerCase();
+  }
+
+  List<String> _distinctCustomValues(
+    Iterable<String> values,
+    Iterable<String> baseValues,
+  ) {
+    final baseNormalized = baseValues
+        .map((value) => value.trim().toLowerCase())
+        .toSet();
+    const addCustomLabel = 'add custom...';
+    final uniqueValues = <String, String>{};
+
+    for (final value in values) {
+      final trimmed = value.trim();
+      final normalized = trimmed.toLowerCase();
+      if (trimmed.isEmpty ||
+          normalized == addCustomLabel ||
+          baseNormalized.contains(normalized)) {
+        continue;
+      }
+      uniqueValues.putIfAbsent(normalized, () => trimmed);
+    }
+
+    final items = uniqueValues.values.toList();
+    items.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return items;
+  }
+
+  void _addCustomOption({
+    required String value,
+    required List<String> builtInOptions,
+    required List<String> currentOptions,
+    required ValueChanged<List<String>> setOptions,
+  }) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return;
+    }
+
+    final exists = [...builtInOptions, ...currentOptions].any(
+      (option) => _normalizedOption(option) == _normalizedOption(trimmed),
+    );
+    if (exists) {
+      return;
+    }
+
+    setState(() {
+      setOptions(
+        _distinctCustomValues([...currentOptions, trimmed], builtInOptions),
+      );
+    });
+  }
+
+  Future<void> _loadExistingDropdownOptions() async {
+    try {
+      final chemicals = await inventoryService.getChemicalsOnce();
+      if (!mounted) return;
+
+      setState(() {
+        customBrandOptions = _distinctCustomValues(
+          chemicals.map((chemical) => chemical.brand),
+          _brandOptions,
+        );
+        customLocationOptions = _distinctCustomValues(
+          chemicals.map((chemical) => chemical.location),
+          _locationOptions,
+        );
+        customTextureOptions = _distinctCustomValues(
+          chemicals.map((chemical) => chemical.texture),
+          _textureOptions,
+        );
+      });
+    } catch (_) {
+      // Built-in dropdown options remain available if lab-scoped options fail.
+    }
   }
 
   void _markBottleEditing(ChemicalModel bottle) {
@@ -198,6 +325,58 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
+  Widget _inlineDropdownField({
+    required String label,
+    required TextEditingController controller,
+    required List<String> builtInOptions,
+    required List<String> customOptions,
+    required ValueChanged<String> onCustomValueSubmitted,
+  }) {
+    final palette = context.labmate;
+    final theme = Theme.of(context);
+
+    return Theme(
+      data: theme.copyWith(
+        inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+          isDense: true,
+          filled: true,
+          fillColor: palette.panel,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 9,
+          ),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: palette.border),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: palette.border),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: context.colorScheme.primary),
+          ),
+        ),
+      ),
+      child: CustomizableDropdownField(
+        key: ValueKey(
+          '${label}_${editingBottleId ?? ''}_${controller.text}_${customOptions.join('|')}',
+        ),
+        label: label,
+        value: controller.text.trim(),
+        builtInOptions: builtInOptions,
+        customOptions: customOptions,
+        onChanged: (value) {
+          setState(() {
+            controller.text = value?.trim() ?? '';
+          });
+        },
+        onCustomValueSubmitted: onCustomValueSubmitted,
+      ),
+    );
+  }
+
   Widget _bottleInlineEditor({
     required ChemicalModel bottle,
     required bool isDesktop,
@@ -224,6 +403,25 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
           );
         }
 
+        Widget dropdownField({
+          required String label,
+          required TextEditingController controller,
+          required List<String> builtInOptions,
+          required List<String> customOptions,
+          required ValueChanged<String> onCustomValueSubmitted,
+        }) {
+          return SizedBox(
+            width: fieldWidth,
+            child: _inlineDropdownField(
+              label: label,
+              controller: controller,
+              builtInOptions: builtInOptions,
+              customOptions: customOptions,
+              onCustomValueSubmitted: onCustomValueSubmitted,
+            ),
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -231,10 +429,43 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
               spacing: 8,
               runSpacing: 8,
               children: [
-                field('Brand', editBrandController),
+                dropdownField(
+                  label: 'Brand',
+                  controller: editBrandController,
+                  builtInOptions: _brandOptions,
+                  customOptions: customBrandOptions,
+                  onCustomValueSubmitted: (value) => _addCustomOption(
+                    value: value,
+                    builtInOptions: _brandOptions,
+                    currentOptions: customBrandOptions,
+                    setOptions: (options) => customBrandOptions = options,
+                  ),
+                ),
                 field('Quantity / pack size', editQuantityController),
-                field('Location', editLocationController),
-                field('Texture', editTextureController),
+                dropdownField(
+                  label: 'Location',
+                  controller: editLocationController,
+                  builtInOptions: _locationOptions,
+                  customOptions: customLocationOptions,
+                  onCustomValueSubmitted: (value) => _addCustomOption(
+                    value: value,
+                    builtInOptions: _locationOptions,
+                    currentOptions: customLocationOptions,
+                    setOptions: (options) => customLocationOptions = options,
+                  ),
+                ),
+                dropdownField(
+                  label: 'Texture',
+                  controller: editTextureController,
+                  builtInOptions: _textureOptions,
+                  customOptions: customTextureOptions,
+                  onCustomValueSubmitted: (value) => _addCustomOption(
+                    value: value,
+                    builtInOptions: _textureOptions,
+                    currentOptions: customTextureOptions,
+                    setOptions: (options) => customTextureOptions = options,
+                  ),
+                ),
                 field('Catalog no', editCatalogController),
                 field('Ordered by', editOrderedByController),
               ],
