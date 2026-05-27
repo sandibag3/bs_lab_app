@@ -4,6 +4,7 @@ import '../services/inventory_service.dart';
 import '../services/pubchem_service.dart';
 import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
+import 'add_new_chemical_screen.dart';
 
 class ChemicalDetailScreen extends StatefulWidget {
   final ChemicalModel chemical;
@@ -52,6 +53,15 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   void dispose() {
     _animationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _openAddBottle() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddNewChemicalScreen(manualPrefill: widget.chemical),
+      ),
+    );
   }
 
   Color availabilityColor(String availability) {
@@ -495,7 +505,19 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     final colorScheme = context.colorScheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Chemical Details')),
+      appBar: AppBar(
+        title: const Text('Chemical Details'),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: TextButton.icon(
+              onPressed: _openAddBottle,
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Add Bottle'),
+            ),
+          ),
+        ],
+      ),
       body: ResponsivePageContainer(
         maxWidth: 1120,
         child: StreamBuilder<List<ChemicalModel>>(
