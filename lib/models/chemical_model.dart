@@ -19,6 +19,7 @@ class ChemicalModel {
   final String orderedBy;
   final String functionalGroups;
   final String sheetTab;
+  final bool isActiveBottle;
 
   ChemicalModel({
     required this.id,
@@ -39,6 +40,7 @@ class ChemicalModel {
     required this.orderedBy,
     required this.functionalGroups,
     required this.sheetTab,
+    this.isActiveBottle = false,
   });
 
   factory ChemicalModel.fromFirestore(DocumentSnapshot doc) {
@@ -63,6 +65,7 @@ class ChemicalModel {
       orderedBy: data['orderedBy'] ?? '',
       functionalGroups: data['functionalGroups'] ?? '',
       sheetTab: data['sheetTab'] ?? '',
+      isActiveBottle: data['isActiveBottle'] == true,
     );
   }
 
@@ -85,6 +88,7 @@ class ChemicalModel {
       'orderedBy': orderedBy,
       'functionalGroups': functionalGroups,
       'sheetTab': sheetTab,
+      'isActiveBottle': isActiveBottle,
     };
   }
 

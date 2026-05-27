@@ -946,7 +946,7 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
       return const <ChemicalModel>[];
     }
 
-    final results = widget.chemicals.where((chemical) {
+    bool matchesQuery(ChemicalModel chemical) {
       final normalizedName = chemical.chemicalName.trim().toLowerCase();
       final normalizedCas = chemical.cas.trim().toLowerCase();
       final normalizedLabel = chemical.label.trim().toLowerCase();
@@ -954,7 +954,7 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
       return normalizedName.contains(query) ||
           normalizedCas.contains(query) ||
           normalizedLabel.contains(query);
-    }).toList();
+    }
 
     int scoreFor(ChemicalModel chemical) {
       final normalizedName = chemical.chemicalName.trim().toLowerCase();
@@ -984,23 +984,70 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
       return 6;
     }
 
+    final groupedMatches = <String, List<ChemicalModel>>{};
+    for (final chemical in widget.chemicals) {
+      final groupKey = chemical.cas.trim().isEmpty
+          ? 'name:${chemical.chemicalName.trim().toLowerCase()}'
+          : chemical.cas.trim().toLowerCase();
+
+      groupedMatches.putIfAbsent(groupKey, () => []).add(chemical);
+    }
+
+    final results = <MapEntry<ChemicalModel, int>>[];
+    for (final group in groupedMatches.values) {
+      final matchingBottles = group.where(matchesQuery).toList();
+      if (matchingBottles.isEmpty) {
+        continue;
+      }
+
+      final representative = _representativeBottle(group);
+      final bestScore = matchingBottles
+          .map(scoreFor)
+          .reduce((best, score) => score < best ? score : best);
+      results.add(MapEntry(representative, bestScore));
+    }
+
     results.sort((a, b) {
-      final scoreComparison = scoreFor(a).compareTo(scoreFor(b));
+      final scoreComparison = a.value.compareTo(b.value);
       if (scoreComparison != 0) {
         return scoreComparison;
       }
 
-      final nameComparison = a.chemicalName.toLowerCase().compareTo(
-        b.chemicalName.toLowerCase(),
+      final nameComparison = a.key.chemicalName.toLowerCase().compareTo(
+        b.key.chemicalName.toLowerCase(),
       );
       if (nameComparison != 0) {
         return nameComparison;
       }
 
-      return a.label.toLowerCase().compareTo(b.label.toLowerCase());
+      return a.key.label.toLowerCase().compareTo(b.key.label.toLowerCase());
     });
 
-    return results.take(8).toList();
+    return results.map((entry) => entry.key).take(8).toList();
+  }
+
+  int _representativePriority(ChemicalModel chemical) {
+    if (chemical.isActiveBottle) return 0;
+
+    final availability = chemical.availability.trim().toLowerCase();
+    if (availability == 'available') return 1;
+    if (availability == 'low' || availability.contains('about')) return 2;
+    if (chemical.isAvailable) return 3;
+    return 4;
+  }
+
+  ChemicalModel _representativeBottle(List<ChemicalModel> bottles) {
+    final sorted = [...bottles];
+    sorted.sort((a, b) {
+      final priorityComparison = _representativePriority(
+        a,
+      ).compareTo(_representativePriority(b));
+      if (priorityComparison != 0) {
+        return priorityComparison;
+      }
+      return a.label.compareTo(b.label);
+    });
+    return sorted.first;
   }
 
   void _closeResults({bool unfocus = false}) {

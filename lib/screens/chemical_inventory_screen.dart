@@ -138,8 +138,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     final list = [...grouped];
 
     list.sort((a, b) {
-      final aMain = a.first;
-      final bMain = b.first;
+      final aMain = _representativeBottle(a);
+      final bMain = _representativeBottle(b);
 
       switch (sortOption) {
         case InventorySortOption.nameAZ:
@@ -184,14 +184,41 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     return list;
   }
 
+  int _representativePriority(ChemicalModel chemical) {
+    if (chemical.isActiveBottle) return 0;
+
+    final availability = chemical.availability.trim().toLowerCase();
+    if (availability == 'available') return 1;
+    if (availability == 'low' || availability.contains('about')) return 2;
+    if (chemical.isAvailable) return 3;
+    return 4;
+  }
+
+  ChemicalModel _representativeBottle(List<ChemicalModel> bottles) {
+    final sorted = [...bottles];
+    sorted.sort((a, b) {
+      final priorityComparison = _representativePriority(
+        a,
+      ).compareTo(_representativePriority(b));
+      if (priorityComparison != 0) {
+        return priorityComparison;
+      }
+      return a.label.compareTo(b.label);
+    });
+    return sorted.first;
+  }
+
   List<List<ChemicalModel>> processChemicals(List<ChemicalModel> rawChemicals) {
     final groupedMap = inventoryService.groupByCas(rawChemicals);
     var groupedList = groupedMap.values.toList();
 
     for (final group in groupedList) {
       group.sort((a, b) {
-        if (a.isAvailable != b.isAvailable) {
-          return a.isAvailable ? -1 : 1;
+        final priorityComparison = _representativePriority(
+          a,
+        ).compareTo(_representativePriority(b));
+        if (priorityComparison != 0) {
+          return priorityComparison;
         }
         return a.label.compareTo(b.label);
       });
@@ -262,7 +289,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
 
   String _representativeInventoryId(List<ChemicalModel> bottles) {
     // TODO: Expand desktop bulk actions to all bottle IDs in grouped CAS rows.
-    return bottles.first.id;
+    return _representativeBottle(bottles).id;
   }
 
   List<String> _visibleRepresentativeInventoryIds(
@@ -293,7 +320,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     final selectedIds = _selectedVisibleInventoryIds(groupedChemicals).toSet();
 
     return groupedChemicals
-        .map((bottles) => bottles.first)
+        .map(_representativeBottle)
         .where((chemical) => selectedIds.contains(chemical.id))
         .toList();
   }
@@ -1076,7 +1103,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     List<ChemicalModel> bottles, {
     bool showSelection = false,
   }) {
-    final main = bottles.first;
+    final main = _representativeBottle(bottles);
     final representativeInventoryId = _representativeInventoryId(bottles);
     final int total = bottles.length;
     final isDesktop = MediaQuery.sizeOf(context).width >= 900;

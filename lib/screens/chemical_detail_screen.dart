@@ -3,7 +3,7 @@ import '../models/chemical_model.dart';
 import '../services/inventory_service.dart';
 import '../services/pubchem_service.dart';
 import '../theme/labmate_theme.dart';
-import '../widgets/customizable_dropdown_field.dart';
+import '../utils/dropdown_option_utils.dart';
 import '../widgets/responsive_page_container.dart';
 import 'add_new_chemical_screen.dart';
 
@@ -255,22 +255,85 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     }
   }
 
+  Future<void> _setActiveBottle(ChemicalModel bottle) async {
+    try {
+      await inventoryService.setActiveBottle(
+        labId: bottle.labId,
+        cas: bottle.cas,
+        bottleId: bottle.id,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Active bottle updated.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not update active bottle. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  Widget _activeBottleBadge() {
+    const activeColor = Color(0xFF14B8A6);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: activeColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: activeColor.withValues(alpha: 0.35)),
+      ),
+      child: const Text(
+        'Active',
+        style: TextStyle(
+          color: activeColor,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _activeBottleControl(ChemicalModel bottle) {
+    if (bottle.isActiveBottle) {
+      return _activeBottleBadge();
+    }
+
+    return TextButton(
+      onPressed: () => _setActiveBottle(bottle),
+      style: TextButton.styleFrom(
+        visualDensity: VisualDensity.compact,
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        minimumSize: const Size(0, 28),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: const Text(
+        'Set active',
+        style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+
   Widget _editingBadge() {
     final colorScheme = context.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: colorScheme.primary.withValues(alpha: 0.12),
+        color: colorScheme.primary.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.35)),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.28)),
       ),
       child: Text(
         'Editing',
         style: TextStyle(
           color: colorScheme.primary,
-          fontSize: 11,
-          fontWeight: FontWeight.w800,
+          fontSize: 10.5,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );
@@ -291,24 +354,35 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
 
   InputDecoration _inlineEditDecoration(String label) {
     final palette = context.labmate;
+    final colorScheme = context.colorScheme;
 
     return InputDecoration(
       labelText: label,
+      labelStyle: TextStyle(
+        color: palette.mutedText,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w600,
+      ),
+      floatingLabelStyle: TextStyle(
+        color: colorScheme.primary,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w700,
+      ),
       isDense: true,
       filled: true,
       fillColor: palette.panel,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(9),
         borderSide: BorderSide(color: palette.border),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(9),
         borderSide: BorderSide(color: palette.border),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: context.colorScheme.primary),
+        borderRadius: BorderRadius.circular(9),
+        borderSide: BorderSide(color: colorScheme.primary),
       ),
     );
   }
@@ -318,11 +392,53 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       controller: controller,
       style: TextStyle(
         color: context.colorScheme.onSurface,
-        fontSize: 12.5,
+        fontSize: 13,
         fontWeight: FontWeight.w600,
       ),
+      cursorHeight: 16,
       decoration: _inlineEditDecoration(label),
     );
+  }
+
+  Future<String?> _showInlineCustomValueDialog(String label) async {
+    final controller = TextEditingController();
+    final value = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Add $label'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: InputDecoration(labelText: label),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) {
+              final trimmed = controller.text.trim();
+              if (trimmed.isNotEmpty) {
+                Navigator.of(context).pop(trimmed);
+              }
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final trimmed = controller.text.trim();
+                if (trimmed.isNotEmpty) {
+                  Navigator.of(context).pop(trimmed);
+                }
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+    return value?.trim();
   }
 
   Widget _inlineDropdownField({
@@ -333,47 +449,75 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     required ValueChanged<String> onCustomValueSubmitted,
   }) {
     final palette = context.labmate;
-    final theme = Theme.of(context);
+    final colorScheme = context.colorScheme;
+    final mergedOptions = mergeUniqueOptions(builtInOptions, customOptions);
+    final selectedValue = controller.text.trim();
+    final selectedIsPresent =
+        selectedValue.isEmpty ||
+        mergedOptions.any(
+          (option) =>
+              _normalizedOption(option) == _normalizedOption(selectedValue),
+        );
+    final options = [
+      ...mergedOptions,
+      if (selectedValue.isNotEmpty && !selectedIsPresent) selectedValue,
+      addCustomDropdownOptionLabel,
+    ];
+    final safeValue = selectedValue.isEmpty
+        ? null
+        : options.firstWhere(
+            (option) =>
+                _normalizedOption(option) == _normalizedOption(selectedValue),
+            orElse: () => selectedValue,
+          );
 
-    return Theme(
-      data: theme.copyWith(
-        inputDecorationTheme: theme.inputDecorationTheme.copyWith(
-          isDense: true,
-          filled: true,
-          fillColor: palette.panel,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 10,
-            vertical: 9,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: palette.border),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: palette.border),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: context.colorScheme.primary),
-          ),
-        ),
+    return DropdownButtonFormField<String>(
+      key: ValueKey(
+        '${label}_${editingBottleId ?? ''}_${controller.text}_${customOptions.join('|')}',
       ),
-      child: CustomizableDropdownField(
-        key: ValueKey(
-          '${label}_${editingBottleId ?? ''}_${controller.text}_${customOptions.join('|')}',
-        ),
-        label: label,
-        value: controller.text.trim(),
-        builtInOptions: builtInOptions,
-        customOptions: customOptions,
-        onChanged: (value) {
+      initialValue: safeValue,
+      isDense: true,
+      isExpanded: true,
+      iconSize: 18,
+      menuMaxHeight: 260,
+      dropdownColor: palette.panel,
+      style: TextStyle(
+        color: colorScheme.onSurface,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
+      decoration: _inlineEditDecoration(label),
+      items: options
+          .map(
+            (option) => DropdownMenuItem<String>(
+              value: option,
+              child: Text(
+                option,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: (value) async {
+        if (value == null) return;
+
+        if (value == addCustomDropdownOptionLabel) {
+          final customValue = await _showInlineCustomValueDialog(label);
+          if (customValue == null || customValue.trim().isEmpty || !mounted) {
+            return;
+          }
+          onCustomValueSubmitted(customValue);
           setState(() {
-            controller.text = value?.trim() ?? '';
+            controller.text = customValue.trim();
           });
-        },
-        onCustomValueSubmitted: onCustomValueSubmitted,
-      ),
+          return;
+        }
+
+        setState(() {
+          controller.text = value.trim();
+        });
+      },
     );
   }
 
@@ -386,15 +530,13 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final maxWidth = constraints.maxWidth;
-        final columnCount = isDesktop && maxWidth >= 680
-            ? 3
-            : maxWidth >= 460
-            ? 2
-            : 1;
+        final maxWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : MediaQuery.sizeOf(context).width - 32;
+        final columnCount = maxWidth >= 520 ? 2 : 1;
         final fieldWidth = columnCount == 1
             ? maxWidth
-            : (maxWidth - ((columnCount - 1) * 8)) / columnCount;
+            : (maxWidth - 8) / 2;
 
         Widget field(String label, TextEditingController controller) {
           return SizedBox(
@@ -470,15 +612,21 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                 field('Ordered by', editOrderedByController),
               ],
             ),
-            const SizedBox(height: 10),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            const SizedBox(height: 8),
+            Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 6,
+              runSpacing: 6,
               children: [
                 TextButton(
                   onPressed: _cancelBottleEditing,
+                  style: TextButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 32),
+                  ),
                   child: const Text('Cancel'),
                 ),
-                const SizedBox(width: 8),
                 OutlinedButton.icon(
                   onPressed: () => _saveBottleDetails(bottle),
                   icon: const Icon(Icons.save_outlined, size: 16),
@@ -487,6 +635,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                     foregroundColor: colorScheme.primary,
                     side: BorderSide(color: palette.border),
                     visualDensity: VisualDensity.compact,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    minimumSize: const Size(0, 32),
                   ),
                 ),
               ],
@@ -773,7 +923,11 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
-  Widget bottleCard(ChemicalModel b, int index) {
+  Widget bottleCard(
+    ChemicalModel b,
+    int index, {
+    required bool showActiveControls,
+  }) {
     final safeStatus = _safeBottleStatus(b.availability);
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
@@ -801,6 +955,10 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                   if (isEditing) ...[
                     const SizedBox(width: 8),
                     _editingBadge(),
+                  ],
+                  if (showActiveControls && b.isActiveBottle) ...[
+                    const SizedBox(width: 6),
+                    _activeBottleBadge(),
                   ],
                   const Spacer(),
                   if (!isEditing) _editBottleButton(b),
@@ -835,6 +993,13 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                 ],
               ),
               const SizedBox(height: 8),
+              if (isEditing && showActiveControls) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: _activeBottleControl(b),
+                ),
+                const SizedBox(height: 8),
+              ],
               if (isEditing)
                 _bottleInlineEditor(bottle: b, isDesktop: false)
               else
@@ -845,6 +1010,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                     chip('Brand: ${b.brand.isEmpty ? '-' : b.brand}'),
                     chip('Qty: ${b.quantity.isEmpty ? '-' : b.quantity}'),
                     chip('Loc: ${b.location.isEmpty ? '-' : b.location}'),
+                    if (showActiveControls && !b.isActiveBottle)
+                      _activeBottleControl(b),
                   ],
                 ),
             ],
@@ -976,10 +1143,13 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             final bottles =
                 all.where((e) => e.cas.trim() == c.cas.trim()).toList()
                   ..sort((a, b) => a.label.compareTo(b.label));
+            final representative = bottles.isEmpty
+                ? c
+                : _representativeBottle(bottles);
 
             final isDesktop = MediaQuery.sizeOf(context).width >= 900;
             if (isDesktop) {
-              return _buildDesktopDetail(c, bottles);
+              return _buildDesktopDetail(representative, bottles);
             }
 
             return ListView(
@@ -1005,7 +1175,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          c.label,
+                          representative.label,
                           style: const TextStyle(
                             color: Color(0xFF14B8A6),
                             fontWeight: FontWeight.bold,
@@ -1015,7 +1185,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        c.chemicalName,
+                        representative.chemicalName,
                         style: TextStyle(
                           color: colorScheme.onSurface,
                           fontSize: 19,
@@ -1024,7 +1194,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'CAS: ${c.cas}',
+                        'CAS: ${representative.cas}',
                         style: TextStyle(
                           color: palette.mutedText,
                           fontSize: 12.8,
@@ -1041,12 +1211,16 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                 ),
 
                 const SizedBox(height: 14),
-                buildFunctionalGroupChips(c.functionalGroups),
+                buildFunctionalGroupChips(representative.functionalGroups),
 
                 sectionTitle('Bottles'),
                 ...List.generate(
                   bottles.length,
-                  (i) => bottleCard(bottles[i], i),
+                  (i) => bottleCard(
+                    bottles[i],
+                    i,
+                    showActiveControls: bottles.length > 1,
+                  ),
                 ),
 
                 sectionTitle('PubChem'),
@@ -1104,6 +1278,30 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   String _display(String value) {
     final trimmed = value.trim();
     return trimmed.isEmpty ? '-' : trimmed;
+  }
+
+  int _representativePriority(ChemicalModel chemical) {
+    if (chemical.isActiveBottle) return 0;
+
+    final availability = chemical.availability.trim().toLowerCase();
+    if (availability == 'available') return 1;
+    if (availability == 'low' || availability.contains('about')) return 2;
+    if (chemical.isAvailable) return 3;
+    return 4;
+  }
+
+  ChemicalModel _representativeBottle(List<ChemicalModel> bottles) {
+    final sorted = [...bottles];
+    sorted.sort((a, b) {
+      final priorityComparison = _representativePriority(
+        a,
+      ).compareTo(_representativePriority(b));
+      if (priorityComparison != 0) {
+        return priorityComparison;
+      }
+      return a.label.compareTo(b.label);
+    });
+    return sorted.first;
   }
 
   String _summarizeBottles(
@@ -1275,7 +1473,11 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
-  Widget _desktopBottleRow(ChemicalModel bottle, int index) {
+  Widget _desktopBottleRow(
+    ChemicalModel bottle,
+    int index, {
+    required bool showActiveControls,
+  }) {
     final safeStatus = _safeBottleStatus(bottle.availability);
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
@@ -1304,6 +1506,10 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                 ),
                 const SizedBox(width: 8),
                 _editingBadge(),
+                if (showActiveControls) ...[
+                  const SizedBox(width: 8),
+                  _activeBottleControl(bottle),
+                ],
               ],
             ),
             const SizedBox(height: 10),
@@ -1387,6 +1593,16 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
               ),
             ),
           ),
+          if (showActiveControls) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 76,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: _activeBottleControl(bottle),
+              ),
+            ),
+          ],
           const SizedBox(width: 8),
           _editBottleButton(bottle),
         ],
@@ -1394,7 +1610,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
-  Widget _desktopBottleHeader() {
+  Widget _desktopBottleHeader({required bool showActiveControls}) {
     final palette = context.labmate;
 
     return Padding(
@@ -1417,6 +1633,20 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
               ),
             ),
           ),
+          if (showActiveControls) ...[
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 76,
+              child: Text(
+                'Active',
+                style: TextStyle(
+                  color: palette.mutedText,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(width: 8),
           const SizedBox(width: 30),
         ],
@@ -1724,14 +1954,20 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   }
 
   Widget _desktopBottlePanel(List<ChemicalModel> bottles) {
+    final showActiveControls = bottles.length > 1;
+
     return _compactPanel(
       title: 'Bottles',
       child: Column(
         children: [
-          _desktopBottleHeader(),
+          _desktopBottleHeader(showActiveControls: showActiveControls),
           const SizedBox(height: 6),
           for (int index = 0; index < bottles.length; index++) ...[
-            _desktopBottleRow(bottles[index], index),
+            _desktopBottleRow(
+              bottles[index],
+              index,
+              showActiveControls: showActiveControls,
+            ),
             if (index != bottles.length - 1) const SizedBox(height: 6),
           ],
         ],

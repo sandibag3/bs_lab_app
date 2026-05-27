@@ -112,6 +112,42 @@ class InventoryService {
     });
   }
 
+  Future<void> setActiveBottle({
+    required String labId,
+    required String cas,
+    required String bottleId,
+  }) async {
+    final cleanLabId = labId.trim();
+    final cleanCas = cas.trim();
+    final cleanBottleId = bottleId.trim();
+
+    if (cleanLabId.isEmpty) {
+      throw Exception('Lab id is missing.');
+    }
+    if (cleanCas.isEmpty) {
+      throw Exception('Chemical CAS is missing.');
+    }
+    if (cleanBottleId.isEmpty) {
+      throw Exception('Bottle id is missing.');
+    }
+
+    final snapshot = await inventoryRef
+        .where('labId', isEqualTo: cleanLabId)
+        .where('cas', isEqualTo: cleanCas)
+        .limit(500)
+        .get();
+
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in snapshot.docs) {
+      batch.update(doc.reference, {
+        'isActiveBottle': doc.id == cleanBottleId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+  }
+
   Map<String, List<ChemicalModel>> groupByCas(List<ChemicalModel> chemicals) {
     final Map<String, List<ChemicalModel>> grouped = {};
 
