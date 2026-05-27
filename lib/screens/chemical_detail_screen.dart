@@ -29,6 +29,13 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   late AnimationController _animationController;
   late Animation<double> _pulseAnimation;
   late Animation<double> _rotateAnimation;
+  String? editingBottleId;
+  final TextEditingController editBrandController = TextEditingController();
+  final TextEditingController editQuantityController = TextEditingController();
+  final TextEditingController editLocationController = TextEditingController();
+  final TextEditingController editTextureController = TextEditingController();
+  final TextEditingController editCatalogController = TextEditingController();
+  final TextEditingController editOrderedByController = TextEditingController();
 
   @override
   void initState() {
@@ -52,6 +59,12 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   @override
   void dispose() {
     _animationController.dispose();
+    editBrandController.dispose();
+    editQuantityController.dispose();
+    editLocationController.dispose();
+    editTextureController.dispose();
+    editCatalogController.dispose();
+    editOrderedByController.dispose();
     super.dispose();
   }
 
@@ -61,6 +74,195 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       MaterialPageRoute(
         builder: (_) => AddNewChemicalScreen(manualPrefill: widget.chemical),
       ),
+    );
+  }
+
+  void _markBottleEditing(ChemicalModel bottle) {
+    setState(() {
+      editingBottleId = bottle.id;
+      editBrandController.text = bottle.brand;
+      editQuantityController.text = bottle.quantity;
+      editLocationController.text = bottle.location;
+      editTextureController.text = bottle.texture;
+      editCatalogController.text = bottle.catNumber;
+      editOrderedByController.text = bottle.orderedBy;
+    });
+  }
+
+  void _cancelBottleEditing() {
+    setState(() {
+      editingBottleId = null;
+      editBrandController.clear();
+      editQuantityController.clear();
+      editLocationController.clear();
+      editTextureController.clear();
+      editCatalogController.clear();
+      editOrderedByController.clear();
+    });
+  }
+
+  Future<void> _saveBottleDetails(ChemicalModel bottle) async {
+    try {
+      await inventoryService.updateBottleDetails(
+        bottleId: bottle.id,
+        brand: editBrandController.text,
+        quantity: editQuantityController.text,
+        location: editLocationController.text,
+        texture: editTextureController.text,
+        catNumber: editCatalogController.text,
+        orderedBy: editOrderedByController.text,
+      );
+
+      if (!mounted) return;
+      _cancelBottleEditing();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Bottle details updated.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not update bottle details. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  Widget _editingBadge() {
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.35)),
+      ),
+      child: Text(
+        'Editing',
+        style: TextStyle(
+          color: colorScheme.primary,
+          fontSize: 11,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
+  Widget _editBottleButton(ChemicalModel bottle) {
+    final palette = context.labmate;
+
+    return IconButton(
+      tooltip: 'Edit bottle info',
+      onPressed: () => _markBottleEditing(bottle),
+      icon: Icon(Icons.edit_outlined, size: 17, color: palette.mutedText),
+      constraints: const BoxConstraints.tightFor(width: 30, height: 30),
+      padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
+    );
+  }
+
+  InputDecoration _inlineEditDecoration(String label) {
+    final palette = context.labmate;
+
+    return InputDecoration(
+      labelText: label,
+      isDense: true,
+      filled: true,
+      fillColor: palette.panel,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: palette.border),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: palette.border),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: context.colorScheme.primary),
+      ),
+    );
+  }
+
+  Widget _inlineEditField(String label, TextEditingController controller) {
+    return TextField(
+      controller: controller,
+      style: TextStyle(
+        color: context.colorScheme.onSurface,
+        fontSize: 12.5,
+        fontWeight: FontWeight.w600,
+      ),
+      decoration: _inlineEditDecoration(label),
+    );
+  }
+
+  Widget _bottleInlineEditor({
+    required ChemicalModel bottle,
+    required bool isDesktop,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final maxWidth = constraints.maxWidth;
+        final columnCount = isDesktop && maxWidth >= 680
+            ? 3
+            : maxWidth >= 460
+            ? 2
+            : 1;
+        final fieldWidth = columnCount == 1
+            ? maxWidth
+            : (maxWidth - ((columnCount - 1) * 8)) / columnCount;
+
+        Widget field(String label, TextEditingController controller) {
+          return SizedBox(
+            width: fieldWidth,
+            child: _inlineEditField(label, controller),
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                field('Brand', editBrandController),
+                field('Quantity / pack size', editQuantityController),
+                field('Location', editLocationController),
+                field('Texture', editTextureController),
+                field('Catalog no', editCatalogController),
+                field('Ordered by', editOrderedByController),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: _cancelBottleEditing,
+                  child: const Text('Cancel'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () => _saveBottleDetails(bottle),
+                  icon: const Icon(Icons.save_outlined, size: 16),
+                  label: const Text('Save'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: colorScheme.primary,
+                    side: BorderSide(color: palette.border),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -344,11 +546,12 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     final safeStatus = _safeBottleStatus(b.availability);
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
+    final isEditing = editingBottleId == b.id;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
-        color: palette.panel,
+        color: isEditing ? palette.selected : palette.panel,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
           padding: const EdgeInsets.all(14),
@@ -364,45 +567,55 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  if (isEditing) ...[
+                    const SizedBox(width: 8),
+                    _editingBadge(),
+                  ],
                   const Spacer(),
-                  DropdownButton<String>(
-                    value: safeStatus,
-                    dropdownColor: palette.panel,
-                    style: TextStyle(color: colorScheme.onSurface),
-                    items: _allowedBottleStatuses
-                        .map(
-                          (status) => DropdownMenuItem<String>(
-                            value: status,
-                            child: Text(
-                              _bottleStatusLabel(status),
-                              style: TextStyle(color: colorScheme.onSurface),
+                  if (!isEditing) _editBottleButton(b),
+                  const SizedBox(width: 4),
+                  if (!isEditing)
+                    DropdownButton<String>(
+                      value: safeStatus,
+                      dropdownColor: palette.panel,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      items: _allowedBottleStatuses
+                          .map(
+                            (status) => DropdownMenuItem<String>(
+                              value: status,
+                              child: Text(
+                                _bottleStatusLabel(status),
+                                style: TextStyle(color: colorScheme.onSurface),
+                              ),
                             ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) async {
-                      if (value == null) return;
+                          )
+                          .toList(),
+                      onChanged: (value) async {
+                        if (value == null) return;
 
-                      await inventoryService.inventoryRef.doc(b.id).update({
-                        'availability': _safeBottleStatus(value),
-                        'updatedAt': DateTime.now(),
-                      });
+                        await inventoryService.inventoryRef.doc(b.id).update({
+                          'availability': _safeBottleStatus(value),
+                          'updatedAt': DateTime.now(),
+                        });
 
-                      setState(() {});
-                    },
-                  ),
+                        setState(() {});
+                      },
+                    ),
                 ],
               ),
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  chip('Brand: ${b.brand.isEmpty ? '-' : b.brand}'),
-                  chip('Qty: ${b.quantity.isEmpty ? '-' : b.quantity}'),
-                  chip('Loc: ${b.location.isEmpty ? '-' : b.location}'),
-                ],
-              ),
+              if (isEditing)
+                _bottleInlineEditor(bottle: b, isDesktop: false)
+              else
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    chip('Brand: ${b.brand.isEmpty ? '-' : b.brand}'),
+                    chip('Qty: ${b.quantity.isEmpty ? '-' : b.quantity}'),
+                    chip('Loc: ${b.location.isEmpty ? '-' : b.location}'),
+                  ],
+                ),
             ],
           ),
         ),
@@ -835,6 +1048,39 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     final safeStatus = _safeBottleStatus(bottle.availability);
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
+    final isEditing = editingBottleId == bottle.id;
+
+    if (isEditing) {
+      return Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: palette.selected,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: colorScheme.primary.withValues(alpha: 0.45)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Bottle ${index + 1}',
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _editingBadge(),
+              ],
+            ),
+            const SizedBox(height: 10),
+            _bottleInlineEditor(bottle: bottle, isDesktop: true),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
@@ -845,7 +1091,25 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       ),
       child: Row(
         children: [
-          _desktopTableCell('Bottle ${index + 1}', flex: 2, isStrong: true),
+          Expanded(
+            flex: 2,
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    'Bottle ${index + 1}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
           _desktopTableCell(_display(bottle.brand), flex: 3),
           _desktopTableCell(_display(bottle.quantity), flex: 2),
           _desktopTableCell(_display(bottle.location), flex: 3),
@@ -892,6 +1156,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
               ),
             ),
           ),
+          const SizedBox(width: 8),
+          _editBottleButton(bottle),
         ],
       ),
     );
@@ -920,6 +1186,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
               ),
             ),
           ),
+          const SizedBox(width: 8),
+          const SizedBox(width: 30),
         ],
       ),
     );

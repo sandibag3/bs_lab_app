@@ -75,6 +75,43 @@ class InventoryService {
     });
   }
 
+  Future<void> updateChemical(ChemicalModel chemical) async {
+    final cleanDocId = chemical.id.trim();
+    if (cleanDocId.isEmpty) {
+      throw Exception('Chemical id is missing.');
+    }
+
+    await inventoryRef.doc(cleanDocId).update({
+      ...chemical.toMap(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> updateBottleDetails({
+    required String bottleId,
+    required String brand,
+    required String quantity,
+    required String location,
+    required String texture,
+    required String catNumber,
+    required String orderedBy,
+  }) async {
+    final cleanBottleId = bottleId.trim();
+    if (cleanBottleId.isEmpty) {
+      throw Exception('Bottle id is missing.');
+    }
+
+    await inventoryRef.doc(cleanBottleId).update({
+      'brand': brand.trim(),
+      'quantity': quantity.trim(),
+      'location': location.trim(),
+      'texture': texture.trim(),
+      'catNumber': catNumber.trim(),
+      'orderedBy': orderedBy.trim(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Map<String, List<ChemicalModel>> groupByCas(List<ChemicalModel> chemicals) {
     final Map<String, List<ChemicalModel>> grouped = {};
 
