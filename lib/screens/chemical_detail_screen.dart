@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/chemical_model.dart';
 import '../services/inventory_service.dart';
 import '../services/pubchem_service.dart';
@@ -92,6 +93,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   final TextEditingController editTextureController = TextEditingController();
   final TextEditingController editCatalogController = TextEditingController();
   final TextEditingController editOrderedByController = TextEditingController();
+  final FocusNode _keyboardNavigationFocusNode = FocusNode();
 
   @override
   void initState() {
@@ -124,6 +126,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     editTextureController.dispose();
     editCatalogController.dispose();
     editOrderedByController.dispose();
+    _keyboardNavigationFocusNode.dispose();
     super.dispose();
   }
 
@@ -174,6 +177,31 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       editCatalogController.clear();
       editOrderedByController.clear();
     });
+  }
+
+  bool get _shouldIgnoreArrowNavigation {
+    if (!_hasNavigationContext || editingBottleId != null) {
+      return true;
+    }
+
+    final focusedContext = FocusManager.instance.primaryFocus?.context;
+    final focusedWidget = focusedContext?.widget;
+    return focusedWidget is EditableText;
+  }
+
+  void _handleKeyboardNavigation(KeyEvent event) {
+    if (event is! KeyDownEvent || _shouldIgnoreArrowNavigation) {
+      return;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowLeft && _canGoPrevious) {
+      _navigateToChemical(_currentNavigationIndex! - 1);
+      return;
+    }
+
+    if (event.logicalKey == LogicalKeyboardKey.arrowRight && _canGoNext) {
+      _navigateToChemical(_currentNavigationIndex! + 1);
+    }
   }
 
   String _normalizedOption(String value) {
@@ -1350,154 +1378,160 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
           ),
         ],
       ),
-      body: _buildNavigationOverlay(
-        isDesktop: showDesktopNavigation,
-        child: ResponsivePageContainer(
-          maxWidth: 1120,
-          child: StreamBuilder<List<ChemicalModel>>(
-            stream: inventoryService.getChemicals(),
-            builder: (context, snapshot) {
-              if (!snapshot.hasData) {
-                return const Center(child: CircularProgressIndicator());
-              }
+      body: KeyboardListener(
+        focusNode: _keyboardNavigationFocusNode,
+        autofocus: true,
+        onKeyEvent: _handleKeyboardNavigation,
+        child: _buildNavigationOverlay(
+          isDesktop: showDesktopNavigation,
+          child: ResponsivePageContainer(
+            maxWidth: 1120,
+            child: StreamBuilder<List<ChemicalModel>>(
+              stream: inventoryService.getChemicals(),
+              builder: (context, snapshot) {
+                if (!snapshot.hasData) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-              final all = snapshot.data!;
+                final all = snapshot.data!;
 
-              final bottles =
-                  all.where((e) => e.cas.trim() == c.cas.trim()).toList()
-                    ..sort((a, b) => a.label.compareTo(b.label));
-              final representative = bottles.isEmpty
-                  ? c
-                  : _representativeBottle(bottles);
+                final bottles =
+                    all.where((e) => e.cas.trim() == c.cas.trim()).toList()
+                      ..sort((a, b) => a.label.compareTo(b.label));
+                final representative = bottles.isEmpty
+                    ? c
+                    : _representativeBottle(bottles);
 
-              final isDesktop = MediaQuery.sizeOf(context).width >= 900;
-              if (isDesktop) {
-                return _buildDesktopDetail(representative, bottles);
-              }
+                final isDesktop = MediaQuery.sizeOf(context).width >= 900;
+                if (isDesktop) {
+                  return _buildDesktopDetail(representative, bottles);
+                }
 
-              return ListView(
-                padding: EdgeInsets.fromLTRB(
-                  14,
-                  14,
-                  14,
-                  _hasNavigationContext ? 92 : 14,
-                ),
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: palette.panel,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: palette.border),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: const Color(0x2214B8A6),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Text(
-                            representative.label,
-                            style: const TextStyle(
-                              color: Color(0xFF14B8A6),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
+                return ListView(
+                  padding: EdgeInsets.fromLTRB(
+                    14,
+                    14,
+                    14,
+                    _hasNavigationContext ? 92 : 14,
+                  ),
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: palette.panel,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: palette.border),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color(0x2214B8A6),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              representative.label,
+                              style: const TextStyle(
+                                color: Color(0xFF14B8A6),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          representative.chemicalName,
-                          style: TextStyle(
-                            color: colorScheme.onSurface,
-                            fontSize: 19,
-                            fontWeight: FontWeight.bold,
+                          const SizedBox(height: 10),
+                          Text(
+                            representative.chemicalName,
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontSize: 19,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'CAS: ${representative.cas}',
-                          style: TextStyle(
-                            color: palette.mutedText,
-                            fontSize: 12.8,
-                            fontWeight: FontWeight.w500,
+                          const SizedBox(height: 4),
+                          Text(
+                            'CAS: ${representative.cas}',
+                            style: TextStyle(
+                              color: palette.mutedText,
+                              fontSize: 12.8,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${bottles.length} bottles',
-                          style: TextStyle(color: palette.mutedText),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 14),
-                  buildFunctionalGroupChips(representative.functionalGroups),
-
-                  sectionTitle('Bottles'),
-                  ...List.generate(
-                    bottles.length,
-                    (i) => bottleCard(
-                      bottles[i],
-                      i,
-                      showActiveControls: bottles.length > 1,
-                    ),
-                  ),
-
-                  sectionTitle('PubChem'),
-                  FutureBuilder<PubChemChemicalDetails?>(
-                    future: pubChemFuture,
-                    builder: (context, snapshot) {
-                      if (snapshot.connectionState == ConnectionState.waiting) {
-                        return chemistryLoadingCard();
-                      }
-
-                      if (snapshot.hasError) {
-                        return Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: palette.panel,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: palette.border),
-                          ),
-                          child: Text(
-                            'PubChem error: ${snapshot.error}',
+                          const SizedBox(height: 6),
+                          Text(
+                            '${bottles.length} bottles',
                             style: TextStyle(color: palette.mutedText),
                           ),
-                        );
-                      }
+                        ],
+                      ),
+                    ),
 
-                      if (!snapshot.hasData || snapshot.data == null) {
-                        return Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: palette.panel,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: palette.border),
-                          ),
-                          child: Text(
-                            c.cas.trim().isEmpty
-                                ? 'No CAS number available for PubChem lookup.'
-                                : 'No PubChem data found for CAS: ${c.cas.trim()}',
-                            style: TextStyle(color: palette.mutedText),
-                          ),
-                        );
-                      }
+                    const SizedBox(height: 14),
+                    buildFunctionalGroupChips(representative.functionalGroups),
 
-                      final p = snapshot.data!;
-                      return pubChemDetailsCard(p);
-                    },
-                  ),
-                ],
-              );
-            },
+                    sectionTitle('Bottles'),
+                    ...List.generate(
+                      bottles.length,
+                      (i) => bottleCard(
+                        bottles[i],
+                        i,
+                        showActiveControls: bottles.length > 1,
+                      ),
+                    ),
+
+                    sectionTitle('PubChem'),
+                    FutureBuilder<PubChemChemicalDetails?>(
+                      future: pubChemFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return chemistryLoadingCard();
+                        }
+
+                        if (snapshot.hasError) {
+                          return Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: palette.panel,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: palette.border),
+                            ),
+                            child: Text(
+                              'PubChem error: ${snapshot.error}',
+                              style: TextStyle(color: palette.mutedText),
+                            ),
+                          );
+                        }
+
+                        if (!snapshot.hasData || snapshot.data == null) {
+                          return Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: palette.panel,
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: palette.border),
+                            ),
+                            child: Text(
+                              c.cas.trim().isEmpty
+                                  ? 'No CAS number available for PubChem lookup.'
+                                  : 'No PubChem data found for CAS: ${c.cas.trim()}',
+                              style: TextStyle(color: palette.mutedText),
+                            ),
+                          );
+                        }
+
+                        final p = snapshot.data!;
+                        return pubChemDetailsCard(p);
+                      },
+                    ),
+                  ],
+                );
+              },
+            ),
           ),
         ),
       ),
