@@ -1737,20 +1737,51 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: palette.border),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(width: 260, child: searchField),
-          const SizedBox(width: 12),
-          Expanded(child: buildAvailabilityChips(dense: true)),
-          const SizedBox(width: 12),
-          SizedBox(width: 150, child: buildSortDropdown(dense: true)),
-          const SizedBox(width: 10),
-          SizedBox(width: 150, child: buildChemicalGroupDropdown(dense: true)),
-          const SizedBox(width: 10),
-          SizedBox(width: 160, child: buildLocationDropdown(dense: true)),
-          const SizedBox(width: 10),
-          buildResetButton(dense: true),
+          searchField,
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(
+                        minWidth: 260,
+                        maxWidth: 420,
+                      ),
+                      child: buildAvailabilityChips(dense: true),
+                    ),
+                    SizedBox(width: 150, child: buildSortDropdown(dense: true)),
+                    SizedBox(
+                      width: 170,
+                      child: buildChemicalGroupDropdown(dense: true),
+                    ),
+                    SizedBox(
+                      width: 180,
+                      child: buildLocationDropdown(dense: true),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              if (!selectionMode) ...[
+                _buildSelectionButton(
+                  label: 'Select',
+                  icon: Icons.check_box_outlined,
+                  onPressed: _enterSelectionMode,
+                ),
+                const SizedBox(width: 8),
+              ],
+              buildResetButton(dense: true),
+            ],
+          ),
         ],
       ),
     );
@@ -2152,7 +2183,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
 
                         return Column(
                           children: [
-                            if (isDesktop) ...[
+                            if (isDesktop && selectionMode) ...[
                               _buildDesktopSelectionControls(groupedChemicals),
                               const SizedBox(height: 8),
                             ],
