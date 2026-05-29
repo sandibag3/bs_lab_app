@@ -38,6 +38,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
 
   String selectedAvailabilityFilter = 'All';
   String? selectedLocationFilter;
+  String selectedChemicalGroupFilter = 'All';
+  List<String> chemicalGroupFilters = const [];
   final ValueNotifier<Set<String>> selectedInventoryIdsNotifier =
       ValueNotifier<Set<String>>(<String>{});
   bool selectionMode = false;
@@ -130,6 +132,13 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
         if (!match) return false;
       }
 
+      if (selectedChemicalGroupFilter != 'All') {
+        final match = group.any(
+          (b) => _chemicalMatchesGroup(b, selectedChemicalGroupFilter),
+        );
+        if (!match) return false;
+      }
+
       return true;
     }).toList();
   }
@@ -138,8 +147,22 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     final list = [...grouped];
 
     list.sort((a, b) {
-      final aMain = _representativeBottle(a);
-      final bMain = _representativeBottle(b);
+      final aMain = _representativeBottleForCurrentFilters(a);
+      final bMain = _representativeBottleForCurrentFilters(b);
+
+      if (selectedChemicalGroupFilter != 'All') {
+        final labelComparison = compareChemicalLabelsNatural(
+          aMain.label,
+          bMain.label,
+        );
+        if (labelComparison != 0) {
+          return labelComparison;
+        }
+
+        return aMain.chemicalName.toLowerCase().compareTo(
+          bMain.chemicalName.toLowerCase(),
+        );
+      }
 
       switch (sortOption) {
         case InventorySortOption.nameAZ:
@@ -203,9 +226,136 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
       if (priorityComparison != 0) {
         return priorityComparison;
       }
-      return a.label.compareTo(b.label);
+      return compareChemicalLabelsNatural(a.label, b.label);
     });
     return sorted.first;
+  }
+
+  List<ChemicalModel> _bottlesForSelectedChemicalGroup(
+    List<ChemicalModel> bottles,
+  ) {
+    if (selectedChemicalGroupFilter == 'All') {
+      return bottles;
+    }
+
+    final matchingBottles = bottles
+        .where(
+          (bottle) => _chemicalMatchesGroup(
+            bottle,
+            selectedChemicalGroupFilter,
+          ),
+        )
+        .toList();
+
+    return matchingBottles.isEmpty ? bottles : matchingBottles;
+  }
+
+  ChemicalModel _representativeBottleForCurrentFilters(
+    List<ChemicalModel> bottles,
+  ) {
+    return _representativeBottle(_bottlesForSelectedChemicalGroup(bottles));
+  }
+
+  String _optionKey(String value) => value.trim().toLowerCase();
+
+  String _labelDerivedChemicalGroup(String label) {
+    final trimmed = label.trim();
+    if (trimmed.isEmpty || !trimmed.contains('-')) return '';
+    return trimmed.split('-').first.trim();
+  }
+
+  String _explicitChemicalGroup(ChemicalModel chemical) {
+    return chemical.sheetTab.trim();
+  }
+
+  bool _chemicalMatchesGroup(ChemicalModel chemical, String group) {
+    final selected = _optionKey(group);
+    if (selected.isEmpty || selected == 'all') return true;
+
+    final explicit = _explicitChemicalGroup(chemical);
+    if (_optionKey(explicit) == selected) return true;
+
+    final derived = _labelDerivedChemicalGroup(chemical.label);
+    return _optionKey(derived) == selected;
+  }
+
+  List<String> _chemicalGroupOptionsFrom(List<ChemicalModel> chemicals) {
+    final seen = <String>{};
+    final options = <String>[];
+
+    void addOption(String value) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return;
+
+      final key = _optionKey(trimmed);
+      if (key == 'all') return;
+      if (seen.add(key)) {
+        options.add(trimmed);
+      }
+    }
+
+    for (final chemical in chemicals) {
+      addOption(_explicitChemicalGroup(chemical));
+      addOption(_labelDerivedChemicalGroup(chemical.label));
+    }
+
+    options.sort(compareChemicalLabelsNatural);
+    return options;
+  }
+
+  void _syncChemicalGroupFilters(List<ChemicalModel> chemicals) {
+    final nextFilters = _chemicalGroupOptionsFrom(chemicals);
+    if (nextFilters.length == chemicalGroupFilters.length) {
+      var unchanged = true;
+      for (var i = 0; i < nextFilters.length; i++) {
+        if (nextFilters[i] != chemicalGroupFilters[i]) {
+          unchanged = false;
+          break;
+        }
+      }
+      if (unchanged) return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        chemicalGroupFilters = nextFilters;
+      });
+    });
+  }
+
+  int compareChemicalLabelsNatural(String a, String b) {
+    final aTokens = _naturalSortTokens(a);
+    final bTokens = _naturalSortTokens(b);
+    final maxLength = aTokens.length > bTokens.length
+        ? aTokens.length
+        : bTokens.length;
+
+    for (var i = 0; i < maxLength; i++) {
+      if (i >= aTokens.length) return -1;
+      if (i >= bTokens.length) return 1;
+
+      final aToken = aTokens[i];
+      final bToken = bTokens[i];
+      final aNumber = int.tryParse(aToken);
+      final bNumber = int.tryParse(bToken);
+
+      if (aNumber != null && bNumber != null) {
+        final comparison = aNumber.compareTo(bNumber);
+        if (comparison != 0) return comparison;
+        continue;
+      }
+
+      final comparison = aToken.toLowerCase().compareTo(bToken.toLowerCase());
+      if (comparison != 0) return comparison;
+    }
+
+    return a.compareTo(b);
+  }
+
+  List<String> _naturalSortTokens(String value) {
+    final matches = RegExp(r'\d+|\D+').allMatches(value.trim());
+    return matches.map((match) => match.group(0) ?? '').toList();
   }
 
   List<List<ChemicalModel>> processChemicals(List<ChemicalModel> rawChemicals) {
@@ -220,7 +370,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
         if (priorityComparison != 0) {
           return priorityComparison;
         }
-        return a.label.compareTo(b.label);
+        return compareChemicalLabelsNatural(a.label, b.label);
       });
     }
 
@@ -289,7 +439,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
 
   String _representativeInventoryId(List<ChemicalModel> bottles) {
     // TODO: Expand desktop bulk actions to all bottle IDs in grouped CAS rows.
-    return _representativeBottle(bottles).id;
+    return _representativeBottleForCurrentFilters(bottles).id;
   }
 
   List<String> _visibleRepresentativeInventoryIds(
@@ -320,7 +470,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     final selectedIds = _selectedVisibleInventoryIds(groupedChemicals).toSet();
 
     return groupedChemicals
-        .map(_representativeBottle)
+        .map(_representativeBottleForCurrentFilters)
         .where((chemical) => selectedIds.contains(chemical.id))
         .toList();
   }
@@ -1103,7 +1253,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     List<ChemicalModel> bottles, {
     bool showSelection = false,
   }) {
-    final main = _representativeBottle(bottles);
+    final main = _representativeBottleForCurrentFilters(bottles);
     final representativeInventoryId = _representativeInventoryId(bottles);
     final int total = bottles.length;
     final isDesktop = MediaQuery.sizeOf(context).width >= 900;
@@ -1480,6 +1630,66 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     );
   }
 
+  Widget buildChemicalGroupDropdown({bool dense = false}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final options = [
+      ...chemicalGroupFilters,
+      if (selectedChemicalGroupFilter != 'All' &&
+          !chemicalGroupFilters.any(
+            (group) =>
+                _optionKey(group) == _optionKey(selectedChemicalGroupFilter),
+          ))
+        selectedChemicalGroupFilter,
+    ];
+
+    return SizedBox(
+      height: dense ? 42 : null,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        decoration: BoxDecoration(
+          color: palette.panel,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: palette.border),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: selectedChemicalGroupFilter,
+            dropdownColor: palette.panel,
+            style: TextStyle(color: colorScheme.onSurface),
+            isExpanded: true,
+            hint: const Text('Chemical Group'),
+            items: [
+              DropdownMenuItem<String>(
+                value: 'All',
+                child: Text(
+                  'Chemical Group: All',
+                  style: TextStyle(color: colorScheme.onSurface),
+                ),
+              ),
+              ...options.map((group) {
+                return DropdownMenuItem<String>(
+                  value: group,
+                  child: Text(
+                    group,
+                    style: TextStyle(color: colorScheme.onSurface),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }),
+            ],
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                selectedChemicalGroupFilter = value;
+              });
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget buildResetButton({bool dense = false}) {
     return Align(
       alignment: Alignment.centerLeft,
@@ -1508,6 +1718,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
               _searchController.clear();
               selectedAvailabilityFilter = 'All';
               selectedLocationFilter = null;
+              selectedChemicalGroupFilter = 'All';
               sortOption = InventorySortOption.nameAZ;
             });
           },
@@ -1534,6 +1745,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
           Expanded(child: buildAvailabilityChips(dense: true)),
           const SizedBox(width: 12),
           SizedBox(width: 150, child: buildSortDropdown(dense: true)),
+          const SizedBox(width: 10),
+          SizedBox(width: 150, child: buildChemicalGroupDropdown(dense: true)),
           const SizedBox(width: 10),
           SizedBox(width: 160, child: buildLocationDropdown(dense: true)),
           const SizedBox(width: 10),
@@ -1864,6 +2077,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                       ],
                     ),
                     const SizedBox(height: 12),
+                    buildChemicalGroupDropdown(),
+                    const SizedBox(height: 12),
                     buildResetButton(),
                   ],
                   SizedBox(height: isDesktop ? 12 : 14),
@@ -1911,6 +2126,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                         }
 
                         final raw = snapshot.data ?? [];
+                        _syncChemicalGroupFilters(raw);
                         final groupedChemicals = processChemicals(raw);
 
                         if (raw.isEmpty && !selectionMode) {
