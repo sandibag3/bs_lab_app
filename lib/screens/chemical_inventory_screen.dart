@@ -1252,6 +1252,8 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   Widget buildGroupedChemicalCard(
     List<ChemicalModel> bottles, {
     bool showSelection = false,
+    List<ChemicalModel>? navigationChemicals,
+    int? navigationIndex,
   }) {
     final main = _representativeBottleForCurrentFilters(bottles);
     final representativeInventoryId = _representativeInventoryId(bottles);
@@ -1334,7 +1336,11 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
             final selectedGroup = await Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (_) => ChemicalDetailScreen(chemical: main),
+                builder: (_) => ChemicalDetailScreen(
+                  chemical: main,
+                  navigationChemicals: navigationChemicals,
+                  navigationIndex: navigationIndex,
+                ),
               ),
             );
 
@@ -2180,6 +2186,9 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                             isDesktop && selectionMode && showSelectedOnly
                             ? _selectedVisibleGroups(groupedChemicals)
                             : groupedChemicals;
+                        final navigationChemicals = displayedChemicals
+                            .map(_representativeBottleForCurrentFilters)
+                            .toList();
 
                         return Column(
                           children: [
@@ -2204,6 +2213,9 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
                                           displayedChemicals[index],
                                           showSelection:
                                               isDesktop && selectionMode,
+                                          navigationChemicals:
+                                              navigationChemicals,
+                                          navigationIndex: index,
                                         );
                                       },
                                     ),
