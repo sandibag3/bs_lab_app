@@ -75,6 +75,122 @@ class InventoryService {
     });
   }
 
+  String _normalizedLabel(String label) => label.trim().toUpperCase();
+
+  Future<String?> getExistingLabelForCas({
+    required String labId,
+    required String cas,
+    String? excludeDocId,
+  }) async {
+    final cleanLabId = labId.trim();
+    final cleanCas = cas.trim();
+    final cleanExcludeId = excludeDocId?.trim() ?? '';
+
+    if (cleanLabId.isEmpty || cleanCas.isEmpty) {
+      return null;
+    }
+
+    final snapshot = await inventoryRef
+        .where('labId', isEqualTo: cleanLabId)
+        .where('cas', isEqualTo: cleanCas)
+        .limit(50)
+        .get();
+
+    final labels = <String>[];
+    for (final doc in snapshot.docs) {
+      if (cleanExcludeId.isNotEmpty && doc.id == cleanExcludeId) {
+        continue;
+      }
+
+      final data = doc.data() as Map<String, dynamic>;
+      final label = (data['label'] ?? '').toString().trim();
+      if (label.isNotEmpty) {
+        labels.add(label);
+      }
+    }
+
+    if (labels.isEmpty) return null;
+
+    labels.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    return labels.first;
+  }
+
+  Future<String?> getCasForLabel({
+    required String labId,
+    required String label,
+    String? excludeDocId,
+  }) async {
+    final cleanLabId = labId.trim();
+    final cleanLabel = label.trim();
+    final normalizedLabel = _normalizedLabel(cleanLabel);
+    final cleanExcludeId = excludeDocId?.trim() ?? '';
+
+    if (cleanLabId.isEmpty || cleanLabel.isEmpty) {
+      return null;
+    }
+
+    final snapshot = await inventoryRef
+        .where('labId', isEqualTo: cleanLabId)
+        .limit(1000)
+        .get();
+
+    for (final doc in snapshot.docs) {
+      if (cleanExcludeId.isNotEmpty && doc.id == cleanExcludeId) {
+        continue;
+      }
+
+      final data = doc.data() as Map<String, dynamic>;
+      final existingLabel = (data['label'] ?? '').toString();
+      if (_normalizedLabel(existingLabel) != normalizedLabel) {
+        continue;
+      }
+
+      final existingCas = (data['cas'] ?? '').toString().trim();
+      if (existingCas.isNotEmpty) {
+        return existingCas;
+      }
+    }
+
+    return null;
+  }
+
+  Future<String?> validateCasLabelConsistency({
+    required String labId,
+    required String cas,
+    required String label,
+    String? excludeDocId,
+  }) async {
+    final cleanCas = cas.trim();
+    final cleanLabel = label.trim();
+
+    if (cleanCas.isEmpty || cleanLabel.isEmpty) {
+      return null;
+    }
+
+    final existingLabel = await getExistingLabelForCas(
+      labId: labId,
+      cas: cleanCas,
+      excludeDocId: excludeDocId,
+    );
+
+    if (existingLabel != null &&
+        _normalizedLabel(existingLabel) != _normalizedLabel(cleanLabel)) {
+      return 'This CAS already uses label $existingLabel. Please use the existing label to keep inventory consistent.';
+    }
+
+    final existingCas = await getCasForLabel(
+      labId: labId,
+      label: cleanLabel,
+      excludeDocId: excludeDocId,
+    );
+
+    if (existingCas != null && existingCas.trim() != cleanCas) {
+      return 'Label $cleanLabel is already assigned to CAS $existingCas.';
+    }
+
+    return null;
+  }
+
   Future<void> updateChemical(ChemicalModel chemical) async {
     final cleanDocId = chemical.id.trim();
     if (cleanDocId.isEmpty) {

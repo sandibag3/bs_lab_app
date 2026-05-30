@@ -13,8 +13,14 @@ import '../theme/labmate_theme.dart';
 class AddNewChemicalScreen extends StatefulWidget {
   final OrderModel? order;
   final ChemicalModel? manualPrefill;
+  final ChemicalModel? editChemical;
 
-  const AddNewChemicalScreen({super.key, this.order, this.manualPrefill});
+  const AddNewChemicalScreen({
+    super.key,
+    this.order,
+    this.manualPrefill,
+    this.editChemical,
+  });
 
   @override
   State<AddNewChemicalScreen> createState() => _AddNewChemicalScreenState();
@@ -168,7 +174,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     super.initState();
 
     final order = widget.order;
-    final manualPrefill = widget.manualPrefill;
+    final manualPrefill = widget.editChemical ?? widget.manualPrefill;
     final deliveredDate = order?.deliveredAt?.toDate();
 
     chemicalNameController = TextEditingController(
@@ -202,7 +208,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       text: manualPrefill?.orderedBy ?? order?.orderedBy ?? '',
     );
     labelController = TextEditingController(text: manualPrefill?.label ?? '');
-    sheetTabController = TextEditingController();
+    sheetTabController = TextEditingController(
+      text: manualPrefill?.sheetTab ?? '',
+    );
     carbonCountController = TextEditingController();
     catalystMetalController = TextEditingController();
     customLocationController = TextEditingController();
@@ -253,7 +261,12 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
     _loadHiddenDropdownOptionPreferences();
     _loadExistingDropdownOptions();
-    _prefillFromCas();
+    if (widget.editChemical != null) {
+      selectedEntryType = 'Edit Chemical';
+      isLoadingMetadata = false;
+    } else {
+      _prefillFromCas();
+    }
   }
 
   bool _matchesAnyOption(String value, Iterable<String> options) {
@@ -1114,19 +1127,82 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   }
 
   Future<void> submitChemicalEntry() async {
-    sheetTabController.text = _getSheetTabFromSelection();
+    final editChemical = widget.editChemical;
+    final isEditMode = editChemical != null;
+    final isAddingExistingBottle = selectedEntryType == 'Existing Chemical';
+    if (!isEditMode && !isAddingExistingBottle) {
+      sheetTabController.text = _getSheetTabFromSelection();
+    }
 
     if (!_formKey.currentState!.validate()) return;
 
+    final labId =
+        editChemical?.labId ??
+        AppState.instance.resolveWriteLabId(widget.order?.labId);
+    final cas = casController.text.trim();
+    var label = labelController.text.trim();
+
+    if (!isEditMode && cas.isNotEmpty) {
+      final existingChemical = await inventoryService.findExistingByCas(cas);
+      final existingLabel = existingChemical?.label.trim() ?? '';
+
+      if (existingChemical != null) {
+        final bottleCount = await inventoryService.getBottleCountByCas(cas);
+        if (!mounted) return;
+        final isReusingDifferentLabel =
+            existingLabel.isNotEmpty &&
+            _normalizedOption(existingLabel) != _normalizedOption(label);
+
+        setState(() {
+          selectedEntryType = 'Existing Chemical';
+          existingBottleCount = bottleCount;
+          if (existingLabel.isNotEmpty) {
+            labelController.text = existingLabel;
+            label = existingLabel;
+          }
+          if (existingChemical.sheetTab.trim().isNotEmpty) {
+            sheetTabController.text = existingChemical.sheetTab.trim();
+          }
+        });
+
+        if (isReusingDifferentLabel) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Existing CAS found. Reusing label $existingLabel.',
+              ),
+            ),
+          );
+        }
+      }
+    }
+
+    final consistencyError = await inventoryService.validateCasLabelConsistency(
+      labId: labId,
+      cas: cas,
+      label: label,
+      excludeDocId: editChemical?.id,
+    );
+
+    if (consistencyError != null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(consistencyError)));
+      return;
+    }
+
+    if (!mounted) return;
+
     final chemical = ChemicalModel(
-      id: '',
-      labId: AppState.instance.resolveWriteLabId(widget.order?.labId),
-      label: labelController.text.trim(),
+      id: editChemical?.id ?? '',
+      labId: labId,
+      label: label,
       chemicalName: chemicalNameController.text.trim(),
-      cas: casController.text.trim(),
+      cas: cas,
       formula: formulaController.text.trim(),
       molWt: molWtController.text.trim(),
-      availability: 'Available',
+      availability: editChemical?.availability ?? 'Available',
       texture: selectedTexture ?? '',
       location: _resolvedLocation,
       quantity: quantityController.text.trim(),
@@ -1139,25 +1215,38 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       sheetTab: sheetTabController.text.trim(),
     );
 
-    await inventoryService.addChemical(chemical);
+    if (isEditMode) {
+      await inventoryService.updateChemical(chemical);
+    } else {
+      await inventoryService.addChemical(chemical);
+    }
 
-    if (widget.order != null) {
+    if (!isEditMode && widget.order != null) {
       await orderService.markInventoryAdded(docId: widget.order!.id);
     }
     await ActivityService().addActivity(
       labId: chemical.labId,
-      type: 'chemical_inventory_added',
-      message: 'Chemical entry confirmed for ${chemical.chemicalName}',
+      type: isEditMode
+          ? 'chemical_inventory_updated'
+          : 'chemical_inventory_added',
+      message: isEditMode
+          ? 'Chemical entry updated for ${chemical.chemicalName}'
+          : 'Chemical entry confirmed for ${chemical.chemicalName}',
       actorName: AppState.instance.authenticatedUserName,
       createdBy: AppState.instance.authenticatedUserId,
-      relatedId: widget.order?.id ?? chemical.cas,
+      relatedId: isEditMode ? chemical.id : widget.order?.id ?? chemical.cas,
     );
 
     if (!mounted) return;
 
-    final message = selectedEntryType == 'Existing Chemical'
-        ? 'New bottle added under existing label ${labelController.text.trim()}'
-        : 'New chemical added to inventory';
+    final String message;
+    if (isEditMode) {
+      message = 'Chemical bottle updated';
+    } else if (selectedEntryType == 'Existing Chemical') {
+      message = 'New bottle added under existing label ${labelController.text.trim()}';
+    } else {
+      message = 'New chemical added to inventory';
+    }
 
     ScaffoldMessenger.of(
       context,
@@ -1168,13 +1257,32 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isExisting = selectedEntryType == 'Existing Chemical';
+    final isEditMode = widget.editChemical != null;
+    final isExisting = !isEditMode && selectedEntryType == 'Existing Chemical';
+    final identityLocked = isExisting || isEditMode;
     final subcategories = getSubcategories(selectedCategory);
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
+    final String helperText;
+    final String submitLabel;
+    if (isEditMode) {
+      helperText =
+          'Update this bottle record without creating a duplicate inventory entry.';
+      submitLabel = 'Save Changes';
+    } else if (isExisting) {
+      helperText =
+          'CAS already exists in inventory. Same label is reused, and this confirm step adds a new bottle under that chemical.';
+      submitLabel = 'Add New Bottle';
+    } else {
+      helperText =
+          'CAS is new to inventory. Category-based label generation is active. Functional category is prioritized over carbon-count category.';
+      submitLabel = 'Confirm Entry';
+    }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add New Chemical')),
+      appBar: AppBar(
+        title: Text(isEditMode ? 'Edit Chemical' : 'Add New Chemical'),
+      ),
       body: SafeArea(
         child: isLoadingMetadata
             ? const Center(child: CircularProgressIndicator())
@@ -1246,7 +1354,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                           borderRadius: BorderRadius.circular(16),
                         ),
                         child: Text(
-                          'Existing chemical found. Label ${labelController.text.trim()} will be reused and this entry will be saved as bottle ${existingBottleCount + 1}.',
+                          'Existing CAS found. Reusing label ${labelController.text.trim()}. This entry will be saved as bottle ${existingBottleCount + 1}.',
                           style: TextStyle(
                             color: colorScheme.onSurface,
                             fontSize: 13.2,
@@ -1261,7 +1369,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       value: selectedCategory,
                       builtInOptions: categories,
                       customOptions: customCategoryOptions,
-                      enabled: !isExisting,
+                      enabled: !identityLocked,
                       onChanged: (value) async {
                         if (value == null) return;
 
@@ -1309,7 +1417,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                               ),
                             )
                             .toList(),
-                        onChanged: isExisting
+                        onChanged: identityLocked
                             ? null
                             : (value) async {
                                 setState(() {
@@ -1321,6 +1429,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                         validator: (value) {
                           if ((selectedCategory == 'Base' ||
                                   selectedCategory == 'Ligand') &&
+                              !identityLocked &&
                               (value == null || value.trim().isEmpty)) {
                             return 'Select subcategory';
                           }
@@ -1332,12 +1441,12 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     if (selectedCategory == 'General') ...[
                       TextFormField(
                         controller: carbonCountController,
-                        readOnly: isExisting,
+                        readOnly: identityLocked,
                         keyboardType: TextInputType.number,
                         style: TextStyle(color: colorScheme.onSurface),
                         decoration: inputDecoration('Carbon Count'),
                         onChanged: (_) async {
-                          if (!isExisting) {
+                          if (!identityLocked) {
                             setState(() {
                               sheetTabController.text =
                                   _getSheetTabFromSelection();
@@ -1346,7 +1455,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                           }
                         },
                         validator: (value) {
-                          if (!isExisting && selectedCategory == 'General') {
+                          if (!identityLocked &&
+                              selectedCategory == 'General') {
                             final count = int.tryParse(value?.trim() ?? '');
                             if (count == null || count <= 0) {
                               return 'Enter valid carbon count';
@@ -1360,18 +1470,19 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     if (selectedCategory == 'Catalyst') ...[
                       TextFormField(
                         controller: catalystMetalController,
-                        readOnly: isExisting,
+                        readOnly: identityLocked,
                         style: TextStyle(color: colorScheme.onSurface),
                         decoration: inputDecoration(
                           'Catalyst Metal (Pd, Cu, Fe...)',
                         ),
                         onChanged: (_) async {
-                          if (!isExisting) {
+                          if (!identityLocked) {
                             await _generateLabelForNewChemical();
                           }
                         },
                         validator: (value) {
-                          if (!isExisting && selectedCategory == 'Catalyst') {
+                          if (!identityLocked &&
+                              selectedCategory == 'Catalyst') {
                             if (value == null || value.trim().isEmpty) {
                               return 'Enter catalyst metal';
                             }
@@ -1534,6 +1645,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       style: TextStyle(color: colorScheme.onSurface),
                       decoration: inputDecoration('Sheet Tab'),
                       validator: (value) {
+                        if (isEditMode) {
+                          return null;
+                        }
                         if (value == null || value.trim().isEmpty) {
                           return 'Sheet tab could not be determined';
                         }
@@ -1549,9 +1663,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                         border: Border.all(color: palette.border),
                       ),
                       child: Text(
-                        isExisting
-                            ? 'CAS already exists in inventory. Same label is reused, and this confirm step adds a new bottle under that chemical.'
-                            : 'CAS is new to inventory. Category-based label generation is active. Functional category is prioritized over carbon-count category.',
+                        helperText,
                         style: TextStyle(
                           color: palette.mutedText,
                           fontSize: 13,
@@ -1561,7 +1673,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       ),
                     ),
                     const SizedBox(height: 18),
-                    if (!isExisting)
+                    if (!identityLocked)
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton(
@@ -1580,7 +1692,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                           ),
                         ),
                       ),
-                    if (!isExisting) const SizedBox(height: 14),
+                    if (!identityLocked) const SizedBox(height: 14),
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
@@ -1591,7 +1703,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                         child: Text(
-                          isExisting ? 'Add New Bottle' : 'Confirm Entry',
+                          submitLabel,
                           style: const TextStyle(fontSize: 15),
                         ),
                       ),
