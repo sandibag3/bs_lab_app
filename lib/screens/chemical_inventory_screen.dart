@@ -258,6 +258,105 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
 
   String _optionKey(String value) => value.trim().toLowerCase();
 
+  static const Map<String, String> _chemicalGroupAliases = {
+    'a': 'Acids',
+    'acid': 'Acids',
+    'acids': 'Acids',
+    'b': 'Bases',
+    'base': 'Bases',
+    'bases': 'Bases',
+    'm': 'Metals',
+    'metal': 'Metals',
+    'metals': 'Metals',
+    's': 'Salts',
+    'salt': 'Salts',
+    'salts': 'Salts',
+    'catalyst': 'Catalysts',
+    'catalysts': 'Catalysts',
+    'ligand': 'Ligands',
+    'ligands': 'Ligands',
+  };
+
+  static const Set<String> _catalystGroupAliases = {
+    'cu',
+    'copper',
+    'ni',
+    'nickel',
+    'fe',
+    'iron',
+    'pd',
+    'palladium',
+    'rh',
+    'rhodium',
+    'ru',
+    'ruthenium',
+    'ir',
+    'iridium',
+    'co',
+    'cobalt',
+    'mn',
+    'manganese',
+    'zn',
+    'zinc',
+    'pt',
+    'platinum',
+    'ag',
+    'silver',
+    'au',
+    'gold',
+    'mo',
+    'molybdenum',
+    'cr',
+    'chromium',
+    'v',
+    'vanadium',
+    'w',
+    'tungsten',
+    'ti',
+    'titanium',
+    'zr',
+    'zirconium',
+  };
+
+  static const Set<String> _ligandGroupAliases = {
+    'phos',
+    'phosphine',
+    'phosphines',
+    'phen',
+    'phenanthroline',
+    'tpy',
+    'terpy',
+    'terpyridine',
+    'bipy',
+    'bipyridine',
+    'bpy',
+    'dppf',
+    'dppe',
+    'dppp',
+    'dppb',
+    'binap',
+    'xphos',
+    'sphos',
+    'pph3',
+    'pcy3',
+  };
+
+  String _normalizedChemicalGroupDisplay(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return '';
+
+    final key = _optionKey(trimmed);
+    final alias = _chemicalGroupAliases[key];
+    if (alias != null) return alias;
+    if (_catalystGroupAliases.contains(key)) return 'Catalysts';
+    if (_ligandGroupAliases.contains(key)) return 'Ligands';
+    return trimmed;
+  }
+
+  String _chemicalGroupFilterKey(String value) {
+    return _optionKey(_normalizedChemicalGroupDisplay(value));
+  }
+
   String _labelDerivedChemicalGroup(String label) {
     final trimmed = label.trim();
     if (trimmed.isEmpty || !trimmed.contains('-')) return '';
@@ -269,14 +368,14 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   }
 
   bool _chemicalMatchesGroup(ChemicalModel chemical, String group) {
-    final selected = _optionKey(group);
+    final selected = _chemicalGroupFilterKey(group);
     if (selected.isEmpty || selected == 'all') return true;
 
     final explicit = _explicitChemicalGroup(chemical);
-    if (_optionKey(explicit) == selected) return true;
+    if (_chemicalGroupFilterKey(explicit) == selected) return true;
 
     final derived = _labelDerivedChemicalGroup(chemical.label);
-    return _optionKey(derived) == selected;
+    return _chemicalGroupFilterKey(derived) == selected;
   }
 
   List<String> _chemicalGroupOptionsFrom(List<ChemicalModel> chemicals) {
@@ -284,10 +383,10 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
     final options = <String>[];
 
     void addOption(String value) {
-      final trimmed = value.trim();
+      final trimmed = _normalizedChemicalGroupDisplay(value);
       if (trimmed.isEmpty) return;
 
-      final key = _optionKey(trimmed);
+      final key = _chemicalGroupFilterKey(trimmed);
       if (key == 'all') return;
       if (seen.add(key)) {
         options.add(trimmed);
@@ -1639,14 +1738,18 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
   Widget buildChemicalGroupDropdown({bool dense = false}) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
+    final selectedValue = selectedChemicalGroupFilter == 'All'
+        ? 'All'
+        : _normalizedChemicalGroupDisplay(selectedChemicalGroupFilter);
     final options = [
       ...chemicalGroupFilters,
-      if (selectedChemicalGroupFilter != 'All' &&
+      if (selectedValue != 'All' &&
           !chemicalGroupFilters.any(
             (group) =>
-                _optionKey(group) == _optionKey(selectedChemicalGroupFilter),
+                _chemicalGroupFilterKey(group) ==
+                _chemicalGroupFilterKey(selectedValue),
           ))
-        selectedChemicalGroupFilter,
+        selectedValue,
     ];
 
     return SizedBox(
@@ -1660,7 +1763,7 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
         ),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
-            value: selectedChemicalGroupFilter,
+            value: selectedValue,
             dropdownColor: palette.panel,
             style: TextStyle(color: colorScheme.onSurface),
             isExpanded: true,
@@ -1687,7 +1790,9 @@ class _ChemicalInventoryScreenState extends State<ChemicalInventoryScreen> {
             onChanged: (value) {
               if (value == null) return;
               setState(() {
-                selectedChemicalGroupFilter = value;
+                selectedChemicalGroupFilter = value == 'All'
+                    ? 'All'
+                    : _normalizedChemicalGroupDisplay(value);
               });
             },
           ),
