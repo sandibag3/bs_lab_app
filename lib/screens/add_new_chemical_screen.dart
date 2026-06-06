@@ -620,16 +620,36 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
             : catalystMetalController.text.trim(),
       );
 
-      final labelData = await chemicalLabelService.generateLabel(
+      final labId = AppState.instance.resolveWriteLabId(
+        widget.order?.labId,
+      );
+      final missingLabels = await chemicalLabelService.findMissingLabelsForPrefix(
+        labId: labId,
         prefix: prefix,
       );
+      final suggestedLabel = await chemicalLabelService.suggestNextLabelForPrefix(
+        labId: labId,
+        prefix: prefix,
+      );
+      final usedMissingLabel =
+          missingLabels.isNotEmpty && suggestedLabel == missingLabels.first;
 
       if (!mounted) return;
 
       setState(() {
-        labelController.text = labelData['label'];
+        labelController.text = suggestedLabel;
         sheetTabController.text = _getSheetTabFromSelection();
       });
+
+      if (usedMissingLabel) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Missing label $suggestedLabel found. Using it to keep inventory numbering consistent.',
+            ),
+          ),
+        );
+      }
     } catch (_) {
       if (!mounted) return;
 

@@ -64,6 +64,78 @@ class ChemicalLabelService {
     return value[0].toUpperCase() + value.substring(1).toLowerCase();
   }
 
+  int? parseLabelSerial({
+    required String label,
+    required String prefix,
+  }) {
+    final cleanLabel = label.trim();
+    final cleanPrefix = prefix.trim();
+    if (cleanLabel.isEmpty || cleanPrefix.isEmpty) return null;
+
+    final match = RegExp(
+      '^${RegExp.escape(cleanPrefix)}-(\\d+)\$',
+      caseSensitive: false,
+    ).firstMatch(cleanLabel);
+
+    if (match == null) return null;
+    return int.tryParse(match.group(1) ?? '');
+  }
+
+  Future<List<String>> findMissingLabelsForPrefix({
+    required String labId,
+    required String prefix,
+  }) async {
+    final cleanLabId = labId.trim();
+    final cleanPrefix = prefix.trim();
+    if (cleanLabId.isEmpty || cleanPrefix.isEmpty) return [];
+
+    final query = await _firestore
+        .collection('inventory')
+        .where('labId', isEqualTo: cleanLabId)
+        .where('label', isGreaterThanOrEqualTo: '$cleanPrefix-')
+        .where('label', isLessThan: '$cleanPrefix-\uf8ff')
+        .get();
+
+    final serials = <int>{};
+    for (final doc in query.docs) {
+      final label = (doc.data()['label'] ?? '').toString();
+      final serial = parseLabelSerial(label: label, prefix: cleanPrefix);
+      if (serial != null && serial > 0) {
+        serials.add(serial);
+      }
+    }
+
+    if (serials.isEmpty) return [];
+
+    final maxSerial = serials.reduce((a, b) => a > b ? a : b);
+    final missingLabels = <String>[];
+    for (var serial = 1; serial < maxSerial; serial++) {
+      if (!serials.contains(serial)) {
+        missingLabels.add('$cleanPrefix-$serial');
+      }
+    }
+
+    return missingLabels;
+  }
+
+  Future<String> suggestNextLabelForPrefix({
+    required String labId,
+    required String prefix,
+  }) async {
+    final cleanPrefix = prefix.trim();
+    final missingLabels = await findMissingLabelsForPrefix(
+      labId: labId,
+      prefix: cleanPrefix,
+    );
+
+    if (missingLabels.isNotEmpty) {
+      return missingLabels.first;
+    }
+
+    final labelData = await generateLabel(prefix: cleanPrefix);
+    return (labelData['label'] ?? '').toString();
+  }
+
   Future<Map<String, dynamic>> generateLabel({
     required String prefix,
   }) async {
