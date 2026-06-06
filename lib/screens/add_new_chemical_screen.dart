@@ -623,14 +623,41 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       final labId = AppState.instance.resolveWriteLabId(
         widget.order?.labId,
       );
-      final missingLabels = await chemicalLabelService.findMissingLabelsForPrefix(
-        labId: labId,
-        prefix: prefix,
-      );
-      final suggestedLabel = await chemicalLabelService.suggestNextLabelForPrefix(
-        labId: labId,
-        prefix: prefix,
-      );
+      debugPrint('AddNewChemical: label prefix used: $prefix');
+
+      List<String> missingLabels = const [];
+      try {
+        missingLabels = await chemicalLabelService.findMissingLabelsForPrefix(
+          labId: labId,
+          prefix: prefix,
+        );
+      } catch (error) {
+        debugPrint(
+          'AddNewChemical: missing-label lookup failed for $prefix. Fallback path triggered. $error',
+        );
+      }
+
+      String suggestedLabel;
+      try {
+        suggestedLabel = await chemicalLabelService.suggestNextLabelForPrefix(
+          labId: labId,
+          prefix: prefix,
+        );
+      } catch (suggestionError) {
+        debugPrint(
+          'AddNewChemical: suggestion failed for $prefix. Fallback path triggered. $suggestionError',
+        );
+        final fallbackLabelData = await chemicalLabelService.generateLabel(
+          prefix: prefix,
+        );
+        suggestedLabel = (fallbackLabelData['label'] ?? '').toString().trim();
+        if (suggestedLabel.isEmpty) {
+          throw Exception('Generated label was empty.');
+        }
+      }
+
+      debugPrint('AddNewChemical: generated label: $suggestedLabel');
+      debugPrint('AddNewChemical: chosen label: $suggestedLabel');
       final usedMissingLabel =
           missingLabels.isNotEmpty && suggestedLabel == missingLabels.first;
 
@@ -645,7 +672,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Missing label $suggestedLabel found. Using it to keep inventory numbering consistent.',
+              'Inventory numbering consistency\nMissing labels were detected in $prefix. Using $suggestedLabel to keep inventory numbering organized.',
             ),
           ),
         );

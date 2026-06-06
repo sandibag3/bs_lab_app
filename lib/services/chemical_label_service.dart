@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import '../app_state.dart';
 
 class ChemicalLabelService {
@@ -68,17 +69,21 @@ class ChemicalLabelService {
     required String label,
     required String prefix,
   }) {
-    final cleanLabel = label.trim();
-    final cleanPrefix = prefix.trim();
-    if (cleanLabel.isEmpty || cleanPrefix.isEmpty) return null;
+    try {
+      final cleanLabel = label.trim();
+      final cleanPrefix = prefix.trim();
+      if (cleanLabel.isEmpty || cleanPrefix.isEmpty) return null;
 
-    final match = RegExp(
-      '^${RegExp.escape(cleanPrefix)}-(\\d+)\$',
-      caseSensitive: false,
-    ).firstMatch(cleanLabel);
+      final match = RegExp(
+        '^${RegExp.escape(cleanPrefix)}-(\\d+)\$',
+        caseSensitive: false,
+      ).firstMatch(cleanLabel);
 
-    if (match == null) return null;
-    return int.tryParse(match.group(1) ?? '');
+      if (match == null) return null;
+      return int.tryParse(match.group(1) ?? '');
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<String>> findMissingLabelsForPrefix({
@@ -92,8 +97,6 @@ class ChemicalLabelService {
     final query = await _firestore
         .collection('inventory')
         .where('labId', isEqualTo: cleanLabId)
-        .where('label', isGreaterThanOrEqualTo: '$cleanPrefix-')
-        .where('label', isLessThan: '$cleanPrefix-\uf8ff')
         .get();
 
     final serials = <int>{};
@@ -105,9 +108,14 @@ class ChemicalLabelService {
       }
     }
 
+    final sortedSerials = serials.toList()..sort();
+    debugPrint(
+      'ChemicalLabelService: prefix=$cleanPrefix valid serials found=$sortedSerials',
+    );
+
     if (serials.isEmpty) return [];
 
-    final maxSerial = serials.reduce((a, b) => a > b ? a : b);
+    final maxSerial = sortedSerials.last;
     final missingLabels = <String>[];
     for (var serial = 1; serial < maxSerial; serial++) {
       if (!serials.contains(serial)) {
@@ -115,6 +123,9 @@ class ChemicalLabelService {
       }
     }
 
+    debugPrint(
+      'ChemicalLabelService: prefix=$cleanPrefix missing serials found=$missingLabels',
+    );
     return missingLabels;
   }
 
@@ -123,26 +134,59 @@ class ChemicalLabelService {
     required String prefix,
   }) async {
     final cleanPrefix = prefix.trim();
-    final missingLabels = await findMissingLabelsForPrefix(
-      labId: labId,
-      prefix: cleanPrefix,
-    );
+    if (cleanPrefix.isEmpty) return 'UNK-1';
+
+    List<String> missingLabels = const [];
+    try {
+      missingLabels = await findMissingLabelsForPrefix(
+        labId: labId,
+        prefix: cleanPrefix,
+      );
+    } catch (error) {
+      debugPrint(
+        'ChemicalLabelService: missing-label detection failed for $cleanPrefix, falling back. $error',
+      );
+    }
 
     if (missingLabels.isNotEmpty) {
+      debugPrint(
+        'ChemicalLabelService: prefix=$cleanPrefix chosen label=${missingLabels.first}',
+      );
       return missingLabels.first;
     }
 
-    final labelData = await generateLabel(prefix: cleanPrefix);
-    return (labelData['label'] ?? '').toString();
+    try {
+      final labelData = await generateLabel(prefix: cleanPrefix);
+      final label = (labelData['label'] ?? '').toString().trim();
+      final chosenLabel = label.isEmpty ? '$cleanPrefix-1' : label;
+      debugPrint(
+        'ChemicalLabelService: prefix=$cleanPrefix chosen label=$chosenLabel',
+      );
+      return chosenLabel;
+    } catch (error) {
+      debugPrint(
+        'ChemicalLabelService: generateLabel fallback failed for $cleanPrefix. $error',
+      );
+      rethrow;
+    }
   }
 
   Future<Map<String, dynamic>> generateLabel({
     required String prefix,
   }) async {
+    final cleanPrefix = prefix.trim();
+    if (cleanPrefix.isEmpty) {
+      return {
+        'prefix': cleanPrefix,
+        'serialNumber': 1,
+        'label': 'UNK-1',
+      };
+    }
+
     final query = await _firestore
         .collection('inventory') // fixed from chemicals -> inventory
-        .where('label', isGreaterThanOrEqualTo: '$prefix-')
-        .where('label', isLessThan: '$prefix-\uf8ff')
+        .where('label', isGreaterThanOrEqualTo: '$cleanPrefix-')
+        .where('label', isLessThan: '$cleanPrefix-\uf8ff')
         .get();
 
     int nextNumber = 1;
@@ -152,19 +196,16 @@ class ChemicalLabelService {
       if (!_matchesCurrentLab(data)) continue;
       final label = (data['label'] ?? '').toString().trim();
 
-      final match = RegExp('^${RegExp.escape(prefix)}-(\\d+)\$').firstMatch(label);
-      if (match != null) {
-        final number = int.tryParse(match.group(1) ?? '0') ?? 0;
-        if (number >= nextNumber) {
-          nextNumber = number + 1;
-        }
+      final number = parseLabelSerial(label: label, prefix: cleanPrefix);
+      if (number != null && number >= nextNumber) {
+        nextNumber = number + 1;
       }
     }
 
     return {
-      'prefix': prefix,
+      'prefix': cleanPrefix,
       'serialNumber': nextNumber,
-      'label': '$prefix-$nextNumber',
+      'label': '$cleanPrefix-$nextNumber',
     };
   }
 }
