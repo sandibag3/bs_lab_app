@@ -334,6 +334,123 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     }
   }
 
+  Future<void> _openEditLabelDialog(ChemicalModel chemical) async {
+    final controller = TextEditingController(text: chemical.label.trim());
+    final colorScheme = context.colorScheme;
+
+    final newLabel = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Edit chemical label'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            style: TextStyle(color: colorScheme.onSurface),
+            decoration: const InputDecoration(
+              labelText: 'Label',
+              helperText: 'This updates every bottle with this CAS.',
+            ),
+            onSubmitted: (value) {
+              final trimmed = value.trim();
+              if (trimmed.isNotEmpty) {
+                Navigator.of(dialogContext).pop(trimmed);
+              }
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final trimmed = controller.text.trim();
+                if (trimmed.isNotEmpty) {
+                  Navigator.of(dialogContext).pop(trimmed);
+                }
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+
+    final cleanLabel = newLabel?.trim() ?? '';
+    if (cleanLabel.isEmpty || cleanLabel == chemical.label.trim()) {
+      return;
+    }
+
+    final validationError = await inventoryService.validateCasLabelConsistency(
+      labId: chemical.labId,
+      cas: chemical.cas,
+      label: cleanLabel,
+      allowExistingLabelForSameCas: true,
+    );
+
+    if (!mounted) return;
+    if (validationError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(validationError)));
+      return;
+    }
+
+    try {
+      final updatedCount = await inventoryService.updateLabelForCas(
+        labId: chemical.labId,
+        cas: chemical.cas,
+        label: cleanLabel,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _currentChemical = _chemicalWithLabel(_currentChemical, cleanLabel);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Label updated for $updatedCount ${updatedCount == 1 ? 'bottle' : 'bottles'}.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not update the label. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  ChemicalModel _chemicalWithLabel(ChemicalModel chemical, String label) {
+    return ChemicalModel(
+      id: chemical.id,
+      labId: chemical.labId,
+      label: label,
+      chemicalName: chemical.chemicalName,
+      cas: chemical.cas,
+      formula: chemical.formula,
+      molWt: chemical.molWt,
+      availability: chemical.availability,
+      texture: chemical.texture,
+      location: chemical.location,
+      quantity: chemical.quantity,
+      brand: chemical.brand,
+      vendor: chemical.vendor,
+      catNumber: chemical.catNumber,
+      arrivalDate: chemical.arrivalDate,
+      orderedBy: chemical.orderedBy,
+      functionalGroups: chemical.functionalGroups,
+      sheetTab: chemical.sheetTab,
+      isActiveBottle: chemical.isActiveBottle,
+    );
+  }
+
   Future<void> _setActiveBottle(ChemicalModel bottle) async {
     try {
       await inventoryService.setActiveBottle(
@@ -1271,6 +1388,43 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
+  Widget _editableLabelBadge(ChemicalModel chemical) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: () => _openEditLabelDialog(chemical),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0x2214B8A6),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: const Color(0x3314B8A6)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                chemical.label,
+                style: const TextStyle(
+                  color: Color(0xFF14B8A6),
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(width: 6),
+              const Icon(
+                Icons.edit_outlined,
+                color: Color(0xFF14B8A6),
+                size: 14,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildNavigationOverlay({
     required bool isDesktop,
     required Widget child,
@@ -1425,24 +1579,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color(0x2214B8A6),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              representative.label,
-                              style: const TextStyle(
-                                color: Color(0xFF14B8A6),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
+                          _editableLabelBadge(representative),
                           const SizedBox(height: 10),
                           Text(
                             representative.chemicalName,
@@ -2119,24 +2256,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0x2214B8A6),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  chemical.label,
-                  style: const TextStyle(
-                    color: Color(0xFF14B8A6),
-                    fontWeight: FontWeight.w900,
-                    fontSize: 13,
-                  ),
-                ),
-              ),
+              _editableLabelBadge(chemical),
               const SizedBox(width: 10),
               Container(
                 padding: const EdgeInsets.symmetric(

@@ -119,11 +119,13 @@ class InventoryService {
     required String labId,
     required String label,
     String? excludeDocId,
+    String? differentFromCas,
   }) async {
     final cleanLabId = labId.trim();
     final cleanLabel = label.trim();
     final normalizedLabel = _normalizedLabel(cleanLabel);
     final cleanExcludeId = excludeDocId?.trim() ?? '';
+    final cleanDifferentFromCas = differentFromCas?.trim() ?? '';
 
     if (cleanLabId.isEmpty || cleanLabel.isEmpty) {
       return null;
@@ -147,6 +149,10 @@ class InventoryService {
 
       final existingCas = (data['cas'] ?? '').toString().trim();
       if (existingCas.isNotEmpty) {
+        if (cleanDifferentFromCas.isNotEmpty &&
+            existingCas == cleanDifferentFromCas) {
+          continue;
+        }
         return existingCas;
       }
     }
@@ -159,6 +165,7 @@ class InventoryService {
     required String cas,
     required String label,
     String? excludeDocId,
+    bool allowExistingLabelForSameCas = false,
   }) async {
     final cleanCas = cas.trim();
     final cleanLabel = label.trim();
@@ -173,7 +180,8 @@ class InventoryService {
       excludeDocId: excludeDocId,
     );
 
-    if (existingLabel != null &&
+    if (!allowExistingLabelForSameCas &&
+        existingLabel != null &&
         _normalizedLabel(existingLabel) != _normalizedLabel(cleanLabel)) {
       return 'This CAS already uses label $existingLabel. Please use the existing label to keep inventory consistent.';
     }
@@ -182,6 +190,7 @@ class InventoryService {
       labId: labId,
       label: cleanLabel,
       excludeDocId: excludeDocId,
+      differentFromCas: cleanCas,
     );
 
     if (existingCas != null && existingCas.trim() != cleanCas) {
@@ -189,6 +198,47 @@ class InventoryService {
     }
 
     return null;
+  }
+
+  Future<int> updateLabelForCas({
+    required String labId,
+    required String cas,
+    required String label,
+  }) async {
+    final cleanLabId = labId.trim();
+    final cleanCas = cas.trim();
+    final cleanLabel = label.trim();
+
+    if (cleanLabId.isEmpty) {
+      throw Exception('Lab id is missing.');
+    }
+    if (cleanCas.isEmpty) {
+      throw Exception('Chemical CAS is missing.');
+    }
+    if (cleanLabel.isEmpty) {
+      throw Exception('Chemical label is required.');
+    }
+
+    final snapshot = await inventoryRef
+        .where('labId', isEqualTo: cleanLabId)
+        .where('cas', isEqualTo: cleanCas)
+        .limit(500)
+        .get();
+
+    if (snapshot.docs.isEmpty) {
+      return 0;
+    }
+
+    final batch = FirebaseFirestore.instance.batch();
+    for (final doc in snapshot.docs) {
+      batch.update(doc.reference, {
+        'label': cleanLabel,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+    return snapshot.docs.length;
   }
 
   Future<void> updateChemical(ChemicalModel chemical) async {
