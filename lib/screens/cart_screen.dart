@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../models/fund_model.dart';
 import '../models/order_model.dart';
 import '../models/requirement_model.dart';
 import '../services/activity_service.dart';
 import '../services/firestore_access_guard.dart';
+import '../services/fund_service.dart';
 import '../services/order_service.dart';
 import '../services/requirement_service.dart';
 import '../theme/labmate_theme.dart';
@@ -23,6 +25,7 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   final RequirementService requirementService = RequirementService();
+  final FundService fundService = FundService();
   final OrderService orderService = OrderService();
 
   CartViewMode _viewMode = CartViewMode.compact;
@@ -186,6 +189,156 @@ class _CartScreenState extends State<CartScreen> {
       actorName: currentUserName,
       createdBy: appState.authenticatedUserId,
       relatedId: req.id,
+    );
+  }
+
+  String _resolveApproverIdentity() {
+    final appState = AppState.instance;
+    final userId = appState.authenticatedUserId.trim();
+    if (userId.isNotEmpty) {
+      return userId;
+    }
+
+    final userEmail = appState.authenticatedUserEmail.trim();
+    if (userEmail.isNotEmpty) {
+      return userEmail;
+    }
+
+    return '';
+  }
+
+  Future<void> _recordApprovalActivity(RequirementModel req) async {
+    final appState = AppState.instance;
+    final currentUserName = appState.authenticatedUserName;
+
+    try {
+      await ActivityService().addActivity(
+        labId: appState.resolveWriteLabId(req.labId),
+        type: 'requirement_approved',
+        message: 'Requirement approved for ${_requirementDisplayName(req)}',
+        actorName: currentUserName,
+        createdBy: appState.authenticatedUserId,
+        relatedId: req.id,
+      );
+    } catch (error) {
+      debugPrint('Failed to record requirement approval activity: $error');
+    }
+  }
+
+  Future<void> _handleApproveRequirement({
+    required BuildContext context,
+    required RequirementModel req,
+  }) async {
+    final appState = AppState.instance;
+    final selectedLabId = appState.selectedLabId.trim();
+    final requirementLabId = req.labId.trim();
+
+    if (requirementLabId.isEmpty ||
+        (selectedLabId.isNotEmpty && requirementLabId != selectedLabId)) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This requirement does not belong to the currently selected lab.',
+          ),
+        ),
+      );
+      return;
+    }
+
+    final approverIdentity = _resolveApproverIdentity();
+    if (approverIdentity.isEmpty) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to identify the approving user.'),
+        ),
+      );
+      return;
+    }
+
+    final approved = await _showApproveRequirementSheet(
+      context: context,
+      requirement: req,
+      approverIdentity: approverIdentity,
+    );
+
+    if (approved != true || !context.mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Requirement approved and fund allocated successfully.'),
+      ),
+    );
+
+    await _recordApprovalActivity(req);
+  }
+
+  Future<bool?> _showApproveRequirementSheet({
+    required BuildContext context,
+    required RequirementModel requirement,
+    required String approverIdentity,
+  }) {
+    final width = MediaQuery.sizeOf(context).width;
+    final content = _RequirementFundApprovalPanel(
+      requirement: requirement,
+      requirementService: requirementService,
+      fundService: fundService,
+      approverIdentity: approverIdentity,
+      itemDisplayName: _requirementDisplayName(requirement),
+    );
+
+    if (width < 720) {
+      return showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        enableDrag: false,
+        isDismissible: false,
+        backgroundColor: Colors.transparent,
+        builder: (sheetContext) {
+          final sheetPalette = sheetContext.labmate;
+          return FractionallySizedBox(
+            heightFactor: 0.92,
+            child: Container(
+              decoration: BoxDecoration(
+                color: sheetPalette.panel,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+              ),
+              child: content,
+            ),
+          );
+        },
+      );
+    }
+
+    return showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final dialogPalette = dialogContext.labmate;
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
+          backgroundColor: dialogPalette.panel,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          child: content,
+        );
+      },
     );
   }
 
@@ -420,12 +573,7 @@ class _CartScreenState extends State<CartScreen> {
           Expanded(
             child: ElevatedButton(
               onPressed: () async {
-                await _updateStatus(req: req, status: 'approved');
-
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Requirement approved')),
-                );
+                await _handleApproveRequirement(context: context, req: req);
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.green,
@@ -559,6 +707,10 @@ class _CartScreenState extends State<CartScreen> {
           ),
           const SizedBox(height: 10),
           _buildStatusBadge(req),
+          if (req.hasFundAllocation) ...[
+            const SizedBox(height: 8),
+            _buildAllocationSummary(req: req),
+          ],
           if (req.approvedBy.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
@@ -573,12 +725,7 @@ class _CartScreenState extends State<CartScreen> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () async {
-                      await _updateStatus(req: req, status: 'approved');
-
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Requirement approved')),
-                      );
+                      await _handleApproveRequirement(context: context, req: req);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
@@ -699,6 +846,10 @@ class _CartScreenState extends State<CartScreen> {
               _buildStatusBadge(req),
             ],
           ),
+          if (req.hasFundAllocation) ...[
+            const SizedBox(height: 10),
+            _buildAllocationSummary(req: req, isCompact: true),
+          ],
           if (actionArea is! SizedBox) ...[
             const SizedBox(height: 12),
             actionArea,
@@ -754,6 +905,51 @@ class _CartScreenState extends State<CartScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildAllocationSummary({
+    required RequirementModel req,
+    bool isCompact = false,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final fundName = req.fundDisplayName.trim();
+    final allocatedAmount = req.allocatedAmount ?? 0;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(
+        horizontal: isCompact ? 10 : 12,
+        vertical: isCompact ? 8 : 10,
+      ),
+      decoration: BoxDecoration(
+        color: const Color(0x2214B8A6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0x3314B8A6)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Fund: ${fundName.isEmpty ? 'Allocated fund' : fundName}',
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: isCompact ? 12.5 : 13,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Allocated: ${_formatIndianCurrency(allocatedAmount)}',
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: isCompact ? 12 : 12.5,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -842,4 +1038,704 @@ class _CartScreenState extends State<CartScreen> {
       ),
     );
   }
+}
+
+class _RequirementFundApprovalPanel extends StatefulWidget {
+  const _RequirementFundApprovalPanel({
+    required this.requirement,
+    required this.requirementService,
+    required this.fundService,
+    required this.approverIdentity,
+    required this.itemDisplayName,
+  });
+
+  final RequirementModel requirement;
+  final RequirementService requirementService;
+  final FundService fundService;
+  final String approverIdentity;
+  final String itemDisplayName;
+
+  @override
+  State<_RequirementFundApprovalPanel> createState() =>
+      _RequirementFundApprovalPanelState();
+}
+
+class _RequirementFundApprovalPanelState
+    extends State<_RequirementFundApprovalPanel> {
+  static const double _balanceTolerance = 0.000001;
+
+  late Stream<List<FundModel>> _fundsStream;
+
+  String? _selectedFundId;
+  String? _submissionError;
+  bool _isSubmitting = false;
+  late final double? _estimatedTotal;
+
+  @override
+  void initState() {
+    super.initState();
+    _estimatedTotal = _parseEstimatedTotal(widget.requirement.estimatedTotal);
+    _refreshFunds();
+  }
+
+  void _refreshFunds() {
+    _fundsStream = widget.fundService.streamFunds(widget.requirement.labId);
+  }
+
+  Future<void> _submitApproval(FundModel selectedFund) async {
+    if (_isSubmitting) {
+      return;
+    }
+
+    final requirementLabId = widget.requirement.labId.trim();
+    final selectedLabId = AppState.instance.selectedLabId.trim();
+    if (requirementLabId.isEmpty ||
+        (selectedLabId.isNotEmpty && requirementLabId != selectedLabId)) {
+      setState(() {
+        _submissionError =
+            'This requirement does not belong to the currently selected lab.';
+      });
+      return;
+    }
+
+    final approverIdentity = widget.approverIdentity.trim();
+    if (approverIdentity.isEmpty) {
+      setState(() {
+        _submissionError = 'Unable to identify the approving user.';
+      });
+      return;
+    }
+
+    final estimatedTotal = _estimatedTotal;
+    if (estimatedTotal == null) {
+      setState(() {
+        _submissionError =
+            'A valid estimated total greater than zero is required before approval.';
+      });
+      return;
+    }
+
+    if (!_hasSufficientDisplayedBalance(
+      selectedFund.availableAmount,
+      estimatedTotal,
+      tolerance: _balanceTolerance,
+    )) {
+      setState(() {
+        _submissionError = 'This fund does not have sufficient available balance.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isSubmitting = true;
+      _submissionError = null;
+    });
+
+    try {
+      await widget.requirementService.approveRequirementWithFund(
+        requirementId: widget.requirement.id,
+        labId: requirementLabId,
+        fundId: selectedFund.id,
+        approvedBy: approverIdentity,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop(true);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _isSubmitting = false;
+        _submissionError = _friendlyApprovalErrorMessage(error);
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final estimatedTotal = _estimatedTotal;
+    final hasValidEstimatedTotal = estimatedTotal != null;
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.82;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: 720, maxHeight: maxHeight),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Approve requirement',
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  onPressed: _isSubmitting
+                      ? null
+                      : () => Navigator.of(context).pop(false),
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Close',
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildRequirementSummaryCard(
+                      context: context,
+                      estimatedTotal: estimatedTotal,
+                    ),
+                    if (!hasValidEstimatedTotal) ...[
+                      const SizedBox(height: 14),
+                      _buildMessageCard(
+                        context: context,
+                        title:
+                            'A valid estimated total greater than zero is required before approval.',
+                        detail:
+                            'This requirement cannot be approved with fund allocation until its estimated total is corrected.',
+                        tone: _MessageTone.error,
+                      ),
+                    ],
+                    if (hasValidEstimatedTotal) ...[
+                      const SizedBox(height: 16),
+                      Text(
+                        'Select fund',
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontSize: 15.5,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      StreamBuilder<List<FundModel>>(
+                        stream: _fundsStream,
+                        builder: (context, snapshot) {
+                          if (snapshot.hasError) {
+                            return _buildFundErrorState(
+                              context: context,
+                              detail: _friendlyFundLoadError(snapshot.error),
+                            );
+                          }
+
+                          if (!snapshot.hasData) {
+                            return _buildFundLoadingState(context: context);
+                          }
+
+                          final activeFunds = snapshot.data!
+                              .where(
+                                (fund) =>
+                                    fund.effectiveStatus ==
+                                    FundModel.statusActive,
+                              )
+                              .toList();
+
+                          if (activeFunds.isEmpty) {
+                            return _buildMessageCard(
+                              context: context,
+                              title:
+                                  'No active funds are available for this requirement.',
+                              detail:
+                                  'Create or reopen a suitable fund outside this dialog before approving this requirement.',
+                              tone: _MessageTone.info,
+                            );
+                          }
+
+                          return Column(
+                            children: activeFunds.map((fund) {
+                              final canSelect = _hasSufficientDisplayedBalance(
+                                fund.availableAmount,
+                                estimatedTotal,
+                                tolerance: _balanceTolerance,
+                              );
+                              final afterApproval =
+                                  _roundCurrency(fund.availableAmount - estimatedTotal);
+
+                              return _buildFundOptionCard(
+                                context: context,
+                                fund: fund,
+                                canSelect: canSelect,
+                                afterApproval: afterApproval < 0 ? 0 : afterApproval,
+                                estimatedTotal: estimatedTotal,
+                              );
+                            }).toList(),
+                          );
+                        },
+                      ),
+                    ],
+                    if (_submissionError != null) ...[
+                      const SizedBox(height: 14),
+                      _buildMessageCard(
+                        context: context,
+                        title: _submissionError!,
+                        tone: _MessageTone.error,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            StreamBuilder<List<FundModel>>(
+              stream: _fundsStream,
+              builder: (context, snapshot) {
+                final funds = snapshot.data ?? const <FundModel>[];
+                final selectedFund = funds.cast<FundModel?>().firstWhere(
+                  (fund) => fund?.id == _selectedFundId,
+                  orElse: () => null,
+                );
+                final canApprove =
+                    !_isSubmitting &&
+                    hasValidEstimatedTotal &&
+                    selectedFund != null &&
+                    selectedFund.effectiveStatus == FundModel.statusActive &&
+                    _hasSufficientDisplayedBalance(
+                      selectedFund.availableAmount,
+                      estimatedTotal ?? 0,
+                      tolerance: _balanceTolerance,
+                    );
+                final approvableFund = canApprove ? selectedFund : null;
+
+                return Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: _isSubmitting
+                            ? null
+                            : () => Navigator.of(context).pop(false),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: approvableFund != null
+                            ? () => _submitApproval(approvableFund)
+                            : null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 13),
+                        ),
+                        child: _isSubmitting
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                            : const Text('Approve & Allocate'),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRequirementSummaryCard({
+    required BuildContext context,
+    required double? estimatedTotal,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.panelAlt,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            widget.itemDisplayName,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 15.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Quantity: ${widget.requirement.quantity.trim().isEmpty ? '-' : widget.requirement.quantity.trim()}',
+            style: TextStyle(color: palette.mutedText),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Estimated total: ${estimatedTotal == null ? '-' : _formatIndianCurrency(estimatedTotal)}',
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Requested by: ${widget.requirement.userName.trim().isEmpty ? '-' : widget.requirement.userName.trim()}',
+            style: TextStyle(color: palette.mutedText),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFundLoadingState({required BuildContext context}) {
+    final palette = context.labmate;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: palette.panelAlt,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
+      ),
+      child: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  Widget _buildFundErrorState({
+    required BuildContext context,
+    required String detail,
+  }) {
+    return _buildMessageCard(
+      context: context,
+      title: 'Unable to load funds.',
+      detail: detail,
+      tone: _MessageTone.error,
+      actionLabel: 'Retry',
+      onAction: _isSubmitting
+          ? null
+          : () {
+              setState(() {
+                _selectedFundId = null;
+                _refreshFunds();
+              });
+            },
+    );
+  }
+
+  Widget _buildFundOptionCard({
+    required BuildContext context,
+    required FundModel fund,
+    required bool canSelect,
+    required double afterApproval,
+    required double estimatedTotal,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final isSelected = _selectedFundId == fund.id;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: palette.panelAlt,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isSelected ? colorScheme.primary : palette.border,
+          width: isSelected ? 1.4 : 1,
+        ),
+      ),
+      child: RadioListTile<String>(
+        value: fund.id,
+        groupValue: _selectedFundId,
+        onChanged: (!_isSubmitting && canSelect)
+            ? (value) {
+                setState(() {
+                  _selectedFundId = value;
+                  _submissionError = null;
+                });
+              }
+            : null,
+        activeColor: colorScheme.primary,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 6,
+        ),
+        title: Text(
+          fund.fundName,
+          style: TextStyle(
+            color: colorScheme.onSurface,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if ((fund.fundCode ?? '').trim().isNotEmpty) ...[
+                Text(
+                  'Code: ${fund.fundCode!.trim()}',
+                  style: TextStyle(color: palette.mutedText, fontSize: 12.5),
+                ),
+                const SizedBox(height: 4),
+              ],
+              Text(
+                'Available: ${_formatIndianCurrency(fund.availableAmount)}',
+                style: TextStyle(color: palette.mutedText, fontSize: 12.5),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'After approval: ${_formatIndianCurrency(afterApproval)}',
+                style: TextStyle(
+                  color: canSelect ? palette.mutedText : Colors.redAccent,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Total sanctioned: ${_formatIndianCurrency(fund.totalAmount)}',
+                style: TextStyle(color: palette.mutedText, fontSize: 12.5),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Ends: ${_formatShortDate(fund.endDate)}',
+                style: TextStyle(color: palette.mutedText, fontSize: 12.5),
+              ),
+              if (!canSelect) ...[
+                const SizedBox(height: 6),
+                Text(
+                  estimatedTotal > fund.availableAmount + _balanceTolerance
+                      ? 'Insufficient balance'
+                      : 'This fund cannot be selected.',
+                  style: const TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMessageCard({
+    required BuildContext context,
+    required String title,
+    String? detail,
+    required _MessageTone tone,
+    String? actionLabel,
+    VoidCallback? onAction,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final accentColor = switch (tone) {
+      _MessageTone.error => Colors.redAccent,
+      _MessageTone.info => colorScheme.primary,
+    };
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: tone == _MessageTone.error
+            ? Colors.redAccent.withValues(alpha: 0.10)
+            : palette.panelAlt,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: tone == _MessageTone.error ? accentColor : palette.border,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: tone == _MessageTone.error
+                  ? accentColor
+                  : colorScheme.onSurface,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (detail != null && detail.trim().isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              detail,
+              style: TextStyle(color: palette.mutedText, height: 1.35),
+            ),
+          ],
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(height: 10),
+            TextButton(onPressed: onAction, child: Text(actionLabel)),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _friendlyFundLoadError(Object? error) {
+    if (FirestoreAccessGuard.isPermissionDenied(error ?? '')) {
+      return 'Approval was blocked by Firebase permissions. The deployed Firestore rules may need updating.';
+    }
+
+    final fallback = FirestoreAccessGuard.messageFor(
+      error,
+      fallback: 'Please try again.',
+    );
+    if (fallback == FirestoreAccessGuard.userMessage) {
+      return 'Approval was blocked by Firebase permissions. The deployed Firestore rules may need updating.';
+    }
+
+    return fallback;
+  }
+
+  String _friendlyApprovalErrorMessage(Object error) {
+    if (FirestoreAccessGuard.isPermissionDenied(error)) {
+      return 'Approval was blocked by Firebase permissions. The deployed Firestore rules may need updating.';
+    }
+
+    final raw = error.toString().trim();
+    if (raw.startsWith('Invalid argument(s): ')) {
+      return raw.substring('Invalid argument(s): '.length).trim();
+    }
+
+    if (raw.startsWith('Bad state: ')) {
+      return raw.substring('Bad state: '.length).trim();
+    }
+
+    final cleaned = raw.replaceFirst('Exception: ', '').trim();
+    return cleaned.isEmpty ? 'Unable to approve requirement.' : cleaned;
+  }
+}
+
+enum _MessageTone { info, error }
+
+double? _parseEstimatedTotal(String rawValue) {
+  var cleaned = rawValue.trim();
+  if (cleaned.isEmpty) {
+    return null;
+  }
+
+  cleaned = cleaned.replaceAll(',', '').trim();
+  cleaned = cleaned
+      .replaceFirst(
+        RegExp('^(?:\\u20B9|\\u00E2\\u201A\\u00B9)\\s*'),
+        '',
+      )
+      .trim();
+  if (cleaned.startsWith('â‚¹')) {
+    cleaned = cleaned.substring(1).trim();
+  }
+
+  cleaned = cleaned.replaceFirst(RegExp(r'^[^\d\.-]+'), '').trim();
+
+  final parsed = double.tryParse(cleaned);
+  if (parsed == null || !parsed.isFinite || parsed <= 0) {
+    return null;
+  }
+
+  final rounded = _roundCurrency(parsed);
+  if (!rounded.isFinite || rounded <= 0) {
+    return null;
+  }
+
+  return rounded;
+}
+
+bool _hasSufficientDisplayedBalance(
+  double availableAmount,
+  double requiredAmount, {
+  double tolerance = 0.000001,
+}) {
+  return availableAmount.isFinite &&
+      requiredAmount.isFinite &&
+      (availableAmount + tolerance) >= requiredAmount;
+}
+
+double _roundCurrency(double value) {
+  return (value * 100).roundToDouble() / 100;
+}
+
+String _formatIndianCurrency(double value) {
+  if (!value.isFinite) {
+    return '₹0';
+  }
+
+  final rounded = _roundCurrency(value);
+  final normalized = rounded == 0 ? 0 : rounded;
+  final absoluteValue = normalized.abs();
+  final fixed = absoluteValue.toStringAsFixed(2);
+  final parts = fixed.split('.');
+  final integerPart = parts[0];
+  final decimalPart = parts.length > 1 ? parts[1] : '00';
+  final groupedInteger = _formatIndianDigits(integerPart);
+  final hasFraction = decimalPart != '00';
+  final amountText = hasFraction
+      ? '$groupedInteger.${decimalPart.replaceFirst(RegExp(r'0+$'), '')}'
+      : groupedInteger;
+  final prefix = normalized < 0 ? '-₹' : '₹';
+  return '$prefix$amountText';
+}
+
+String _formatIndianDigits(String digits) {
+  if (digits.length <= 3) {
+    return digits;
+  }
+
+  final lastThree = digits.substring(digits.length - 3);
+  var leading = digits.substring(0, digits.length - 3);
+  final parts = <String>[];
+
+  while (leading.length > 2) {
+    parts.insert(0, leading.substring(leading.length - 2));
+    leading = leading.substring(0, leading.length - 2);
+  }
+
+  if (leading.isNotEmpty) {
+    parts.insert(0, leading);
+  }
+
+  return '${parts.join(',')},$lastThree';
+}
+
+String _formatShortDate(DateTime date) {
+  const months = <String>[
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  return '${date.day.toString().padLeft(2, '0')} ${months[date.month - 1]} ${date.year}';
 }
