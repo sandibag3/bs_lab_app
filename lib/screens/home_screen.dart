@@ -120,7 +120,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void openMore() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => MoreScreen(appState: widget.appState)),
+      MaterialPageRoute(
+        builder: (_) => MoreScreen(
+          appState: widget.appState,
+          onNavigateHome: () => changeTab(0),
+        ),
+      ),
     );
   }
 
