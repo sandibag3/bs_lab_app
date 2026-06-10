@@ -27,9 +27,12 @@ class _CartScreenState extends State<CartScreen> {
   final RequirementService requirementService = RequirementService();
   final FundService fundService = FundService();
   final OrderService orderService = OrderService();
+  static const String _deleteRequirementStatusChangedMessage =
+      'This requirement can no longer be deleted because its status has changed.';
 
   CartViewMode _viewMode = CartViewMode.compact;
   CartSortOption _sortOption = CartSortOption.newestFirst;
+  String? _cancellingRequirementId;
 
   String _requirementDisplayName(RequirementModel req) {
     final mainType = req.mainType.trim().toLowerCase();
@@ -167,6 +170,43 @@ class _CartScreenState extends State<CartScreen> {
     return requirements.where(_isVisibleCartRequirement).toList();
   }
 
+  bool _isCancellingRequirement(String requirementId) {
+    return _cancellingRequirementId == requirementId;
+  }
+
+  bool _matchesCurrentRequester(RequirementModel req) {
+    final appState = AppState.instance;
+    final currentUserId = appState.authenticatedUserId.trim();
+    final storedCreatedBy = req.createdBy.trim();
+    if (storedCreatedBy.isNotEmpty) {
+      return currentUserId.isNotEmpty && storedCreatedBy == currentUserId;
+    }
+
+    final requestedBy = req.userName.trim().toLowerCase();
+    if (requestedBy.isEmpty) {
+      return false;
+    }
+
+    final currentUserName = appState.authenticatedUserName.trim().toLowerCase();
+    if (currentUserName.isNotEmpty && requestedBy == currentUserName) {
+      return true;
+    }
+
+    final currentUserEmail = appState.authenticatedUserEmail
+        .trim()
+        .toLowerCase();
+    return currentUserEmail.isNotEmpty && requestedBy == currentUserEmail;
+  }
+
+  bool _canRequesterDeleteRequirement(RequirementModel req) {
+    final status = req.status.trim().toLowerCase();
+    return _matchesCurrentRequester(req) &&
+        status == 'pending' &&
+        req.approvedBy.trim().isEmpty &&
+        req.approvedAt == null &&
+        !req.hasFundAllocation;
+  }
+
   Future<void> _updateStatus({
     required RequirementModel req,
     required String status,
@@ -207,6 +247,116 @@ class _CartScreenState extends State<CartScreen> {
     return '';
   }
 
+  Future<bool> _showDeleteRequirementConfirmation(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Delete requirement?'),
+          content: const Text(
+            'This requirement will be removed from the active list. This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return confirmed ?? false;
+  }
+
+  Future<void> _handleDeleteRequirement({
+    required BuildContext context,
+    required RequirementModel req,
+  }) async {
+    if (_isCancellingRequirement(req.id) ||
+        !_canRequesterDeleteRequirement(req)) {
+      return;
+    }
+
+    final confirmed = await _showDeleteRequirementConfirmation(context);
+    if (!confirmed || !context.mounted) {
+      return;
+    }
+
+    setState(() {
+      _cancellingRequirementId = req.id;
+    });
+
+    try {
+      await requirementService.cancelPendingRequirement(
+        requirementId: req.id,
+        requesterUid: AppState.instance.authenticatedUserId,
+        requesterUserName: AppState.instance.authenticatedUserName,
+        requesterEmail: AppState.instance.authenticatedUserEmail,
+      );
+
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Requirement deleted successfully.')),
+      );
+    } catch (error) {
+      debugPrint('Requirement cancellation error: $error');
+
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_friendlyCancellationErrorMessage(error))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          if (_cancellingRequirementId == req.id) {
+            _cancellingRequirementId = null;
+          }
+        });
+      }
+    }
+  }
+
+  Widget _buildDeleteRequirementButton({
+    required BuildContext context,
+    required RequirementModel req,
+  }) {
+    final isCancelling = _isCancellingRequirement(req.id);
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: isCancelling
+            ? null
+            : () async {
+                await _handleDeleteRequirement(context: context, req: req);
+              },
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.redAccent,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+        ),
+        icon: isCancelling
+            ? const SizedBox(
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.delete_outline, size: 18),
+        label: Text(isCancelling ? 'Deleting...' : 'Delete requirement'),
+      ),
+    );
+  }
+
   Future<void> _recordApprovalActivity(RequirementModel req) async {
     final appState = AppState.instance;
     final currentUserName = appState.authenticatedUserName;
@@ -223,6 +373,15 @@ class _CartScreenState extends State<CartScreen> {
     } catch (error) {
       debugPrint('Failed to record requirement approval activity: $error');
     }
+  }
+
+  String _friendlyCancellationErrorMessage(Object error) {
+    final raw = error.toString().trim();
+    if (raw.contains(_deleteRequirementStatusChangedMessage)) {
+      return _deleteRequirementStatusChangedMessage;
+    }
+
+    return 'Failed to delete requirement. Please try again.';
   }
 
   Future<void> _handleApproveRequirement({
@@ -571,64 +730,156 @@ class _CartScreenState extends State<CartScreen> {
     required bool isPiAdmin,
   }) {
     final status = req.status.toLowerCase();
+    final actions = <Widget>[];
 
     if (isPiAdmin && status == 'pending') {
-      return Row(
-        children: [
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () async {
-                await _handleApproveRequirement(context: context, req: req);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 10),
+      actions.add(
+        Row(
+          children: [
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () async {
+                  await _handleApproveRequirement(context: context, req: req);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                child: const Text('Approve'),
               ),
-              child: const Text('Approve'),
             ),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: ElevatedButton(
-              onPressed: () async {
-                await _updateStatus(req: req, status: 'rejected');
+            const SizedBox(width: 8),
+            Expanded(
+              child: ElevatedButton(
+                onPressed: () async {
+                  await _updateStatus(req: req, status: 'rejected');
 
-                if (!context.mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Requirement rejected')),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Requirement rejected')),
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.redAccent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                child: const Text('Reject'),
               ),
-              child: const Text('Reject'),
             ),
-          ),
-        ],
-      );
-    }
-
-    if (status == 'approved') {
-      return SizedBox(
-        width: double.infinity,
-        child: ElevatedButton(
-          onPressed: () async {
-            await _handlePlaceOrder(context: context, req: req);
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF14B8A6),
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-          ),
-          child: const Text('Place Order'),
+          ],
         ),
       );
     }
 
-    return const SizedBox.shrink();
+    if (status == 'approved') {
+      actions.add(
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: () async {
+              await _handlePlaceOrder(context: context, req: req);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF14B8A6),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+            ),
+            child: const Text('Place Order'),
+          ),
+        ),
+      );
+    }
+
+    if (_canRequesterDeleteRequirement(req)) {
+      if (actions.isNotEmpty) {
+        actions.add(const SizedBox(height: 8));
+      }
+      actions.add(_buildDeleteRequirementButton(context: context, req: req));
+    }
+
+    if (actions.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: actions,
+    );
+  }
+
+  Widget _buildDetailedApproveRejectActions({
+    required BuildContext context,
+    required RequirementModel req,
+  }) {
+    return Row(
+      children: [
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () async {
+              await _handleApproveRequirement(context: context, req: req);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Approve'),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: ElevatedButton(
+            onPressed: () async {
+              await _updateStatus(req: req, status: 'rejected');
+
+              if (!context.mounted) return;
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Requirement rejected')),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.redAccent,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Reject'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailedRequesterDeleteAction({
+    required BuildContext context,
+    required RequirementModel req,
+  }) {
+    if (!_canRequesterDeleteRequirement(req)) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: _buildDeleteRequirementButton(context: context, req: req),
+    );
+  }
+
+  Widget _buildDetailedPlaceOrderAction({
+    required BuildContext context,
+    required RequirementModel req,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: () async {
+          await _handlePlaceOrder(context: context, req: req);
+        },
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF14B8A6),
+          foregroundColor: Colors.white,
+        ),
+        child: const Text('Place Order'),
+      ),
+    );
   }
 
   Widget _buildDetailedCard({
@@ -725,59 +976,13 @@ class _CartScreenState extends State<CartScreen> {
           ],
           if (isPiAdmin && req.status.toLowerCase() == 'pending') ...[
             const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      await _handleApproveRequirement(
-                        context: context,
-                        req: req,
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Approve'),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      await _updateStatus(req: req, status: 'rejected');
-
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Requirement rejected')),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
-                      foregroundColor: Colors.white,
-                    ),
-                    child: const Text('Reject'),
-                  ),
-                ),
-              ],
-            ),
+            _buildDetailedApproveRejectActions(context: context, req: req),
           ],
+          if (_canRequesterDeleteRequirement(req))
+            _buildDetailedRequesterDeleteAction(context: context, req: req),
           if (req.status.toLowerCase() == 'approved') ...[
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () async {
-                  await _handlePlaceOrder(context: context, req: req);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF14B8A6),
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Place Order'),
-              ),
-            ),
+            _buildDetailedPlaceOrderAction(context: context, req: req),
           ],
         ],
       ),

@@ -26,9 +26,13 @@ class RequirementModel {
   // Workflow fields
   final String status;
   final String userName;
+  final String createdBy;
   final Timestamp createdAt;
   final String approvedBy;
   final Timestamp? approvedAt;
+  final Timestamp? rejectedAt;
+  final String? rejectionReason;
+  final bool? autoRejected;
   final String? fundId;
   final String? fundNameSnapshot;
   final String? fundCodeSnapshot;
@@ -55,9 +59,13 @@ class RequirementModel {
     required this.consumableType,
     required this.status,
     required this.userName,
+    this.createdBy = '',
     required this.createdAt,
     required this.approvedBy,
     required this.approvedAt,
+    this.rejectedAt,
+    this.rejectionReason,
+    this.autoRejected,
     this.fundId,
     this.fundNameSnapshot,
     this.fundCodeSnapshot,
@@ -91,9 +99,13 @@ class RequirementModel {
       consumableType: data['consumableType'] ?? '',
       status: data['status'] ?? 'pending',
       userName: data['userName'] ?? '',
+      createdBy: (data['createdBy'] ?? '').toString().trim(),
       createdAt: data['createdAt'] ?? Timestamp.now(),
       approvedBy: data['approvedBy'] ?? '',
       approvedAt: data['approvedAt'],
+      rejectedAt: _timestampFromValue(data['rejectedAt']),
+      rejectionReason: _normalizedOptionalString(data['rejectionReason']),
+      autoRejected: _boolFromValue(data['autoRejected']),
       fundId: _normalizedOptionalString(data['fundId']),
       fundNameSnapshot: _normalizedOptionalString(data['fundNameSnapshot']),
       fundCodeSnapshot: _normalizedOptionalString(data['fundCodeSnapshot']),
@@ -127,8 +139,21 @@ class RequirementModel {
     return '';
   }
 
+  bool get isAutoRejectedForApprovalTimeout {
+    final normalizedReason = rejectionReason?.trim().toLowerCase();
+    return autoRejected == true && normalizedReason == 'approval_timeout';
+  }
+
+  String get rejectionDisplayMessage {
+    if (isAutoRejectedForApprovalTimeout) {
+      return 'Automatically rejected because it was not approved within 15 days.';
+    }
+
+    return '';
+  }
+
   Map<String, dynamic> toMap() {
-    return {
+    final map = <String, dynamic>{
       'labId': labId,
       'mainType': mainType,
       'brand': brand,
@@ -145,6 +170,7 @@ class RequirementModel {
       'consumableType': consumableType,
       'status': status,
       'userName': userName,
+      'createdBy': createdBy,
       'createdAt': createdAt,
       'approvedBy': approvedBy,
       'approvedAt': approvedAt,
@@ -158,6 +184,18 @@ class RequirementModel {
           : null,
       'fundTransactionId': fundTransactionId,
     };
+
+    if (rejectedAt != null) {
+      map['rejectedAt'] = rejectedAt;
+    }
+    if (rejectionReason != null) {
+      map['rejectionReason'] = rejectionReason;
+    }
+    if (autoRejected != null) {
+      map['autoRejected'] = autoRejected;
+    }
+
+    return map;
   }
 
   RequirementModel copyWith({
@@ -178,10 +216,17 @@ class RequirementModel {
     String? consumableType,
     String? status,
     String? userName,
+    String? createdBy,
     Timestamp? createdAt,
     String? approvedBy,
     Timestamp? approvedAt,
     bool clearApprovedAt = false,
+    Timestamp? rejectedAt,
+    bool clearRejectedAt = false,
+    String? rejectionReason,
+    bool clearRejectionReason = false,
+    bool? autoRejected,
+    bool clearAutoRejected = false,
     String? fundId,
     bool clearFundId = false,
     String? fundNameSnapshot,
@@ -215,9 +260,17 @@ class RequirementModel {
       consumableType: consumableType ?? this.consumableType,
       status: status ?? this.status,
       userName: userName ?? this.userName,
+      createdBy: createdBy ?? this.createdBy,
       createdAt: createdAt ?? this.createdAt,
       approvedBy: approvedBy ?? this.approvedBy,
       approvedAt: clearApprovedAt ? null : (approvedAt ?? this.approvedAt),
+      rejectedAt: clearRejectedAt ? null : (rejectedAt ?? this.rejectedAt),
+      rejectionReason: clearRejectionReason
+          ? null
+          : (rejectionReason ?? this.rejectionReason),
+      autoRejected: clearAutoRejected
+          ? null
+          : (autoRejected ?? this.autoRejected),
       fundId: clearFundId ? null : (fundId ?? this.fundId),
       fundNameSnapshot: clearFundNameSnapshot
           ? null
@@ -266,12 +319,38 @@ class RequirementModel {
     return null;
   }
 
+  static bool? _boolFromValue(Object? value) {
+    if (value is bool) {
+      return value;
+    }
+
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true') {
+        return true;
+      }
+      if (normalized == 'false') {
+        return false;
+      }
+    }
+
+    return null;
+  }
+
   static DateTime? _dateTimeFromValue(Object? value) {
     if (value is Timestamp) {
       return value.toDate();
     }
 
     if (value is DateTime) {
+      return value;
+    }
+
+    return null;
+  }
+
+  static Timestamp? _timestampFromValue(Object? value) {
+    if (value is Timestamp) {
       return value;
     }
 

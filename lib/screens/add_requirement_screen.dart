@@ -61,6 +61,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
   String? selectedPackSize;
 
   bool isFetchingChemicalName = false;
+  bool _isSubmitting = false;
 
   final List<String> brands = const [
     'Merck',
@@ -801,8 +802,8 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
 
   Future<void> submitRequirement() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_isSubmitting) return;
 
-    final service = RequirementService();
     final consumableTypeValue = selectedMainType == 'consumable'
         ? _buildConsumableTypeValue()
         : '';
@@ -845,24 +846,51 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
       approvedAt: null,
     );
 
-    final requirementId = await service.addRequirement(req);
-    await ActivityService().addActivity(
-      labId: req.labId,
-      type: 'requirement_created',
-      message:
-          'Requirement submitted for ${req.mainType == 'consumable' ? req.consumableType : req.chemicalName}',
-      actorName: AppState.instance.authenticatedUserName,
-      createdBy: AppState.instance.authenticatedUserId,
-      relatedId: requirementId,
-    );
+    setState(() {
+      _isSubmitting = true;
+    });
 
-    if (!mounted) return;
+    try {
+      final requirementId = await _requirementService.addRequirement(req);
 
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Requirement submitted')));
+      try {
+        await ActivityService().addActivity(
+          labId: req.labId,
+          type: 'requirement_created',
+          message:
+              'Requirement submitted for ${req.mainType == 'consumable' ? req.consumableType : req.chemicalName}',
+          actorName: AppState.instance.authenticatedUserName,
+          createdBy: AppState.instance.authenticatedUserId,
+          relatedId: requirementId,
+        );
+      } catch (error) {
+        debugPrint('Requirement activity logging error: $error');
+      }
 
-    Navigator.pop(context);
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Requirement submitted successfully.')),
+      );
+
+      Navigator.pop(context);
+    } catch (error) {
+      debugPrint('Requirement submission error: $error');
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to submit requirement. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
   @override
@@ -1259,18 +1287,29 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: submitRequirement,
+                  onPressed: _isSubmitting ? null : submitRequirement,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF14B8A6),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
-                  child: const Text(
-                    'Submit Requirement',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          ),
+                        )
+                      : const Text(
+                          'Submit Requirement',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                 ),
               ),
             ],
