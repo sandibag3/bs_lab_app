@@ -14,6 +14,8 @@ class FundTransactionModel {
   final String itemNameSnapshot;
   final String? fundNameSnapshot;
   final String? fundCodeSnapshot;
+  final String? purchaseOrderId;
+  final String? purchaseOrderNumber;
   final String createdBy;
   final DateTime? createdAt;
   final String? notes;
@@ -29,6 +31,8 @@ class FundTransactionModel {
     required String itemNameSnapshot,
     String? fundNameSnapshot,
     String? fundCodeSnapshot,
+    String? purchaseOrderId,
+    String? purchaseOrderNumber,
     required String createdBy,
     required this.createdAt,
     String? notes,
@@ -42,6 +46,8 @@ class FundTransactionModel {
        itemNameSnapshot = itemNameSnapshot.trim(),
        fundNameSnapshot = _normalizedOptionalString(fundNameSnapshot),
        fundCodeSnapshot = _normalizedOptionalString(fundCodeSnapshot),
+       purchaseOrderId = _normalizedOptionalString(purchaseOrderId),
+       purchaseOrderNumber = _normalizedOptionalString(purchaseOrderNumber),
        createdBy = createdBy.trim(),
        notes = _normalizedOptionalString(notes);
 
@@ -61,6 +67,8 @@ class FundTransactionModel {
       itemNameSnapshot: (data['itemNameSnapshot'] ?? '').toString(),
       fundNameSnapshot: data['fundNameSnapshot']?.toString(),
       fundCodeSnapshot: data['fundCodeSnapshot']?.toString(),
+      purchaseOrderId: data['purchaseOrderId']?.toString(),
+      purchaseOrderNumber: data['purchaseOrderNumber']?.toString(),
       createdBy: (data['createdBy'] ?? '').toString(),
       createdAt: _dateTimeFromValue(data['createdAt']),
       notes: data['notes']?.toString(),
@@ -78,6 +86,8 @@ class FundTransactionModel {
       'itemNameSnapshot': itemNameSnapshot,
       'fundNameSnapshot': fundNameSnapshot,
       'fundCodeSnapshot': fundCodeSnapshot,
+      'purchaseOrderId': purchaseOrderId,
+      'purchaseOrderNumber': purchaseOrderNumber,
       'createdBy': createdBy,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
       'notes': notes,
@@ -97,6 +107,10 @@ class FundTransactionModel {
     bool clearFundNameSnapshot = false,
     String? fundCodeSnapshot,
     bool clearFundCodeSnapshot = false,
+    String? purchaseOrderId,
+    bool clearPurchaseOrderId = false,
+    String? purchaseOrderNumber,
+    bool clearPurchaseOrderNumber = false,
     String? createdBy,
     DateTime? createdAt,
     bool clearCreatedAt = false,
@@ -118,6 +132,12 @@ class FundTransactionModel {
       fundCodeSnapshot: clearFundCodeSnapshot
           ? null
           : (fundCodeSnapshot ?? this.fundCodeSnapshot),
+      purchaseOrderId: clearPurchaseOrderId
+          ? null
+          : (purchaseOrderId ?? this.purchaseOrderId),
+      purchaseOrderNumber: clearPurchaseOrderNumber
+          ? null
+          : (purchaseOrderNumber ?? this.purchaseOrderNumber),
       createdBy: createdBy ?? this.createdBy,
       createdAt: clearCreatedAt ? null : (createdAt ?? this.createdAt),
       notes: clearNotes ? null : (notes ?? this.notes),
@@ -128,6 +148,11 @@ class FundTransactionModel {
 
   bool get isActive => status.trim().toLowerCase() == statusActive;
 
+  bool get isPurchaseOrderTransaction {
+    final purchaseOrderIdValue = purchaseOrderId?.trim() ?? '';
+    return purchaseOrderIdValue.isNotEmpty;
+  }
+
   String get fundDisplayName {
     final name = fundNameSnapshot?.trim() ?? '';
     if (name.isNotEmpty) {
@@ -137,6 +162,20 @@ class FundTransactionModel {
     final code = fundCodeSnapshot?.trim() ?? '';
     if (code.isNotEmpty) {
       return code;
+    }
+
+    return '';
+  }
+
+  String get purchaseOrderDisplayLabel {
+    final purchaseOrderNumberValue = purchaseOrderNumber?.trim() ?? '';
+    if (purchaseOrderNumberValue.isNotEmpty) {
+      return purchaseOrderNumberValue;
+    }
+
+    final purchaseOrderIdValue = purchaseOrderId?.trim() ?? '';
+    if (purchaseOrderIdValue.isNotEmpty) {
+      return purchaseOrderIdValue;
     }
 
     return '';

@@ -19,6 +19,28 @@ class OrderModel {
   final String receivedBy;
   final Timestamp? deliveredAt;
   final bool inventoryAdded;
+  final double? estimatedTotal;
+  final String? fundId;
+  final String? fundNameSnapshot;
+  final String? fundCodeSnapshot;
+  final double? allocatedAmount;
+  final String? fundTransactionId;
+  final String? purchaseOrderId;
+  final String? purchaseOrderNumber;
+  final String? purchaseOrderStatus;
+  final DateTime? purchaseOrderAssignedAt;
+  final String? purchaseOrderAssignedBy;
+  final double? actualTotal;
+  final String? actualCostRecordedBy;
+  final DateTime? actualCostRecordedAt;
+  final bool costReconciled;
+  final DateTime? costReconciledAt;
+  final String? costReconciledBy;
+  final String? fundAdjustmentTransactionId;
+  // positive = actual cost exceeded allocated amount
+  // negative = actual cost was lower than allocated amount
+  // zero = actual cost matched allocation
+  final double? reconciledDeltaAmount;
 
   OrderModel({
     required this.id,
@@ -39,10 +61,32 @@ class OrderModel {
     required this.receivedBy,
     required this.deliveredAt,
     required this.inventoryAdded,
+    this.estimatedTotal,
+    this.fundId,
+    this.fundNameSnapshot,
+    this.fundCodeSnapshot,
+    this.allocatedAmount,
+    this.fundTransactionId,
+    this.purchaseOrderId,
+    this.purchaseOrderNumber,
+    this.purchaseOrderStatus,
+    this.purchaseOrderAssignedAt,
+    this.purchaseOrderAssignedBy,
+    this.actualTotal,
+    this.actualCostRecordedBy,
+    this.actualCostRecordedAt,
+    this.costReconciled = false,
+    this.costReconciledAt,
+    this.costReconciledBy,
+    this.fundAdjustmentTransactionId,
+    this.reconciledDeltaAmount,
   });
 
   factory OrderModel.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+    final rawData = doc.data();
+    final data = rawData is Map<String, dynamic>
+        ? rawData
+        : <String, dynamic>{};
 
     return OrderModel(
       id: doc.id,
@@ -63,6 +107,37 @@ class OrderModel {
       receivedBy: data['receivedBy'] ?? '',
       deliveredAt: data['deliveredAt'],
       inventoryAdded: data['inventoryAdded'] ?? false,
+      estimatedTotal: _doubleFromValue(data['estimatedTotal']),
+      fundId: _normalizedOptionalString(data['fundId']),
+      fundNameSnapshot: _normalizedOptionalString(data['fundNameSnapshot']),
+      fundCodeSnapshot: _normalizedOptionalString(data['fundCodeSnapshot']),
+      allocatedAmount: _doubleFromValue(data['allocatedAmount']),
+      fundTransactionId: _normalizedOptionalString(data['fundTransactionId']),
+      purchaseOrderId: _normalizedOptionalString(data['purchaseOrderId']),
+      purchaseOrderNumber: _normalizedOptionalString(
+        data['purchaseOrderNumber'],
+      ),
+      purchaseOrderStatus: _normalizedOptionalString(
+        data['purchaseOrderStatus'],
+      ),
+      purchaseOrderAssignedAt: _dateTimeFromValue(
+        data['purchaseOrderAssignedAt'],
+      ),
+      purchaseOrderAssignedBy: _normalizedOptionalString(
+        data['purchaseOrderAssignedBy'],
+      ),
+      actualTotal: _doubleFromValue(data['actualTotal']),
+      actualCostRecordedBy: _normalizedOptionalString(
+        data['actualCostRecordedBy'],
+      ),
+      actualCostRecordedAt: _dateTimeFromValue(data['actualCostRecordedAt']),
+      costReconciled: _boolFromValue(data['costReconciled']),
+      costReconciledAt: _dateTimeFromValue(data['costReconciledAt']),
+      costReconciledBy: _normalizedOptionalString(data['costReconciledBy']),
+      fundAdjustmentTransactionId: _normalizedOptionalString(
+        data['fundAdjustmentTransactionId'],
+      ),
+      reconciledDeltaAmount: _doubleFromValue(data['reconciledDeltaAmount']),
     );
   }
 
@@ -92,6 +167,36 @@ class OrderModel {
 
   String get typeLabel => isConsumable ? 'Consumable' : 'Chemical';
 
+  bool get hasActualCost => actualTotal != null;
+
+  bool get hasFundReconciliation {
+    final cleanTransactionId = fundAdjustmentTransactionId?.trim() ?? '';
+    return costReconciled && cleanTransactionId.isNotEmpty;
+  }
+
+  bool get isAssignedToPurchaseOrder {
+    final cleanPurchaseOrderId = purchaseOrderId?.trim() ?? '';
+    return cleanPurchaseOrderId.isNotEmpty;
+  }
+
+  String get purchaseOrderDisplayLabel {
+    final cleanPurchaseOrderNumber = purchaseOrderNumber?.trim() ?? '';
+    if (cleanPurchaseOrderNumber.isNotEmpty) {
+      return cleanPurchaseOrderNumber;
+    }
+
+    final cleanPurchaseOrderId = purchaseOrderId?.trim() ?? '';
+    if (cleanPurchaseOrderId.isNotEmpty) {
+      return cleanPurchaseOrderId;
+    }
+
+    return '';
+  }
+
+  bool get isCostManagedThroughPurchaseOrder => isAssignedToPurchaseOrder;
+
+  double? get reconciliationDifference => reconciledDeltaAmount;
+
   Map<String, dynamic> toMap() {
     return {
       'requirementId': requirementId,
@@ -111,6 +216,224 @@ class OrderModel {
       'receivedBy': receivedBy,
       'deliveredAt': deliveredAt,
       'inventoryAdded': inventoryAdded,
+      'estimatedTotal': estimatedTotal,
+      'fundId': fundId,
+      'fundNameSnapshot': fundNameSnapshot,
+      'fundCodeSnapshot': fundCodeSnapshot,
+      'allocatedAmount': allocatedAmount,
+      'fundTransactionId': fundTransactionId,
+      'purchaseOrderId': purchaseOrderId,
+      'purchaseOrderNumber': purchaseOrderNumber,
+      'purchaseOrderStatus': purchaseOrderStatus,
+      'purchaseOrderAssignedAt': purchaseOrderAssignedAt != null
+          ? Timestamp.fromDate(purchaseOrderAssignedAt!)
+          : null,
+      'purchaseOrderAssignedBy': purchaseOrderAssignedBy,
+      'actualTotal': actualTotal,
+      'actualCostRecordedBy': actualCostRecordedBy,
+      'actualCostRecordedAt': actualCostRecordedAt != null
+          ? Timestamp.fromDate(actualCostRecordedAt!)
+          : null,
+      'costReconciled': costReconciled,
+      'costReconciledAt': costReconciledAt != null
+          ? Timestamp.fromDate(costReconciledAt!)
+          : null,
+      'costReconciledBy': costReconciledBy,
+      'fundAdjustmentTransactionId': fundAdjustmentTransactionId,
+      'reconciledDeltaAmount': reconciledDeltaAmount,
     };
+  }
+
+  OrderModel copyWith({
+    String? id,
+    String? requirementId,
+    String? labId,
+    String? mainType,
+    String? chemicalName,
+    String? consumableType,
+    String? cas,
+    String? brand,
+    String? vendor,
+    String? quantity,
+    String? packSize,
+    String? modeOfPurchase,
+    String? orderedBy,
+    Timestamp? orderedAt,
+    String? status,
+    String? receivedBy,
+    Timestamp? deliveredAt,
+    bool clearDeliveredAt = false,
+    bool? inventoryAdded,
+    double? estimatedTotal,
+    bool clearEstimatedTotal = false,
+    String? fundId,
+    bool clearFundId = false,
+    String? fundNameSnapshot,
+    bool clearFundNameSnapshot = false,
+    String? fundCodeSnapshot,
+    bool clearFundCodeSnapshot = false,
+    double? allocatedAmount,
+    bool clearAllocatedAmount = false,
+    String? fundTransactionId,
+    bool clearFundTransactionId = false,
+    String? purchaseOrderId,
+    bool clearPurchaseOrderId = false,
+    String? purchaseOrderNumber,
+    bool clearPurchaseOrderNumber = false,
+    String? purchaseOrderStatus,
+    bool clearPurchaseOrderStatus = false,
+    DateTime? purchaseOrderAssignedAt,
+    bool clearPurchaseOrderAssignedAt = false,
+    String? purchaseOrderAssignedBy,
+    bool clearPurchaseOrderAssignedBy = false,
+    double? actualTotal,
+    bool clearActualTotal = false,
+    String? actualCostRecordedBy,
+    bool clearActualCostRecordedBy = false,
+    DateTime? actualCostRecordedAt,
+    bool clearActualCostRecordedAt = false,
+    bool? costReconciled,
+    DateTime? costReconciledAt,
+    bool clearCostReconciledAt = false,
+    String? costReconciledBy,
+    bool clearCostReconciledBy = false,
+    String? fundAdjustmentTransactionId,
+    bool clearFundAdjustmentTransactionId = false,
+    double? reconciledDeltaAmount,
+    bool clearReconciledDeltaAmount = false,
+  }) {
+    return OrderModel(
+      id: id ?? this.id,
+      requirementId: requirementId ?? this.requirementId,
+      labId: labId ?? this.labId,
+      mainType: mainType ?? this.mainType,
+      chemicalName: chemicalName ?? this.chemicalName,
+      consumableType: consumableType ?? this.consumableType,
+      cas: cas ?? this.cas,
+      brand: brand ?? this.brand,
+      vendor: vendor ?? this.vendor,
+      quantity: quantity ?? this.quantity,
+      packSize: packSize ?? this.packSize,
+      modeOfPurchase: modeOfPurchase ?? this.modeOfPurchase,
+      orderedBy: orderedBy ?? this.orderedBy,
+      orderedAt: orderedAt ?? this.orderedAt,
+      status: status ?? this.status,
+      receivedBy: receivedBy ?? this.receivedBy,
+      deliveredAt: clearDeliveredAt ? null : (deliveredAt ?? this.deliveredAt),
+      inventoryAdded: inventoryAdded ?? this.inventoryAdded,
+      estimatedTotal: clearEstimatedTotal
+          ? null
+          : (estimatedTotal ?? this.estimatedTotal),
+      fundId: clearFundId ? null : (fundId ?? this.fundId),
+      fundNameSnapshot: clearFundNameSnapshot
+          ? null
+          : (fundNameSnapshot ?? this.fundNameSnapshot),
+      fundCodeSnapshot: clearFundCodeSnapshot
+          ? null
+          : (fundCodeSnapshot ?? this.fundCodeSnapshot),
+      allocatedAmount: clearAllocatedAmount
+          ? null
+          : (allocatedAmount ?? this.allocatedAmount),
+      fundTransactionId: clearFundTransactionId
+          ? null
+          : (fundTransactionId ?? this.fundTransactionId),
+      purchaseOrderId: clearPurchaseOrderId
+          ? null
+          : (purchaseOrderId ?? this.purchaseOrderId),
+      purchaseOrderNumber: clearPurchaseOrderNumber
+          ? null
+          : (purchaseOrderNumber ?? this.purchaseOrderNumber),
+      purchaseOrderStatus: clearPurchaseOrderStatus
+          ? null
+          : (purchaseOrderStatus ?? this.purchaseOrderStatus),
+      purchaseOrderAssignedAt: clearPurchaseOrderAssignedAt
+          ? null
+          : (purchaseOrderAssignedAt ?? this.purchaseOrderAssignedAt),
+      purchaseOrderAssignedBy: clearPurchaseOrderAssignedBy
+          ? null
+          : (purchaseOrderAssignedBy ?? this.purchaseOrderAssignedBy),
+      actualTotal: clearActualTotal ? null : (actualTotal ?? this.actualTotal),
+      actualCostRecordedBy: clearActualCostRecordedBy
+          ? null
+          : (actualCostRecordedBy ?? this.actualCostRecordedBy),
+      actualCostRecordedAt: clearActualCostRecordedAt
+          ? null
+          : (actualCostRecordedAt ?? this.actualCostRecordedAt),
+      costReconciled: costReconciled ?? this.costReconciled,
+      costReconciledAt: clearCostReconciledAt
+          ? null
+          : (costReconciledAt ?? this.costReconciledAt),
+      costReconciledBy: clearCostReconciledBy
+          ? null
+          : (costReconciledBy ?? this.costReconciledBy),
+      fundAdjustmentTransactionId: clearFundAdjustmentTransactionId
+          ? null
+          : (fundAdjustmentTransactionId ?? this.fundAdjustmentTransactionId),
+      reconciledDeltaAmount: clearReconciledDeltaAmount
+          ? null
+          : (reconciledDeltaAmount ?? this.reconciledDeltaAmount),
+    );
+  }
+
+  static double? _doubleFromValue(Object? value) {
+    if (value is num) {
+      final normalized = value.toDouble();
+      return normalized.isFinite ? normalized : null;
+    }
+
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) {
+        return null;
+      }
+
+      final parsed = double.tryParse(trimmed);
+      if (parsed == null || !parsed.isFinite) {
+        return null;
+      }
+
+      return parsed;
+    }
+
+    return null;
+  }
+
+  static String? _normalizedOptionalString(Object? value) {
+    final normalized = value?.toString().trim();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  static DateTime? _dateTimeFromValue(Object? value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    return null;
+  }
+
+  static bool _boolFromValue(Object? value) {
+    if (value is bool) {
+      return value;
+    }
+
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      if (normalized == 'true') {
+        return true;
+      }
+      if (normalized == 'false') {
+        return false;
+      }
+    }
+
+    return false;
   }
 }

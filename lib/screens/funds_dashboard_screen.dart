@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../app_state.dart';
 import '../models/fund_model.dart';
+import '../models/fund_transaction_model.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/fund_service.dart';
+import 'purchase_orders_screen.dart';
 import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 
@@ -196,6 +198,62 @@ class _FundsDashboardScreenState extends State<FundsDashboardScreen> {
     }
   }
 
+  Future<void> _openFundHistoryFlow(FundModel fund) async {
+    final isDesktopModal = MediaQuery.sizeOf(context).width >= 720;
+
+    if (isDesktopModal) {
+      await showDialog<void>(
+        context: context,
+        barrierDismissible: true,
+        builder: (dialogContext) {
+          return Dialog(
+            backgroundColor: Colors.transparent,
+            insetPadding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: _FundHistorySheet(
+                fund: fund,
+                labId: widget.labId,
+                fundService: _fundService,
+                isBottomSheet: false,
+              ),
+            ),
+          );
+        },
+      );
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return FractionallySizedBox(
+          heightFactor: 0.92,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: _FundHistorySheet(
+              fund: fund,
+              labId: widget.labId,
+              fundService: _fundService,
+              isBottomSheet: true,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _openPurchaseOrdersFlow() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (context) => PurchaseOrdersScreen(labId: widget.labId),
+      ),
+    );
+  }
+
   String? _errorDetail(Object? error) {
     final message = FirestoreAccessGuard.messageFor(
       error,
@@ -253,6 +311,7 @@ class _FundsDashboardScreenState extends State<FundsDashboardScreen> {
                             totalFunds: summary.totalFunds,
                             dense: isDesktop,
                             canAddFunds: _canManageFunds,
+                            onOpenPurchaseOrders: _openPurchaseOrdersFlow,
                             onAddFund: _openAddFundFlow,
                           ),
                           SizedBox(height: sectionGap),
@@ -279,6 +338,7 @@ class _FundsDashboardScreenState extends State<FundsDashboardScreen> {
                                 canManageFunds: _canManageFunds,
                                 onEditFund: _openEditFundFlow,
                                 onCloseFund: _openCloseFundFlow,
+                                onViewHistory: _openFundHistoryFlow,
                                 statusFilter: _statusFilter,
                                 totalFundsInStream: funds.length,
                               ),
@@ -301,12 +361,14 @@ class _FundsHeaderCard extends StatelessWidget {
   final int totalFunds;
   final bool dense;
   final bool canAddFunds;
+  final VoidCallback onOpenPurchaseOrders;
   final VoidCallback onAddFund;
 
   const _FundsHeaderCard({
     required this.totalFunds,
     required this.dense,
     required this.canAddFunds,
+    required this.onOpenPurchaseOrders,
     required this.onAddFund,
   });
 
@@ -352,20 +414,33 @@ class _FundsHeaderCard extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(width: 16),
-                      _AddFundButton(onPressed: onAddFund),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _PurchaseOrdersButton(
+                            onPressed: onOpenPurchaseOrders,
+                          ),
+                          _AddFundButton(onPressed: onAddFund),
+                        ],
+                      ),
                     ],
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _FundsHeaderCopy(totalFunds: totalFunds, dense: dense),
-                      if (canAddFunds) ...[
-                        const SizedBox(height: 14),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: _AddFundButton(onPressed: onAddFund),
-                        ),
-                      ],
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          _PurchaseOrdersButton(
+                            onPressed: onOpenPurchaseOrders,
+                          ),
+                          if (canAddFunds) _AddFundButton(onPressed: onAddFund),
+                        ],
+                      ),
                     ],
                   ),
           ),
@@ -430,6 +505,27 @@ class _AddFundButton extends StatelessWidget {
       icon: const Icon(Icons.add_rounded, size: 18),
       label: const Text(
         'Add Fund',
+        style: TextStyle(fontWeight: FontWeight.w700),
+      ),
+    );
+  }
+}
+
+class _PurchaseOrdersButton extends StatelessWidget {
+  final VoidCallback onPressed;
+
+  const _PurchaseOrdersButton({required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      icon: const Icon(Icons.folder_copy_outlined, size: 18),
+      label: const Text(
+        'Purchase Orders',
         style: TextStyle(fontWeight: FontWeight.w700),
       ),
     );
@@ -639,6 +735,7 @@ class _FundsListSection extends StatelessWidget {
   final bool canManageFunds;
   final ValueChanged<FundModel> onEditFund;
   final ValueChanged<FundModel> onCloseFund;
+  final ValueChanged<FundModel> onViewHistory;
   final _FundStatusFilter statusFilter;
   final int totalFundsInStream;
 
@@ -648,6 +745,7 @@ class _FundsListSection extends StatelessWidget {
     required this.canManageFunds,
     required this.onEditFund,
     required this.onCloseFund,
+    required this.onViewHistory,
     required this.statusFilter,
     required this.totalFundsInStream,
   });
@@ -701,6 +799,7 @@ class _FundsListSection extends StatelessWidget {
               fund: fund,
               onClose: canManageThisFund ? () => onCloseFund(fund) : null,
               onEdit: canManageThisFund ? () => onEditFund(fund) : null,
+              onViewHistory: () => onViewHistory(fund),
             ),
           );
         }),
@@ -713,11 +812,13 @@ class _FundCard extends StatelessWidget {
   final FundModel fund;
   final VoidCallback? onEdit;
   final VoidCallback? onClose;
+  final VoidCallback onViewHistory;
 
   const _FundCard({
     required this.fund,
     required this.onEdit,
     required this.onClose,
+    required this.onViewHistory,
   });
 
   @override
@@ -761,6 +862,7 @@ class _FundCard extends StatelessWidget {
                       status: fund.effectiveStatus,
                       onEdit: onEdit,
                       onClose: onClose,
+                      onViewHistory: onViewHistory,
                     ),
                   ],
                 )
@@ -784,6 +886,7 @@ class _FundCard extends StatelessWidget {
                       status: fund.effectiveStatus,
                       onEdit: onEdit,
                       onClose: onClose,
+                      onViewHistory: onViewHistory,
                     ),
                   ],
                 ),
@@ -842,16 +945,18 @@ class _FundCardActions extends StatelessWidget {
   final String status;
   final VoidCallback? onEdit;
   final VoidCallback? onClose;
+  final VoidCallback onViewHistory;
 
   const _FundCardActions({
     required this.status,
     required this.onEdit,
     required this.onClose,
+    required this.onViewHistory,
   });
 
   @override
   Widget build(BuildContext context) {
-    final hasActions = onEdit != null || onClose != null;
+    final hasActions = true;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -864,6 +969,9 @@ class _FundCardActions extends StatelessWidget {
               tooltip: 'Fund actions',
               onSelected: (action) {
                 switch (action) {
+                  case _FundCardMenuAction.history:
+                    onViewHistory();
+                    break;
                   case _FundCardMenuAction.edit:
                     onEdit?.call();
                     break;
@@ -874,6 +982,13 @@ class _FundCardActions extends StatelessWidget {
               },
               itemBuilder: (context) {
                 return [
+                  const PopupMenuItem<_FundCardMenuAction>(
+                    value: _FundCardMenuAction.history,
+                    child: _FundCardMenuRow(
+                      icon: Icons.history_outlined,
+                      label: 'View history',
+                    ),
+                  ),
                   if (onEdit != null)
                     const PopupMenuItem<_FundCardMenuAction>(
                       value: _FundCardMenuAction.edit,
@@ -903,7 +1018,7 @@ class _FundCardActions extends StatelessWidget {
   }
 }
 
-enum _FundCardMenuAction { edit, close }
+enum _FundCardMenuAction { history, edit, close }
 
 class _FundCardMenuRow extends StatelessWidget {
   final IconData icon;
@@ -1084,6 +1199,661 @@ class _CloseFundDialogState extends State<_CloseFundDialog> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _FundHistorySheet extends StatefulWidget {
+  final FundModel fund;
+  final String labId;
+  final FundService fundService;
+  final bool isBottomSheet;
+
+  const _FundHistorySheet({
+    required this.fund,
+    required this.labId,
+    required this.fundService,
+    required this.isBottomSheet,
+  });
+
+  @override
+  State<_FundHistorySheet> createState() => _FundHistorySheetState();
+}
+
+class _FundHistorySheetState extends State<_FundHistorySheet> {
+  late Stream<List<FundTransactionModel>> _transactionsStream;
+
+  @override
+  void initState() {
+    super.initState();
+    _transactionsStream = _createTransactionsStream();
+  }
+
+  Stream<List<FundTransactionModel>> _createTransactionsStream() {
+    return widget.fundService.streamFundTransactions(
+      labId: widget.labId,
+      fundId: widget.fund.id,
+    );
+  }
+
+  void _refreshTransactions() {
+    setState(() {
+      _transactionsStream = _createTransactionsStream();
+    });
+  }
+
+  String? _historyErrorDetail(Object? error) {
+    final message = FirestoreAccessGuard.messageFor(
+      error,
+      fallback: 'Unable to load fund history.',
+    );
+    if (message.trim().isEmpty ||
+        message.trim() == 'Unable to load fund history.') {
+      return null;
+    }
+    return message;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final cleanFundCode = _normalizedOptionalText(widget.fund.fundCode);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: palette.panel,
+        borderRadius: BorderRadius.circular(widget.isBottomSheet ? 24 : 28),
+        border: Border.all(color: palette.border),
+      ),
+      child: SafeArea(
+        top: false,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Fund transaction history',
+                            style: TextStyle(
+                              color: colorScheme.onSurface,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            widget.fund.fundName.trim().isEmpty
+                                ? 'Untitled fund'
+                                : widget.fund.fundName.trim(),
+                            style: TextStyle(
+                              color: palette.mutedText,
+                              fontSize: 13.5,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      tooltip: 'Close',
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                _FundHistoryHeaderSummary(
+                  fundCode: cleanFundCode,
+                  availableAmount: widget.fund.availableAmount,
+                  totalAmount: widget.fund.totalAmount,
+                ),
+                const SizedBox(height: 14),
+                Expanded(
+                  child: StreamBuilder<List<FundTransactionModel>>(
+                    stream: _transactionsStream,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasError) {
+                        return _FundHistoryErrorState(
+                          detail: _historyErrorDetail(snapshot.error),
+                          onRetry: _refreshTransactions,
+                        );
+                      }
+
+                      if (snapshot.connectionState == ConnectionState.waiting &&
+                          !snapshot.hasData) {
+                        return const _FundHistoryLoadingState();
+                      }
+
+                      final transactions =
+                          snapshot.data ?? const <FundTransactionModel>[];
+                      if (transactions.isEmpty) {
+                        return const _FundHistoryEmptyState();
+                      }
+
+                      final summary = _FundHistorySummary.fromTransactions(
+                        transactions,
+                      );
+
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _FundHistoryTotals(summary: summary),
+                          const SizedBox(height: 14),
+                          Expanded(
+                            child: ListView.separated(
+                              itemCount: transactions.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: 10),
+                              itemBuilder: (context, index) {
+                                return _FundTransactionCard(
+                                  transaction: transactions[index],
+                                  currentFundDisplayName:
+                                      widget.fund.fundName.trim().isNotEmpty
+                                      ? widget.fund.fundName.trim()
+                                      : cleanFundCode ?? '',
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FundHistoryHeaderSummary extends StatelessWidget {
+  final String? fundCode;
+  final double availableAmount;
+  final double totalAmount;
+
+  const _FundHistoryHeaderSummary({
+    required this.fundCode,
+    required this.availableAmount,
+    required this.totalAmount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.panelAlt,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (fundCode != null && fundCode!.isNotEmpty) ...[
+            Text(
+              'Code: ${fundCode!}',
+              style: TextStyle(
+                color: palette.subtleText,
+                fontSize: 12.2,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              _FundHistoryTopStat(
+                label: 'Available amount',
+                value: _formatIndianCurrency(availableAmount),
+                icon: Icons.savings_outlined,
+              ),
+              _FundHistoryTopStat(
+                label: 'Total sanctioned',
+                value: _formatIndianCurrency(totalAmount),
+                icon: Icons.payments_outlined,
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FundHistoryTopStat extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _FundHistoryTopStat({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 180),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: palette.panel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: palette.subtleText,
+                    fontSize: 11.8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 13.4,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FundHistoryTotals extends StatelessWidget {
+  final _FundHistorySummary summary;
+
+  const _FundHistoryTotals({required this.summary});
+
+  @override
+  Widget build(BuildContext context) {
+    return Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        _FundHistoryTotalTile(
+          label: 'Total transactions',
+          value: summary.totalTransactions.toString(),
+          icon: Icons.receipt_long_outlined,
+        ),
+        _FundHistoryTotalTile(
+          label: 'Total allocated',
+          value: _formatIndianCurrency(summary.totalAllocated),
+          icon: Icons.account_balance_wallet_outlined,
+        ),
+      ],
+    );
+  }
+}
+
+class _FundHistoryTotalTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final IconData icon;
+
+  const _FundHistoryTotalTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 180),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: palette.panelAlt,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: colorScheme.primary),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: palette.subtleText,
+                    fontSize: 11.8,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 13.6,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FundTransactionCard extends StatelessWidget {
+  final FundTransactionModel transaction;
+  final String currentFundDisplayName;
+
+  const _FundTransactionCard({
+    required this.transaction,
+    required this.currentFundDisplayName,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final cleanNotes = _normalizedOptionalText(transaction.notes);
+    final cleanRequirementId = transaction.requirementId.trim();
+    final snapshotFundName = transaction.fundDisplayName.trim();
+    final shouldShowSnapshotFund =
+        snapshotFundName.isNotEmpty &&
+        snapshotFundName.toLowerCase() != currentFundDisplayName.toLowerCase();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.panel,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _transactionValueLabel(transaction.type),
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      transaction.itemNameSnapshot.trim().isEmpty
+                          ? 'Unnamed item'
+                          : transaction.itemNameSnapshot.trim(),
+                      style: TextStyle(
+                        color: palette.mutedText,
+                        fontSize: 13.2,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                _formatIndianCurrency(transaction.amount),
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 14.4,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MetaChip(
+                icon: Icons.schedule_outlined,
+                label: _formatHistoryDateTime(transaction.createdAt),
+              ),
+              _MetaChip(
+                icon: Icons.person_outline_rounded,
+                label:
+                    'Created by: ${transaction.createdBy.trim().isEmpty ? '-' : transaction.createdBy.trim()}',
+              ),
+              _MetaChip(
+                icon: Icons.flag_outlined,
+                label: 'Status: ${_transactionValueLabel(transaction.status)}',
+              ),
+              if (cleanRequirementId.isNotEmpty)
+                _MetaChip(
+                  icon: Icons.link_outlined,
+                  label: 'Requirement: $cleanRequirementId',
+                ),
+              if (shouldShowSnapshotFund)
+                _MetaChip(
+                  icon: Icons.account_balance_wallet_outlined,
+                  label: 'Snapshot fund: $snapshotFundName',
+                ),
+            ],
+          ),
+          if (cleanNotes != null) ...[
+            const SizedBox(height: 10),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: palette.panelAlt,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: palette.border),
+              ),
+              child: Text(
+                cleanNotes,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 12.8,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _FundHistoryLoadingState extends StatelessWidget {
+  const _FundHistoryLoadingState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(child: CircularProgressIndicator());
+  }
+}
+
+class _FundHistoryErrorState extends StatelessWidget {
+  final String? detail;
+  final VoidCallback onRetry;
+
+  const _FundHistoryErrorState({required this.detail, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 520),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: palette.panelAlt,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: palette.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.history_toggle_off_rounded,
+                color: palette.danger,
+                size: 34,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Unable to load fund history.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              if (detail != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  detail!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 13,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              OutlinedButton.icon(
+                onPressed: onRetry,
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FundHistoryEmptyState extends StatelessWidget {
+  const _FundHistoryEmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 520),
+          padding: const EdgeInsets.all(22),
+          decoration: BoxDecoration(
+            color: palette.panelAlt,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: palette.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.history_outlined,
+                color: colorScheme.primary,
+                size: 32,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'No transactions have been recorded for this fund yet.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 15.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FundHistorySummary {
+  final int totalTransactions;
+  final double totalAllocated;
+
+  const _FundHistorySummary({
+    required this.totalTransactions,
+    required this.totalAllocated,
+  });
+
+  factory _FundHistorySummary.fromTransactions(
+    List<FundTransactionModel> transactions,
+  ) {
+    final totalAllocated = transactions.fold<double>(0, (sum, transaction) {
+      if (transaction.isAllocation && transaction.isActive) {
+        return sum + _safeAmount(transaction.amount);
+      }
+      return sum;
+    });
+
+    return _FundHistorySummary(
+      totalTransactions: transactions.length,
+      totalAllocated: totalAllocated,
     );
   }
 }
@@ -2562,6 +3332,63 @@ String _statusLabel(String status) {
     default:
       return 'Active';
   }
+}
+
+String _transactionValueLabel(String rawValue) {
+  final cleaned = rawValue.trim();
+  if (cleaned.isEmpty) {
+    return 'Unknown';
+  }
+
+  final withSpaces = cleaned
+      .replaceAll('_', ' ')
+      .replaceAll('-', ' ')
+      .replaceAllMapped(
+        RegExp(r'([a-z0-9])([A-Z])'),
+        (match) => '${match.group(1)} ${match.group(2)}',
+      );
+  final words = withSpaces
+      .split(RegExp(r'\s+'))
+      .where((word) => word.trim().isNotEmpty)
+      .map((word) {
+        final lower = word.toLowerCase();
+        return '${lower[0].toUpperCase()}${lower.substring(1)}';
+      })
+      .toList(growable: false);
+
+  return words.isEmpty ? 'Unknown' : words.join(' ');
+}
+
+String _formatHistoryDateTime(DateTime? value) {
+  if (value == null) {
+    return 'Date unavailable';
+  }
+
+  const monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
+  final day = value.day.toString().padLeft(2, '0');
+  final month = monthNames[value.month - 1];
+  final year = value.year.toString();
+  final hour24 = value.hour;
+  final minute = value.minute.toString().padLeft(2, '0');
+  final period = hour24 >= 12 ? 'PM' : 'AM';
+  final hour12Base = hour24 % 12;
+  final hour12 = hour12Base == 0 ? 12 : hour12Base;
+
+  return '$day $month $year, ${hour12.toString().padLeft(2, '0')}:$minute $period';
 }
 
 List<FundModel> _filterFundsByStatus(

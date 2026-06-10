@@ -256,9 +256,7 @@ class _CartScreenState extends State<CartScreen> {
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Unable to identify the approving user.'),
-        ),
+        const SnackBar(content: Text('Unable to identify the approving user.')),
       );
       return;
     }
@@ -345,6 +343,7 @@ class _CartScreenState extends State<CartScreen> {
   Future<void> _placeOrder(RequirementModel req) async {
     final appState = AppState.instance;
     final currentUserName = appState.authenticatedUserName;
+    final estimatedTotal = _parseEstimatedTotal(req.estimatedTotal);
 
     final order = OrderModel(
       id: '',
@@ -365,6 +364,12 @@ class _CartScreenState extends State<CartScreen> {
       receivedBy: '',
       deliveredAt: null,
       inventoryAdded: false,
+      estimatedTotal: estimatedTotal,
+      fundId: req.fundId,
+      fundNameSnapshot: req.fundNameSnapshot,
+      fundCodeSnapshot: req.fundCodeSnapshot,
+      allocatedAmount: req.allocatedAmount,
+      fundTransactionId: req.fundTransactionId,
     );
 
     final orderId = await orderService.placeOrderAndMarkRequirementOrdered(
@@ -725,7 +730,10 @@ class _CartScreenState extends State<CartScreen> {
                 Expanded(
                   child: ElevatedButton(
                     onPressed: () async {
-                      await _handleApproveRequirement(context: context, req: req);
+                      await _handleApproveRequirement(
+                        context: context,
+                        req: req,
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
@@ -1121,7 +1129,8 @@ class _RequirementFundApprovalPanelState
       tolerance: _balanceTolerance,
     )) {
       setState(() {
-        _submissionError = 'This fund does not have sufficient available balance.';
+        _submissionError =
+            'This fund does not have sufficient available balance.';
       });
       return;
     }
@@ -1158,7 +1167,6 @@ class _RequirementFundApprovalPanelState
 
   @override
   Widget build(BuildContext context) {
-    final palette = context.labmate;
     final colorScheme = context.colorScheme;
     final estimatedTotal = _estimatedTotal;
     final hasValidEstimatedTotal = estimatedTotal != null;
@@ -1264,14 +1272,17 @@ class _RequirementFundApprovalPanelState
                                 estimatedTotal,
                                 tolerance: _balanceTolerance,
                               );
-                              final afterApproval =
-                                  _roundCurrency(fund.availableAmount - estimatedTotal);
+                              final afterApproval = _roundCurrency(
+                                fund.availableAmount - estimatedTotal,
+                              );
 
                               return _buildFundOptionCard(
                                 context: context,
                                 fund: fund,
                                 canSelect: canSelect,
-                                afterApproval: afterApproval < 0 ? 0 : afterApproval,
+                                afterApproval: afterApproval < 0
+                                    ? 0
+                                    : afterApproval,
                                 estimatedTotal: estimatedTotal,
                               );
                             }).toList(),
@@ -1307,7 +1318,7 @@ class _RequirementFundApprovalPanelState
                     selectedFund.effectiveStatus == FundModel.statusActive &&
                     _hasSufficientDisplayedBalance(
                       selectedFund.availableAmount,
-                      estimatedTotal ?? 0,
+                      estimatedTotal,
                       tolerance: _balanceTolerance,
                     );
                 final approvableFund = canApprove ? selectedFund : null;
@@ -1475,10 +1486,7 @@ class _RequirementFundApprovalPanelState
               }
             : null,
         activeColor: colorScheme.primary,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 6,
-        ),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         title: Text(
           fund.fundName,
           style: TextStyle(
@@ -1641,10 +1649,7 @@ double? _parseEstimatedTotal(String rawValue) {
 
   cleaned = cleaned.replaceAll(',', '').trim();
   cleaned = cleaned
-      .replaceFirst(
-        RegExp('^(?:\\u20B9|\\u00E2\\u201A\\u00B9)\\s*'),
-        '',
-      )
+      .replaceFirst(RegExp('^(?:\\u20B9|\\u00E2\\u201A\\u00B9)\\s*'), '')
       .trim();
   if (cleaned.startsWith('â‚¹')) {
     cleaned = cleaned.substring(1).trim();

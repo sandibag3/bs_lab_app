@@ -1,9 +1,26 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../app_state.dart';
 import '../models/order_model.dart';
+import '../models/requirement_model.dart';
 import 'firestore_access_guard.dart';
 
+class OrderFinancialBackfillResult {
+  const OrderFinancialBackfillResult({
+    required this.scanned,
+    required this.updated,
+    required this.skipped,
+    required this.unresolved,
+  });
+
+  final int scanned;
+  final int updated;
+  final int skipped;
+  final int unresolved;
+}
+
 class OrderService {
+  static const int _backfillBatchChunkSize = 400;
+
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   bool _matchesCurrentLab(Map<String, dynamic> data) {
@@ -25,6 +42,10 @@ class OrderService {
         .snapshots();
   }
 
+  DocumentReference<Map<String, dynamic>> _requirementRef(String requirementId) {
+    return _firestore.collection('requirements').doc(requirementId);
+  }
+
   Future<String> addOrder(OrderModel order) async {
     final doc = await _firestore.collection('orders').add(order.toMap());
     return doc.id;
@@ -43,8 +64,6 @@ class OrderService {
     batch.set(orderRef, order.toMap());
     batch.update(requirementRef, {
       'status': 'ordered',
-      'approvedBy': updatedBy,
-      'approvedAt': FieldValue.serverTimestamp(),
     });
 
     await batch.commit();
@@ -69,6 +88,168 @@ class OrderService {
     );
   }
 
+  Future<OrderFinancialBackfillResult> backfillOrderFinancialSnapshots({
+    required String labId,
+  }) async {
+    final cleanLabId = labId.trim();
+    if (cleanLabId.isEmpty) {
+      throw ArgumentError('Lab ID is required.');
+    }
+
+    final snapshot = await _firestore
+        .collection('orders')
+        .where('labId', isEqualTo: cleanLabId)
+        .get();
+
+    var scanned = 0;
+    var updated = 0;
+    var skipped = 0;
+    var unresolved = 0;
+
+    final requirementCache =
+        <String, DocumentSnapshot<Map<String, dynamic>>?>{};
+    final pendingUpdates =
+        <MapEntry<DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>>[];
+
+    for (final doc in snapshot.docs) {
+      scanned++;
+      final order = OrderModel.fromFirestore(doc);
+      final cleanRequirementId = order.requirementId.trim();
+      final cleanFundAdjustmentTransactionId =
+          order.fundAdjustmentTransactionId?.trim() ?? '';
+
+      if (order.costReconciled || cleanFundAdjustmentTransactionId.isNotEmpty) {
+        skipped++;
+        continue;
+      }
+
+      if (cleanRequirementId.isEmpty) {
+        skipped++;
+        continue;
+      }
+
+      final needsEstimatedTotal = order.estimatedTotal == null;
+      final needsFundId = (order.fundId?.trim() ?? '').isEmpty;
+      final needsFundNameSnapshot = (order.fundNameSnapshot?.trim() ?? '').isEmpty;
+      final needsFundCodeSnapshot = (order.fundCodeSnapshot?.trim() ?? '').isEmpty;
+      final allocatedAmount = order.allocatedAmount;
+      final needsAllocatedAmount =
+          allocatedAmount == null ||
+          !allocatedAmount.isFinite ||
+          allocatedAmount <= 0;
+      final needsFundTransactionId =
+          (order.fundTransactionId?.trim() ?? '').isEmpty;
+
+      final needsRepair =
+          needsEstimatedTotal ||
+          needsFundId ||
+          needsFundNameSnapshot ||
+          needsAllocatedAmount ||
+          needsFundTransactionId;
+
+      if (!needsRepair) {
+        skipped++;
+        continue;
+      }
+
+      final requirementSnapshot =
+          requirementCache[cleanRequirementId] ??
+          await _requirementRef(cleanRequirementId).get();
+      requirementCache[cleanRequirementId] = requirementSnapshot;
+
+      if (requirementSnapshot == null ||
+          !requirementSnapshot.exists ||
+          requirementSnapshot.data() == null) {
+        unresolved++;
+        continue;
+      }
+
+      final requirement = RequirementModel.fromFirestore(requirementSnapshot);
+      if (requirement.labId.trim() != cleanLabId) {
+        unresolved++;
+        continue;
+      }
+
+      final updateData = <String, dynamic>{};
+      final parsedEstimatedTotal = needsEstimatedTotal
+          ? _parseRequirementEstimatedTotal(requirement.estimatedTotal)
+          : null;
+      if (needsEstimatedTotal && parsedEstimatedTotal != null) {
+        updateData['estimatedTotal'] = parsedEstimatedTotal;
+      }
+
+      final requirementFundId = requirement.fundId?.trim() ?? '';
+      final requirementFundName = _normalizedOptionalString(
+        requirement.fundNameSnapshot,
+      );
+      final requirementFundCode = _normalizedOptionalString(
+        requirement.fundCodeSnapshot,
+      );
+      final requirementAllocatedAmount = requirement.allocatedAmount;
+      final requirementFundTransactionId =
+          requirement.fundTransactionId?.trim() ?? '';
+      final hasValidRequirementAllocation =
+          requirementFundId.isNotEmpty &&
+          requirementAllocatedAmount != null &&
+          requirementAllocatedAmount.isFinite &&
+          requirementAllocatedAmount > 0 &&
+          requirementFundTransactionId.isNotEmpty;
+
+      if (hasValidRequirementAllocation) {
+        if (needsFundId) {
+          updateData['fundId'] = requirementFundId;
+        }
+        if (needsFundNameSnapshot && requirementFundName != null) {
+          updateData['fundNameSnapshot'] = requirementFundName;
+        }
+        if (needsFundCodeSnapshot && requirementFundCode != null) {
+          updateData['fundCodeSnapshot'] = requirementFundCode;
+        }
+        if (needsAllocatedAmount) {
+          updateData['allocatedAmount'] = _roundCurrency(
+            requirementAllocatedAmount!,
+          );
+        }
+        if (needsFundTransactionId) {
+          updateData['fundTransactionId'] = requirementFundTransactionId;
+        }
+      }
+
+      if (updateData.isEmpty) {
+        unresolved++;
+        continue;
+      }
+
+      pendingUpdates.add(MapEntry(doc.reference, updateData));
+      updated++;
+    }
+
+    for (
+      var start = 0;
+      start < pendingUpdates.length;
+      start += _backfillBatchChunkSize
+    ) {
+      final batch = _firestore.batch();
+      final end = (start + _backfillBatchChunkSize) > pendingUpdates.length
+          ? pendingUpdates.length
+          : (start + _backfillBatchChunkSize);
+
+      for (var index = start; index < end; index++) {
+        final update = pendingUpdates[index];
+        batch.update(update.key, update.value);
+      }
+
+      await batch.commit();
+    }
+
+    return OrderFinancialBackfillResult(
+      scanned: scanned,
+      updated: updated,
+      skipped: skipped,
+      unresolved: unresolved,
+    );
+  }
+
   Future<void> updateOrderStatus({
     required String docId,
     required String status,
@@ -85,5 +266,39 @@ class OrderService {
     await _firestore.collection('orders').doc(docId).update({
       'inventoryAdded': true,
     });
+  }
+
+  String? _normalizedOptionalString(String? value) {
+    final normalized = value?.trim();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+    return normalized;
+  }
+
+  double? _parseRequirementEstimatedTotal(String rawValue) {
+    var cleaned = rawValue.trim();
+    if (cleaned.isEmpty) {
+      return null;
+    }
+
+    cleaned = cleaned.replaceAll(',', '').trim();
+    cleaned = cleaned
+        .replaceFirst(
+          RegExp('^(?:\\u20B9|â‚¹|Ã¢â€šÂ¹|ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¹)\\s*'),
+          '',
+        )
+        .trim();
+
+    final parsed = double.tryParse(cleaned);
+    if (parsed == null || !parsed.isFinite) {
+      return null;
+    }
+
+    return _roundCurrency(parsed);
+  }
+
+  double _roundCurrency(double value) {
+    return (value * 100).roundToDouble() / 100;
   }
 }

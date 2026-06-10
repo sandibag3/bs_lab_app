@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/fund_model.dart';
+import '../models/fund_transaction_model.dart';
 import 'firestore_access_guard.dart';
 
 class FundService {
@@ -12,6 +13,13 @@ class FundService {
 
   CollectionReference<Map<String, dynamic>> _fundsRef(String labId) {
     return _firestore.collection('labs').doc(labId).collection('funds');
+  }
+
+  CollectionReference<Map<String, dynamic>> _transactionsRef({
+    required String labId,
+    required String fundId,
+  }) {
+    return _fundsRef(labId).doc(fundId).collection('transactions');
   }
 
   Future<T> _runGuarded<T>(Future<T> Function() action) async {
@@ -71,6 +79,44 @@ class FundService {
         funds.sort(_compareFunds);
         return funds;
       },
+    );
+  }
+
+  Stream<List<FundTransactionModel>> streamFundTransactions({
+    required String labId,
+    required String fundId,
+  }) {
+    final cleanLabId = labId.trim();
+    final cleanFundId = fundId.trim();
+    if (cleanLabId.isEmpty || cleanFundId.isEmpty) {
+      return Stream<List<FundTransactionModel>>.value(
+        const <FundTransactionModel>[],
+      );
+    }
+
+    return _transactionsRef(
+      labId: cleanLabId,
+      fundId: cleanFundId,
+    ).snapshots().transform(
+      StreamTransformer<
+        QuerySnapshot<Map<String, dynamic>>,
+        List<FundTransactionModel>
+      >.fromHandlers(
+        handleData: (snapshot, sink) {
+          final transactions = snapshot.docs
+              .map(FundTransactionModel.fromFirestore)
+              .toList();
+          transactions.sort(_compareTransactions);
+          sink.add(transactions);
+        },
+        handleError: (error, stackTrace, sink) {
+          if (FirestoreAccessGuard.isPermissionDenied(error)) {
+            sink.addError(const LabDataAccessException(), stackTrace);
+            return;
+          }
+          sink.addError(error, stackTrace);
+        },
+      ),
     );
   }
 
@@ -219,6 +265,27 @@ class FundService {
       default:
         return 0;
     }
+  }
+
+  int _compareTransactions(
+    FundTransactionModel a,
+    FundTransactionModel b,
+  ) {
+    final aCreatedAt = a.createdAt;
+    final bCreatedAt = b.createdAt;
+
+    if (aCreatedAt != null && bCreatedAt != null) {
+      final createdAtComparison = bCreatedAt.compareTo(aCreatedAt);
+      if (createdAtComparison != 0) {
+        return createdAtComparison;
+      }
+    } else if (aCreatedAt == null && bCreatedAt != null) {
+      return 1;
+    } else if (aCreatedAt != null && bCreatedAt == null) {
+      return -1;
+    }
+
+    return a.id.toLowerCase().compareTo(b.id.toLowerCase());
   }
 
   String _validatedLabId(String labId) {
