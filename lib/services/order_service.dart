@@ -18,6 +18,15 @@ class OrderFinancialBackfillResult {
   final int unresolved;
 }
 
+class OrderPlacementException implements Exception {
+  const OrderPlacementException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class OrderService {
   static const int _backfillBatchChunkSize = 400;
 
@@ -42,7 +51,9 @@ class OrderService {
         .snapshots();
   }
 
-  DocumentReference<Map<String, dynamic>> _requirementRef(String requirementId) {
+  DocumentReference<Map<String, dynamic>> _requirementRef(
+    String requirementId,
+  ) {
     return _firestore.collection('requirements').doc(requirementId);
   }
 
@@ -56,17 +67,60 @@ class OrderService {
     required String updatedBy,
   }) async {
     final orderRef = _firestore.collection('orders').doc();
-    final requirementRef = _firestore
-        .collection('requirements')
-        .doc(order.requirementId);
-    final batch = _firestore.batch();
+    final requirementRef = _requirementRef(order.requirementId);
+    final orderWithId = order.copyWith(id: orderRef.id);
 
-    batch.set(orderRef, order.toMap());
-    batch.update(requirementRef, {
-      'status': 'ordered',
+    await _firestore.runTransaction((transaction) async {
+      final requirementSnapshot = await transaction.get(requirementRef);
+      final requirementData = requirementSnapshot.data();
+
+      if (!requirementSnapshot.exists || requirementData == null) {
+        throw const OrderPlacementException('Requirement no longer exists.');
+      }
+
+      final existingOrderId = (requirementData['orderId'] ?? '')
+          .toString()
+          .trim();
+      if (existingOrderId.isNotEmpty) {
+        throw const OrderPlacementException(
+          'This requirement has already been ordered.',
+        );
+      }
+
+      final status = (requirementData['status'] ?? '').toString();
+      if (status.trim().toLowerCase() != 'approved') {
+        throw const OrderPlacementException(
+          'This requirement can no longer be ordered because its status has changed.',
+        );
+      }
+
+      final requirementLabId = (requirementData['labId'] ?? '')
+          .toString()
+          .trim();
+      final orderLabId = orderWithId.labId.trim();
+      if (requirementLabId.isNotEmpty &&
+          orderLabId.isNotEmpty &&
+          requirementLabId != orderLabId) {
+        throw const OrderPlacementException(
+          'This requirement does not belong to the active lab.',
+        );
+      }
+
+      final serverTimestamp = FieldValue.serverTimestamp();
+      final requirementUpdates = <String, dynamic>{
+        'status': 'ordered',
+        'orderId': orderRef.id,
+        'orderedAt': serverTimestamp,
+      };
+      final cleanUpdatedBy = updatedBy.trim();
+      if (cleanUpdatedBy.isNotEmpty) {
+        requirementUpdates['orderedBy'] = cleanUpdatedBy;
+      }
+
+      transaction.set(orderRef, orderWithId.toMap());
+      transaction.update(requirementRef, requirementUpdates);
     });
 
-    await batch.commit();
     return orderRef.id;
   }
 
@@ -109,7 +163,12 @@ class OrderService {
     final requirementCache =
         <String, DocumentSnapshot<Map<String, dynamic>>?>{};
     final pendingUpdates =
-        <MapEntry<DocumentReference<Map<String, dynamic>>, Map<String, dynamic>>>[];
+        <
+          MapEntry<
+            DocumentReference<Map<String, dynamic>>,
+            Map<String, dynamic>
+          >
+        >[];
 
     for (final doc in snapshot.docs) {
       scanned++;
@@ -130,8 +189,10 @@ class OrderService {
 
       final needsEstimatedTotal = order.estimatedTotal == null;
       final needsFundId = (order.fundId?.trim() ?? '').isEmpty;
-      final needsFundNameSnapshot = (order.fundNameSnapshot?.trim() ?? '').isEmpty;
-      final needsFundCodeSnapshot = (order.fundCodeSnapshot?.trim() ?? '').isEmpty;
+      final needsFundNameSnapshot =
+          (order.fundNameSnapshot?.trim() ?? '').isEmpty;
+      final needsFundCodeSnapshot =
+          (order.fundCodeSnapshot?.trim() ?? '').isEmpty;
       final allocatedAmount = order.allocatedAmount;
       final needsAllocatedAmount =
           allocatedAmount == null ||
@@ -157,9 +218,7 @@ class OrderService {
           await _requirementRef(cleanRequirementId).get();
       requirementCache[cleanRequirementId] = requirementSnapshot;
 
-      if (requirementSnapshot == null ||
-          !requirementSnapshot.exists ||
-          requirementSnapshot.data() == null) {
+      if (!requirementSnapshot.exists || requirementSnapshot.data() == null) {
         unresolved++;
         continue;
       }
@@ -207,7 +266,7 @@ class OrderService {
         }
         if (needsAllocatedAmount) {
           updateData['allocatedAmount'] = _roundCurrency(
-            requirementAllocatedAmount!,
+            requirementAllocatedAmount,
           );
         }
         if (needsFundTransactionId) {

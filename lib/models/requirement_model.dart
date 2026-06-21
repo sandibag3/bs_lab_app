@@ -40,6 +40,9 @@ class RequirementModel {
   final String? fundAllocatedBy;
   final DateTime? fundAllocatedAt;
   final String? fundTransactionId;
+  final String? orderId;
+  final DateTime? orderedAt;
+  final String? orderedBy;
 
   RequirementModel({
     required this.id,
@@ -73,6 +76,9 @@ class RequirementModel {
     this.fundAllocatedBy,
     this.fundAllocatedAt,
     this.fundTransactionId,
+    this.orderId,
+    this.orderedAt,
+    this.orderedBy,
   });
 
   factory RequirementModel.fromFirestore(DocumentSnapshot doc) {
@@ -113,6 +119,9 @@ class RequirementModel {
       fundAllocatedBy: _normalizedOptionalString(data['fundAllocatedBy']),
       fundAllocatedAt: _dateTimeFromValue(data['fundAllocatedAt']),
       fundTransactionId: _normalizedOptionalString(data['fundTransactionId']),
+      orderId: _normalizedOptionalString(data['orderId']),
+      orderedAt: _dateTimeFromValue(data['orderedAt']),
+      orderedBy: _normalizedOptionalString(data['orderedBy']),
     );
   }
 
@@ -194,6 +203,15 @@ class RequirementModel {
     if (autoRejected != null) {
       map['autoRejected'] = autoRejected;
     }
+    if (orderId != null) {
+      map['orderId'] = orderId;
+    }
+    if (orderedAt != null) {
+      map['orderedAt'] = Timestamp.fromDate(orderedAt!);
+    }
+    if (orderedBy != null) {
+      map['orderedBy'] = orderedBy;
+    }
 
     return map;
   }
@@ -241,6 +259,12 @@ class RequirementModel {
     bool clearFundAllocatedAt = false,
     String? fundTransactionId,
     bool clearFundTransactionId = false,
+    String? orderId,
+    bool clearOrderId = false,
+    DateTime? orderedAt,
+    bool clearOrderedAt = false,
+    String? orderedBy,
+    bool clearOrderedBy = false,
   }) {
     return RequirementModel(
       id: id ?? this.id,
@@ -290,6 +314,9 @@ class RequirementModel {
       fundTransactionId: clearFundTransactionId
           ? null
           : (fundTransactionId ?? this.fundTransactionId),
+      orderId: clearOrderId ? null : (orderId ?? this.orderId),
+      orderedAt: clearOrderedAt ? null : (orderedAt ?? this.orderedAt),
+      orderedBy: clearOrderedBy ? null : (orderedBy ?? this.orderedBy),
     );
   }
 

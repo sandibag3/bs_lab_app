@@ -33,6 +33,7 @@ class _CartScreenState extends State<CartScreen> {
   CartViewMode _viewMode = CartViewMode.compact;
   CartSortOption _sortOption = CartSortOption.newestFirst;
   String? _cancellingRequirementId;
+  String? _placingOrderRequirementId;
 
   String _requirementDisplayName(RequirementModel req) {
     final mainType = req.mainType.trim().toLowerCase();
@@ -147,6 +148,10 @@ class _CartScreenState extends State<CartScreen> {
   }
 
   bool _isVisibleCartRequirement(RequirementModel req) {
+    if ((req.orderId?.trim() ?? '').isNotEmpty) {
+      return false;
+    }
+
     final status = req.status.trim().toLowerCase();
     switch (status) {
       case 'pending':
@@ -172,6 +177,10 @@ class _CartScreenState extends State<CartScreen> {
 
   bool _isCancellingRequirement(String requirementId) {
     return _cancellingRequirementId == requirementId;
+  }
+
+  bool _isPlacingOrder(String requirementId) {
+    return _placingOrderRequirementId == requirementId;
   }
 
   bool _matchesCurrentRequester(RequirementModel req) {
@@ -553,6 +562,16 @@ class _CartScreenState extends State<CartScreen> {
     required BuildContext context,
     required RequirementModel req,
   }) async {
+    if (_isPlacingOrder(req.id)) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _placingOrderRequirementId = req.id;
+      });
+    }
+
     try {
       await _placeOrder(req);
 
@@ -560,13 +579,21 @@ class _CartScreenState extends State<CartScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Order placed successfully')),
       );
-    } catch (_) {
+    } catch (error) {
+      debugPrint('Failed to place order: $error');
       if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to place order. Please try again.'),
-        ),
-      );
+      final message = error is OrderPlacementException
+          ? error.message
+          : 'Failed to place order. Please try again.';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } finally {
+      if (mounted && _placingOrderRequirementId == req.id) {
+        setState(() {
+          _placingOrderRequirementId = null;
+        });
+      }
     }
   }
 
@@ -774,19 +801,22 @@ class _CartScreenState extends State<CartScreen> {
     }
 
     if (status == 'approved') {
+      final isPlacingOrder = _isPlacingOrder(req.id);
       actions.add(
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: () async {
-              await _handlePlaceOrder(context: context, req: req);
-            },
+            onPressed: isPlacingOrder
+                ? null
+                : () async {
+                    await _handlePlaceOrder(context: context, req: req);
+                  },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF14B8A6),
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(vertical: 10),
             ),
-            child: const Text('Place Order'),
+            child: Text(isPlacingOrder ? 'Placing...' : 'Place Order'),
           ),
         ),
       );
@@ -867,17 +897,21 @@ class _CartScreenState extends State<CartScreen> {
     required BuildContext context,
     required RequirementModel req,
   }) {
+    final isPlacingOrder = _isPlacingOrder(req.id);
+
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () async {
-          await _handlePlaceOrder(context: context, req: req);
-        },
+        onPressed: isPlacingOrder
+            ? null
+            : () async {
+                await _handlePlaceOrder(context: context, req: req);
+              },
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF14B8A6),
           foregroundColor: Colors.white,
         ),
-        child: const Text('Place Order'),
+        child: Text(isPlacingOrder ? 'Placing...' : 'Place Order'),
       ),
     );
   }
