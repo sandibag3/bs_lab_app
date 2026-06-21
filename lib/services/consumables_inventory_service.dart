@@ -40,6 +40,38 @@ class ConsumablesInventoryService {
     );
   }
 
+  Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
+  getConsumablesInventoryDocsOnce() async {
+    if (!FirestoreAccessGuard.shouldQueryLabScopedData()) {
+      return <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    }
+
+    try {
+      final appState = AppState.instance;
+      final selectedLabId = appState.selectedLabId.trim();
+      final snapshot = appState.isDemoLabSelected
+          ? await _firestore.collection('consumables_inventory').get()
+          : await _firestore
+                .collection('consumables_inventory')
+                .where('labId', isEqualTo: selectedLabId)
+                .get();
+
+      if (appState.isDemoLabSelected) {
+        return snapshot.docs.where((doc) {
+          final labId = (doc.data()['labId'] ?? '').toString().trim();
+          return AppState.instance.matchesSelectedLabId(labId);
+        }).toList();
+      }
+
+      return snapshot.docs.toList();
+    } on FirebaseException catch (error) {
+      if (FirestoreAccessGuard.isPermissionDenied(error)) {
+        throw const LabDataAccessException();
+      }
+      rethrow;
+    }
+  }
+
   Future<void> updateLocationsByIds({
     required Iterable<String> docIds,
     required String location,
@@ -65,10 +97,13 @@ class ConsumablesInventoryService {
       final chunk = cleanDocIds.skip(start).take(batchLimit);
 
       for (final docId in chunk) {
-        batch.update(_firestore.collection('consumables_inventory').doc(docId), {
-          'location': cleanLocation,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+        batch.update(
+          _firestore.collection('consumables_inventory').doc(docId),
+          {
+            'location': cleanLocation,
+            'updatedAt': FieldValue.serverTimestamp(),
+          },
+        );
       }
 
       await batch.commit();
@@ -100,10 +135,11 @@ class ConsumablesInventoryService {
       final chunk = cleanDocIds.skip(start).take(batchLimit);
 
       for (final docId in chunk) {
-        batch.update(_firestore.collection('consumables_inventory').doc(docId), {
-          'availability': cleanAvailability,
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+        batch
+            .update(_firestore.collection('consumables_inventory').doc(docId), {
+              'availability': cleanAvailability,
+              'updatedAt': FieldValue.serverTimestamp(),
+            });
       }
 
       await batch.commit();
