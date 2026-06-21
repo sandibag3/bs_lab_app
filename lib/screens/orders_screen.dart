@@ -39,6 +39,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   bool _filtersExpanded = false;
   bool _purchaseOrderSelectionMode = false;
   final Set<String> _selectedOrderIds = <String>{};
+  final Set<String> _deliveringOrderIds = <String>{};
   String? _selectedFundId;
   String _lastSeenLabId = '';
 
@@ -177,7 +178,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   void _showPurchaseOrderSelectionMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _syncPurchaseOrderSelectionState(List<OrderModel> allOrders) {
@@ -503,20 +506,45 @@ class _OrdersScreenState extends State<OrdersScreen> {
     });
   }
 
-  Future<void> _markDelivered(OrderModel order) async {
-    await orderService.updateOrderStatus(
-      docId: order.id,
-      status: 'delivered',
-      receivedBy: _currentUserName,
-    );
-    await ActivityService().addActivity(
-      labId: AppState.instance.resolveWriteLabId(order.labId),
-      type: 'order_delivered',
-      message: 'Order delivered for ${order.displayName}',
-      actorName: _currentUserName,
-      createdBy: AppState.instance.authenticatedUserId,
-      relatedId: order.id,
-    );
+  Future<bool> _markDelivered(OrderModel order) async {
+    if (_deliveringOrderIds.contains(order.id)) {
+      return false;
+    }
+
+    if (mounted) {
+      setState(() {
+        _deliveringOrderIds.add(order.id);
+      });
+    }
+
+    try {
+      await orderService.updateOrderStatus(
+        docId: order.id,
+        status: 'delivered',
+        receivedBy: _currentUserName,
+      );
+
+      try {
+        await ActivityService().addActivity(
+          labId: AppState.instance.resolveWriteLabId(order.labId),
+          type: 'order_delivered',
+          message: 'Order delivered for ${order.displayName}',
+          actorName: _currentUserName,
+          createdBy: AppState.instance.authenticatedUserId,
+          relatedId: order.id,
+        );
+      } catch (error) {
+        debugPrint('Failed to record delivery activity: $error');
+      }
+    } finally {
+      if (mounted && _deliveringOrderIds.contains(order.id)) {
+        setState(() {
+          _deliveringOrderIds.remove(order.id);
+        });
+      }
+    }
+
+    return true;
   }
 
   bool _canRecordActualCost(OrderModel order) {
@@ -549,9 +577,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
       final message = purchaseOrderLabel.isEmpty
           ? 'Actual cost for this order must be recorded through its Purchase Order.'
           : 'Actual cost for this order must be recorded through Purchase Order $purchaseOrderLabel.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
       return;
     }
 
@@ -1162,9 +1190,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       decoration: BoxDecoration(
         color: colorScheme.primary.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colorScheme.primary.withValues(alpha: 0.22),
-        ),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.22)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1536,23 +1562,40 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (isDelivered) {
       return const SizedBox.shrink();
     }
+    final isDelivering = _deliveringOrderIds.contains(order.id);
 
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: () async {
-          await _markDelivered(order);
+        onPressed: isDelivering
+            ? null
+            : () async {
+                try {
+                  final didMarkDelivered = await _markDelivered(order);
+                  if (!didMarkDelivered) {
+                    return;
+                  }
 
-          if (!context.mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Order marked as delivered')),
-          );
-        },
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Order marked as delivered')),
+                  );
+                } catch (error) {
+                  debugPrint('Failed to mark order as delivered: $error');
+                  if (!context.mounted) return;
+                  final message = error is OrderDeliveryException
+                      ? error.message
+                      : 'Failed to mark order as delivered. Please try again.';
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text(message)));
+                }
+              },
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.green,
           foregroundColor: Colors.white,
         ),
-        child: const Text('Mark as Delivered'),
+        child: Text(isDelivering ? 'Marking...' : 'Mark as Delivered'),
       ),
     );
   }
@@ -2850,9 +2893,7 @@ class _LegacyOrderFundRepairDialogState
         ),
         actions: [
           TextButton(
-            onPressed: _isSubmitting
-                ? null
-                : () => Navigator.of(context).pop(),
+            onPressed: _isSubmitting ? null : () => Navigator.of(context).pop(),
             child: const Text('Cancel'),
           ),
           FilledButton(
@@ -3020,9 +3061,7 @@ class _CreatePurchaseOrderSheetState extends State<_CreatePurchaseOrderSheet> {
         decoration: InputDecoration(
           labelText: label,
           hintText: hintText,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(14),
             borderSide: BorderSide(color: colorScheme.primary),
@@ -3230,9 +3269,7 @@ class _CreatePurchaseOrderSheetState extends State<_CreatePurchaseOrderSheet> {
                                   size: 18,
                                 ),
                           label: Text(
-                            _isSubmitting
-                                ? 'Creating...'
-                                : 'Create PO Folder',
+                            _isSubmitting ? 'Creating...' : 'Create PO Folder',
                           ),
                         ),
                       ),

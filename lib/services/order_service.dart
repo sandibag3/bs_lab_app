@@ -27,6 +27,15 @@ class OrderPlacementException implements Exception {
   String toString() => message;
 }
 
+class OrderDeliveryException implements Exception {
+  const OrderDeliveryException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class OrderService {
   static const int _backfillBatchChunkSize = 400;
 
@@ -314,10 +323,56 @@ class OrderService {
     required String status,
     required String receivedBy,
   }) async {
+    if (status.trim().toLowerCase() == 'delivered') {
+      await _markOrderDeliveredTransactionally(
+        docId: docId,
+        receivedBy: receivedBy,
+      );
+      return;
+    }
+
     await _firestore.collection('orders').doc(docId).update({
       'status': status,
       'receivedBy': receivedBy,
       'deliveredAt': Timestamp.now(),
+    });
+  }
+
+  Future<void> _markOrderDeliveredTransactionally({
+    required String docId,
+    required String receivedBy,
+  }) async {
+    final orderRef = _firestore.collection('orders').doc(docId);
+
+    await _firestore.runTransaction((transaction) async {
+      final orderSnapshot = await transaction.get(orderRef);
+      final orderData = orderSnapshot.data();
+
+      if (!orderSnapshot.exists || orderData == null) {
+        throw const OrderDeliveryException('Order no longer exists.');
+      }
+
+      final currentStatus = (orderData['status'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+      if (currentStatus == 'delivered') {
+        throw const OrderDeliveryException(
+          'This order has already been delivered.',
+        );
+      }
+
+      if (currentStatus != 'ordered') {
+        throw const OrderDeliveryException(
+          'This order can no longer be marked as delivered because its status has changed.',
+        );
+      }
+
+      transaction.update(orderRef, {
+        'status': 'delivered',
+        'receivedBy': receivedBy,
+        'deliveredAt': FieldValue.serverTimestamp(),
+      });
     });
   }
 
