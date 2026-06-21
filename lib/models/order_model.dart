@@ -19,6 +19,9 @@ class OrderModel {
   final String receivedBy;
   final Timestamp? deliveredAt;
   final bool inventoryAdded;
+  final DateTime? inventoryAddedAt;
+  final String? inventoryRecordId;
+  final String? inventoryAddedBy;
   final double? estimatedTotal;
   final String? fundId;
   final String? fundNameSnapshot;
@@ -61,6 +64,9 @@ class OrderModel {
     required this.receivedBy,
     required this.deliveredAt,
     required this.inventoryAdded,
+    this.inventoryAddedAt,
+    this.inventoryRecordId,
+    this.inventoryAddedBy,
     this.estimatedTotal,
     this.fundId,
     this.fundNameSnapshot,
@@ -107,6 +113,9 @@ class OrderModel {
       receivedBy: data['receivedBy'] ?? '',
       deliveredAt: data['deliveredAt'],
       inventoryAdded: data['inventoryAdded'] ?? false,
+      inventoryAddedAt: _dateTimeFromValue(data['inventoryAddedAt']),
+      inventoryRecordId: _normalizedOptionalString(data['inventoryRecordId']),
+      inventoryAddedBy: _normalizedOptionalString(data['inventoryAddedBy']),
       estimatedTotal: _doubleFromValue(data['estimatedTotal']),
       fundId: _normalizedOptionalString(data['fundId']),
       fundNameSnapshot: _normalizedOptionalString(data['fundNameSnapshot']),
@@ -216,6 +225,11 @@ class OrderModel {
       'receivedBy': receivedBy,
       'deliveredAt': deliveredAt,
       'inventoryAdded': inventoryAdded,
+      'inventoryAddedAt': inventoryAddedAt != null
+          ? Timestamp.fromDate(inventoryAddedAt!)
+          : null,
+      'inventoryRecordId': inventoryRecordId,
+      'inventoryAddedBy': inventoryAddedBy,
       'estimatedTotal': estimatedTotal,
       'fundId': fundId,
       'fundNameSnapshot': fundNameSnapshot,
@@ -264,6 +278,12 @@ class OrderModel {
     Timestamp? deliveredAt,
     bool clearDeliveredAt = false,
     bool? inventoryAdded,
+    DateTime? inventoryAddedAt,
+    bool clearInventoryAddedAt = false,
+    String? inventoryRecordId,
+    bool clearInventoryRecordId = false,
+    String? inventoryAddedBy,
+    bool clearInventoryAddedBy = false,
     double? estimatedTotal,
     bool clearEstimatedTotal = false,
     String? fundId,
@@ -321,6 +341,15 @@ class OrderModel {
       receivedBy: receivedBy ?? this.receivedBy,
       deliveredAt: clearDeliveredAt ? null : (deliveredAt ?? this.deliveredAt),
       inventoryAdded: inventoryAdded ?? this.inventoryAdded,
+      inventoryAddedAt: clearInventoryAddedAt
+          ? null
+          : (inventoryAddedAt ?? this.inventoryAddedAt),
+      inventoryRecordId: clearInventoryRecordId
+          ? null
+          : (inventoryRecordId ?? this.inventoryRecordId),
+      inventoryAddedBy: clearInventoryAddedBy
+          ? null
+          : (inventoryAddedBy ?? this.inventoryAddedBy),
       estimatedTotal: clearEstimatedTotal
           ? null
           : (estimatedTotal ?? this.estimatedTotal),

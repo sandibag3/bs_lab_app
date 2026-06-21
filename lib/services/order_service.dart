@@ -36,6 +36,15 @@ class OrderDeliveryException implements Exception {
   String toString() => message;
 }
 
+class OrderInventoryException implements Exception {
+  const OrderInventoryException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class OrderService {
   static const int _backfillBatchChunkSize = 400;
 
@@ -376,10 +385,19 @@ class OrderService {
     });
   }
 
-  Future<void> markInventoryAdded({required String docId}) async {
-    await _firestore.collection('orders').doc(docId).update({
+  Future<void> markInventoryAdded({
+    required String docId,
+    String? inventoryRecordId,
+    String? inventoryAddedBy,
+  }) async {
+    final updates = <String, dynamic>{
       'inventoryAdded': true,
-    });
+      'inventoryAddedAt': FieldValue.serverTimestamp(),
+      'inventoryRecordId': inventoryRecordId,
+      'inventoryAddedBy': inventoryAddedBy,
+    };
+
+    await _firestore.collection('orders').doc(docId).update(updates);
   }
 
   String? _normalizedOptionalString(String? value) {

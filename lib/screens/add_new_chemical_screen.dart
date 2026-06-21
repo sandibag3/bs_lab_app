@@ -31,7 +31,6 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
   final _formKey = GlobalKey<FormState>();
   final InventoryService inventoryService = InventoryService();
-  final OrderService orderService = OrderService();
   final PubChemService pubChemService = PubChemService();
   final ChemicalLabelService chemicalLabelService = ChemicalLabelService();
 
@@ -56,6 +55,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   bool isLoadingMetadata = true;
   bool isGeneratingLabel = false;
   bool isFetchingCas = false;
+  bool isSaving = false;
 
   String selectedCategory = 'General';
   String? selectedSubcategory;
@@ -620,9 +620,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
             : catalystMetalController.text.trim(),
       );
 
-      final labId = AppState.instance.resolveWriteLabId(
-        widget.order?.labId,
-      );
+      final labId = AppState.instance.resolveWriteLabId(widget.order?.labId);
       debugPrint('AddNewChemical: label prefix used: $prefix');
 
       List<String> missingLabels = const [];
@@ -1174,6 +1172,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   }
 
   Future<void> submitChemicalEntry() async {
+    if (isSaving) return;
+
     final editChemical = widget.editChemical;
     final isEditMode = editChemical != null;
     final isAddingExistingBottle = selectedEntryType == 'Existing Chemical';
@@ -1183,123 +1183,163 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
     if (!_formKey.currentState!.validate()) return;
 
-    final labId =
-        editChemical?.labId ??
-        AppState.instance.resolveWriteLabId(widget.order?.labId);
-    final cas = casController.text.trim();
-    var label = labelController.text.trim();
+    setState(() {
+      isSaving = true;
+    });
 
-    if (!isEditMode && cas.isNotEmpty) {
-      final existingChemical = await inventoryService.findExistingByCas(cas);
-      final existingLabel = existingChemical?.label.trim() ?? '';
+    try {
+      final labId =
+          editChemical?.labId ??
+          AppState.instance.resolveWriteLabId(widget.order?.labId);
+      final cas = casController.text.trim();
+      var label = labelController.text.trim();
 
-      if (existingChemical != null) {
-        final bottleCount = await inventoryService.getBottleCountByCas(cas);
-        if (!mounted) return;
-        final isReusingDifferentLabel =
-            existingLabel.isNotEmpty &&
-            _normalizedOption(existingLabel) != _normalizedOption(label);
+      if (!isEditMode && cas.isNotEmpty) {
+        final existingChemical = await inventoryService.findExistingByCas(cas);
+        final existingLabel = existingChemical?.label.trim() ?? '';
 
-        setState(() {
-          selectedEntryType = 'Existing Chemical';
-          existingBottleCount = bottleCount;
-          if (existingLabel.isNotEmpty) {
-            labelController.text = existingLabel;
-            label = existingLabel;
-          }
-          if (existingChemical.sheetTab.trim().isNotEmpty) {
-            sheetTabController.text = existingChemical.sheetTab.trim();
-          }
-        });
+        if (existingChemical != null) {
+          final bottleCount = await inventoryService.getBottleCountByCas(cas);
+          if (!mounted) return;
+          final isReusingDifferentLabel =
+              existingLabel.isNotEmpty &&
+              _normalizedOption(existingLabel) != _normalizedOption(label);
 
-        if (isReusingDifferentLabel) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                'Existing CAS found. Reusing label $existingLabel.',
+          setState(() {
+            selectedEntryType = 'Existing Chemical';
+            existingBottleCount = bottleCount;
+            if (existingLabel.isNotEmpty) {
+              labelController.text = existingLabel;
+              label = existingLabel;
+            }
+            if (existingChemical.sheetTab.trim().isNotEmpty) {
+              sheetTabController.text = existingChemical.sheetTab.trim();
+            }
+          });
+
+          if (isReusingDifferentLabel) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Existing CAS found. Reusing label $existingLabel.',
+                ),
               ),
-            ),
-          );
+            );
+          }
         }
       }
-    }
 
-    final consistencyError = await inventoryService.validateCasLabelConsistency(
-      labId: labId,
-      cas: cas,
-      label: label,
-      excludeDocId: editChemical?.id,
-    );
+      final consistencyError = await inventoryService
+          .validateCasLabelConsistency(
+            labId: labId,
+            cas: cas,
+            label: label,
+            excludeDocId: editChemical?.id,
+          );
 
-    if (consistencyError != null) {
+      if (consistencyError != null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(consistencyError)));
+        return;
+      }
+
+      if (!mounted) return;
+
+      final chemical = ChemicalModel(
+        id: editChemical?.id ?? '',
+        labId: labId,
+        label: label,
+        chemicalName: chemicalNameController.text.trim(),
+        cas: cas,
+        formula: formulaController.text.trim(),
+        molWt: molWtController.text.trim(),
+        availability: editChemical?.availability ?? 'Available',
+        texture: selectedTexture ?? '',
+        location: _resolvedLocation,
+        quantity: quantityController.text.trim(),
+        brand: _resolvedBrand,
+        vendor: _resolvedVendor,
+        catNumber: catNumberController.text.trim(),
+        arrivalDate: arrivalDateController.text.trim(),
+        orderedBy: orderedByController.text.trim(),
+        functionalGroups: selectedFunctionalGroups.join(', '),
+        sheetTab: sheetTabController.text.trim(),
+      );
+
+      String? inventoryRecordId;
+      if (isEditMode) {
+        await inventoryService.updateChemical(chemical);
+      } else if (widget.order != null) {
+        inventoryRecordId = await inventoryService
+            .addChemicalFromDeliveredOrder(
+              chemical: chemical,
+              orderId: widget.order!.id,
+              inventoryAddedBy: AppState.instance.authenticatedUserId,
+            );
+      } else {
+        await inventoryService.addChemical(chemical);
+      }
+
+      try {
+        await ActivityService().addActivity(
+          labId: chemical.labId,
+          type: isEditMode
+              ? 'chemical_inventory_updated'
+              : 'chemical_inventory_added',
+          message: isEditMode
+              ? 'Chemical entry updated for ${chemical.chemicalName}'
+              : 'Chemical entry confirmed for ${chemical.chemicalName}',
+          actorName: AppState.instance.authenticatedUserName,
+          createdBy: AppState.instance.authenticatedUserId,
+          relatedId: isEditMode
+              ? chemical.id
+              : inventoryRecordId ?? widget.order?.id ?? chemical.cas,
+        );
+      } catch (error, stackTrace) {
+        debugPrint('Failed to log chemical inventory activity: $error');
+        debugPrintStack(stackTrace: stackTrace);
+      }
+
+      if (!mounted) return;
+
+      final String message;
+      if (isEditMode) {
+        message = 'Chemical bottle updated';
+      } else if (selectedEntryType == 'Existing Chemical') {
+        message =
+            'New bottle added under existing label ${labelController.text.trim()}';
+      } else {
+        message = 'New chemical added to inventory';
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+
+      Navigator.pop(context);
+    } on OrderInventoryException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(consistencyError)));
-      return;
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+    } catch (error, stackTrace) {
+      debugPrint('Failed to add chemical order to inventory: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to add item to inventory. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          isSaving = false;
+        });
+      }
     }
-
-    if (!mounted) return;
-
-    final chemical = ChemicalModel(
-      id: editChemical?.id ?? '',
-      labId: labId,
-      label: label,
-      chemicalName: chemicalNameController.text.trim(),
-      cas: cas,
-      formula: formulaController.text.trim(),
-      molWt: molWtController.text.trim(),
-      availability: editChemical?.availability ?? 'Available',
-      texture: selectedTexture ?? '',
-      location: _resolvedLocation,
-      quantity: quantityController.text.trim(),
-      brand: _resolvedBrand,
-      vendor: _resolvedVendor,
-      catNumber: catNumberController.text.trim(),
-      arrivalDate: arrivalDateController.text.trim(),
-      orderedBy: orderedByController.text.trim(),
-      functionalGroups: selectedFunctionalGroups.join(', '),
-      sheetTab: sheetTabController.text.trim(),
-    );
-
-    if (isEditMode) {
-      await inventoryService.updateChemical(chemical);
-    } else {
-      await inventoryService.addChemical(chemical);
-    }
-
-    if (!isEditMode && widget.order != null) {
-      await orderService.markInventoryAdded(docId: widget.order!.id);
-    }
-    await ActivityService().addActivity(
-      labId: chemical.labId,
-      type: isEditMode
-          ? 'chemical_inventory_updated'
-          : 'chemical_inventory_added',
-      message: isEditMode
-          ? 'Chemical entry updated for ${chemical.chemicalName}'
-          : 'Chemical entry confirmed for ${chemical.chemicalName}',
-      actorName: AppState.instance.authenticatedUserName,
-      createdBy: AppState.instance.authenticatedUserId,
-      relatedId: isEditMode ? chemical.id : widget.order?.id ?? chemical.cas,
-    );
-
-    if (!mounted) return;
-
-    final String message;
-    if (isEditMode) {
-      message = 'Chemical bottle updated';
-    } else if (selectedEntryType == 'Existing Chemical') {
-      message = 'New bottle added under existing label ${labelController.text.trim()}';
-    } else {
-      message = 'New chemical added to inventory';
-    }
-
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-
-    Navigator.pop(context);
   }
 
   @override
@@ -1743,16 +1783,25 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton(
-                        onPressed: submitChemicalEntry,
+                        onPressed: isSaving ? null : submitChemicalEntry,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF14B8A6),
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        child: Text(
-                          submitLabel,
-                          style: const TextStyle(fontSize: 15),
-                        ),
+                        child: isSaving
+                            ? const SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                submitLabel,
+                                style: const TextStyle(fontSize: 15),
+                              ),
                       ),
                     ),
                   ],

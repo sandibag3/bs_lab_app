@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../app_state.dart';
 import '../models/chemical_model.dart';
 import 'firestore_access_guard.dart';
+import 'order_service.dart';
 
 class InventoryService {
   final CollectionReference inventoryRef = FirebaseFirestore.instance
@@ -73,6 +74,66 @@ class InventoryService {
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
+  }
+
+  Future<String> addChemicalFromDeliveredOrder({
+    required ChemicalModel chemical,
+    required String orderId,
+    String? inventoryAddedBy,
+  }) async {
+    final cleanOrderId = orderId.trim();
+    if (cleanOrderId.isEmpty) {
+      throw Exception('Order id is missing.');
+    }
+
+    final firestore = FirebaseFirestore.instance;
+    final orderRef = firestore.collection('orders').doc(cleanOrderId);
+    final chemicalRef = inventoryRef.doc();
+
+    await firestore.runTransaction((transaction) async {
+      final orderSnapshot = await transaction.get(orderRef);
+      final orderData = orderSnapshot.data();
+
+      if (!orderSnapshot.exists || orderData == null) {
+        throw const OrderInventoryException('Order no longer exists.');
+      }
+
+      final status = (orderData['status'] ?? '')
+          .toString()
+          .trim()
+          .toLowerCase();
+      if (status != 'delivered') {
+        throw const OrderInventoryException(
+          'This order can no longer be added to inventory because its status has changed.',
+        );
+      }
+
+      if (orderData['inventoryAdded'] == true) {
+        throw const OrderInventoryException(
+          'This order has already been added to inventory.',
+        );
+      }
+
+      final serverTimestamp = FieldValue.serverTimestamp();
+      final orderUpdates = <String, dynamic>{
+        'inventoryAdded': true,
+        'inventoryAddedAt': serverTimestamp,
+        'inventoryRecordId': chemicalRef.id,
+      };
+      final cleanInventoryAddedBy = inventoryAddedBy?.trim() ?? '';
+      if (cleanInventoryAddedBy.isNotEmpty) {
+        orderUpdates['inventoryAddedBy'] = cleanInventoryAddedBy;
+      }
+
+      transaction.set(chemicalRef, {
+        ...chemical.toMap(),
+        'createdAt': serverTimestamp,
+        'updatedAt': serverTimestamp,
+      });
+      transaction.update(orderRef, orderUpdates);
+    });
+
+    return chemicalRef.id;
   }
 
   String _normalizedLabel(String label) => label.trim().toUpperCase();
