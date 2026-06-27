@@ -525,7 +525,6 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
                             key: _dashboardSearchKey,
                             chemicals: chemicals,
                             accessMessage: chemicalsAccessMessage,
-                            onViewAllResults: widget.onOpenChemicals,
                             isDesktopLayout: false,
                           ),
                           SizedBox(height: heroSearchGap),
@@ -644,7 +643,6 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
                             key: _dashboardSearchKey,
                             chemicals: chemicals,
                             accessMessage: chemicalsAccessMessage,
-                            onViewAllResults: widget.onOpenChemicals,
                             isDesktopLayout: true,
                           ),
                           SizedBox(height: searchSectionGap),
@@ -840,14 +838,12 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
 class _DashboardChemicalSearch extends StatefulWidget {
   final List<ChemicalModel> chemicals;
   final String? accessMessage;
-  final VoidCallback onViewAllResults;
   final bool isDesktopLayout;
 
   const _DashboardChemicalSearch({
     super.key,
     required this.chemicals,
     required this.accessMessage,
-    required this.onViewAllResults,
     required this.isDesktopLayout,
   });
 
@@ -865,6 +861,8 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
 
   String _debouncedQuery = '';
   bool _showResults = false;
+  bool _isOpeningSearchResult = false;
+  bool _isOpeningAllSearchResults = false;
   int _highlightedIndex = 0;
 
   @override
@@ -940,7 +938,7 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
     });
   }
 
-  List<ChemicalModel> _matchingChemicalsFor(String rawQuery) {
+  List<ChemicalModel> _allMatchingChemicalsFor(String rawQuery) {
     final query = rawQuery.trim().toLowerCase();
     if (query.isEmpty) {
       return const <ChemicalModel>[];
@@ -1023,7 +1021,11 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
       return a.key.label.toLowerCase().compareTo(b.key.label.toLowerCase());
     });
 
-    return results.map((entry) => entry.key).take(8).toList();
+    return results.map((entry) => entry.key).toList();
+  }
+
+  List<ChemicalModel> _matchingChemicalsFor(String rawQuery) {
+    return _allMatchingChemicalsFor(rawQuery).take(8).toList();
   }
 
   int _representativePriority(ChemicalModel chemical) {
@@ -1063,6 +1065,11 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
   }
 
   void _openChemical(ChemicalModel chemical) {
+    if (_isOpeningSearchResult) {
+      return;
+    }
+
+    _isOpeningSearchResult = true;
     _searchDebounce?.cancel();
     _searchFocusNode.unfocus();
 
@@ -1077,7 +1084,9 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
       MaterialPageRoute(
         builder: (_) => ChemicalDetailScreen(chemical: chemical),
       ),
-    );
+    ).whenComplete(() {
+      _isOpeningSearchResult = false;
+    });
   }
 
   void _openTopResult() {
@@ -1148,13 +1157,264 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
     return parts.join(' | ');
   }
 
+  String _activeSearchQuery() {
+    final debounced = _debouncedQuery.trim();
+    if (debounced.isNotEmpty) {
+      return debounced;
+    }
+    return _searchController.text.trim();
+  }
+
+  Widget _buildSearchResultRow({
+    required ChemicalModel chemical,
+    required VoidCallback onOpen,
+    bool isHighlighted = false,
+    bool openOnTapDown = true,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final subtitle = _buildResultSubtitle(chemical);
+
+    return Material(
+      color: isHighlighted ? palette.selected : Colors.transparent,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onOpen,
+        onTapDown: openOnTapDown ? (_) => onOpen() : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      chemical.chemicalName.trim().isEmpty
+                          ? 'Untitled chemical'
+                          : chemical.chemicalName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 13.8,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      chemical.cas.trim().isEmpty
+                          ? 'No CAS number'
+                          : chemical.cas,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: palette.mutedText,
+                        fontSize: 12.6,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: palette.subtleText,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              IconButton(
+                tooltip: 'Open chemical detail',
+                onPressed: onOpen,
+                icon: Icon(
+                  Icons.arrow_outward_rounded,
+                  size: 18,
+                  color: palette.subtleText,
+                ),
+                style: IconButton.styleFrom(
+                  minimumSize: const Size(32, 32),
+                  padding: EdgeInsets.zero,
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildViewAllResultsButton() {
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _handleViewAllSearchResults(),
+      child: TextButton.icon(
+        onPressed: _handleViewAllSearchResults,
+        icon: const Icon(Icons.open_in_new_rounded, size: 16),
+        label: const Text('View all results'),
+      ),
+    );
+  }
+
+  void _handleViewAllSearchResults() {
+    if (_isOpeningAllSearchResults || widget.accessMessage != null) {
+      return;
+    }
+
+    final query = _searchController.text.trim();
+    if (query.isEmpty) {
+      _closeResults();
+      return;
+    }
+
+    final allMatches = _allMatchingChemicalsFor(query);
+    _isOpeningAllSearchResults = true;
+    _closeResults();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        _isOpeningAllSearchResults = false;
+        return;
+      }
+
+      try {
+        await _showAllResultsSheet(query, allMatches);
+      } finally {
+        _isOpeningAllSearchResults = false;
+      }
+    });
+  }
+
+  Future<void> _showAllResultsSheet(
+    String query,
+    List<ChemicalModel> allMatches,
+  ) async {
+    if (widget.accessMessage != null) {
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        final palette = sheetContext.labmate;
+        final colorScheme = sheetContext.colorScheme;
+
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(sheetContext).height * 0.78,
+                  maxWidth: widget.isDesktopLayout ? 720 : double.infinity,
+                ),
+                decoration: BoxDecoration(
+                  color: palette.panel,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(color: palette.border),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 10, 10),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'All results for "$query"',
+                                  style: TextStyle(
+                                    color: colorScheme.onSurface,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  '${allMatches.length} matching chemical${allMatches.length == 1 ? '' : 's'}',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: palette.mutedText,
+                                    fontSize: 12.8,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            tooltip: 'Close',
+                            onPressed: () => Navigator.of(sheetContext).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(height: 1, color: palette.border),
+                    Flexible(
+                      child: allMatches.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(18),
+                              child: Text(
+                                'No chemicals found. Try a different chemical name, CAS number, or bottle label.',
+                                style: TextStyle(
+                                  color: palette.mutedText,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.4,
+                                ),
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.all(8),
+                              itemCount: allMatches.length,
+                              separatorBuilder: (context, index) =>
+                                  Divider(height: 1, color: palette.border),
+                              itemBuilder: (context, index) {
+                                final chemical = allMatches[index];
+                                return _buildSearchResultRow(
+                                  chemical: chemical,
+                                  openOnTapDown: false,
+                                  onOpen: () {
+                                    Navigator.of(sheetContext).pop();
+                                    _openChemical(chemical);
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
-    final activeQuery = _debouncedQuery.isNotEmpty
-        ? _debouncedQuery
-        : _searchController.text.trim();
+    final activeQuery = _activeSearchQuery();
     final searchResults = _matchingChemicalsFor(activeQuery);
     final showPanel = _showResults && activeQuery.isNotEmpty;
     final safeHighlightedIndex = searchResults.isEmpty
@@ -1270,14 +1530,7 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
                                     const SizedBox(height: 10),
                                     Align(
                                       alignment: Alignment.centerRight,
-                                      child: TextButton.icon(
-                                        onPressed: widget.onViewAllResults,
-                                        icon: const Icon(
-                                          Icons.open_in_new_rounded,
-                                          size: 16,
-                                        ),
-                                        label: const Text('View all results'),
-                                      ),
+                                      child: _buildViewAllResultsButton(),
                                     ),
                                   ],
                                 ),
@@ -1300,111 +1553,13 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
                                           ),
                                       itemBuilder: (context, index) {
                                         final chemical = searchResults[index];
-                                        final subtitle = _buildResultSubtitle(
-                                          chemical,
-                                        );
                                         final isHighlighted =
                                             index == safeHighlightedIndex;
 
-                                        return Material(
-                                          color: isHighlighted
-                                              ? palette.selected
-                                              : Colors.transparent,
-                                          borderRadius: BorderRadius.circular(
-                                            14,
-                                          ),
-                                          child: InkWell(
-                                            borderRadius: BorderRadius.circular(
-                                              14,
-                                            ),
-                                            onTap: () =>
-                                                _openChemical(chemical),
-                                            child: Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 10,
-                                                  ),
-                                              child: Row(
-                                                children: [
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Text(
-                                                          chemical.chemicalName
-                                                                  .trim()
-                                                                  .isEmpty
-                                                              ? 'Untitled chemical'
-                                                              : chemical
-                                                                    .chemicalName,
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          style: TextStyle(
-                                                            color: colorScheme
-                                                                .onSurface,
-                                                            fontSize: 13.8,
-                                                            fontWeight:
-                                                                FontWeight.w700,
-                                                          ),
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 3,
-                                                        ),
-                                                        Text(
-                                                          chemical.cas
-                                                                  .trim()
-                                                                  .isEmpty
-                                                              ? 'No CAS number'
-                                                              : chemical.cas,
-                                                          maxLines: 1,
-                                                          overflow: TextOverflow
-                                                              .ellipsis,
-                                                          style: TextStyle(
-                                                            color: palette
-                                                                .mutedText,
-                                                            fontSize: 12.6,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                          ),
-                                                        ),
-                                                        if (subtitle
-                                                            .isNotEmpty) ...[
-                                                          const SizedBox(
-                                                            height: 3,
-                                                          ),
-                                                          Text(
-                                                            subtitle,
-                                                            maxLines: 1,
-                                                            overflow:
-                                                                TextOverflow
-                                                                    .ellipsis,
-                                                            style: TextStyle(
-                                                              color: palette
-                                                                  .subtleText,
-                                                              fontSize: 12,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  const SizedBox(width: 10),
-                                                  Icon(
-                                                    Icons.arrow_outward_rounded,
-                                                    size: 18,
-                                                    color: palette.subtleText,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
+                                        return _buildSearchResultRow(
+                                          chemical: chemical,
+                                          isHighlighted: isHighlighted,
+                                          onOpen: () => _openChemical(chemical),
                                         );
                                       },
                                     ),
@@ -1427,14 +1582,7 @@ class _DashboardChemicalSearchState extends State<_DashboardChemicalSearch> {
                                             ),
                                           ),
                                         ),
-                                        TextButton.icon(
-                                          onPressed: widget.onViewAllResults,
-                                          icon: const Icon(
-                                            Icons.open_in_new_rounded,
-                                            size: 16,
-                                          ),
-                                          label: const Text('View all results'),
-                                        ),
+                                        _buildViewAllResultsButton(),
                                       ],
                                     ),
                                   ),
