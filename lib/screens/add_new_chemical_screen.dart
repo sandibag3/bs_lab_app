@@ -1063,10 +1063,11 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   Widget _buildManageOptionsButton({
     required String label,
     required VoidCallback onPressed,
+    Alignment alignment = Alignment.centerRight,
   }) {
     final palette = context.labmate;
     return Align(
-      alignment: Alignment.centerRight,
+      alignment: alignment,
       child: TextButton.icon(
         onPressed: onPressed,
         style: TextButton.styleFrom(
@@ -1078,6 +1079,59 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         icon: const Icon(Icons.tune_rounded, size: 16),
         label: Text('Manage $label'),
       ),
+    );
+  }
+
+  Widget _sectionCard({required String title, required List<Widget> children}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: palette.panel,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 14),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionHeaderWithAction({
+    required String title,
+    required String actionLabel,
+    required VoidCallback onPressed,
+  }) {
+    final colorScheme = context.colorScheme;
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 13.5,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        _buildManageOptionsButton(label: actionLabel, onPressed: onPressed),
+      ],
     );
   }
 
@@ -1514,7 +1568,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     });
   }
 
-  Widget _buildFunctionalGroupSelector() {
+  Widget _buildFunctionalGroupSelector({bool showTitle = true}) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
     final visibleFunctionalGroups = [
@@ -1527,15 +1581,17 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Functional Groups',
-          style: TextStyle(
-            color: palette.mutedText,
-            fontSize: 14.5,
-            fontWeight: FontWeight.w600,
+        if (showTitle) ...[
+          Text(
+            'Functional Groups',
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-        ),
-        const SizedBox(height: 10),
+          const SizedBox(height: 10),
+        ],
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
@@ -1854,14 +1910,810 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     }
   }
 
+  Widget _buildDeliveredOrderBanner() {
+    final palette = context.labmate;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.panel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
+      ),
+      child: Text(
+        'Prefilled from delivered order. Name, CAS, brand, quantity, ordered by, and arrival date come from the order. Formula and molecular weight can be fetched from CAS.',
+        style: TextStyle(
+          color: palette.mutedText,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildExistingCasBanner() {
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0x2214B8A6),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        'Existing CAS found. Reusing label ${labelController.text.trim()}. This entry will be saved as bottle ${existingBottleCount + 1}.',
+        style: TextStyle(
+          color: colorScheme.onSurface,
+          fontSize: 13.2,
+          fontWeight: FontWeight.w500,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChemicalNameField() {
+    final colorScheme = context.colorScheme;
+
+    return TextFormField(
+      controller: chemicalNameController,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Chemical Name'),
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Enter chemical name';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildCasField() {
+    final colorScheme = context.colorScheme;
+
+    return TextFormField(
+      controller: casController,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('CAS No'),
+    );
+  }
+
+  Widget _buildFetchFromCasButton() {
+    final colorScheme = context.colorScheme;
+
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: isFetchingCas ? null : _fetchFromCasAndCheckInventory,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: colorScheme.primary,
+          side: BorderSide(color: colorScheme.primary),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+        child: Text(isFetchingCas ? 'Fetching...' : 'Fetch from CAS'),
+      ),
+    );
+  }
+
+  Widget _buildChemicalTypeDropdown({required bool identityLocked}) {
+    return _buildCustomizableDropdown(
+      label: 'Type of chemical',
+      value: selectedCategory,
+      builtInOptions: categories,
+      customOptions: customCategoryOptions,
+      enabled: !identityLocked,
+      onChanged: (value) async {
+        if (value == null) return;
+
+        setState(() {
+          selectedCategory = value;
+          selectedSubcategory = null;
+          labelController.clear();
+          sheetTabController.text = _getSheetTabFromSelection();
+        });
+
+        await _generateLabelForNewChemical();
+      },
+    );
+  }
+
+  Widget _buildSubcategoryDropdown({
+    required bool identityLocked,
+    required List<String> subcategories,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return DropdownButtonFormField<String>(
+      key: ValueKey(
+        'subcategory_${selectedCategory}_${selectedSubcategory ?? ''}_${subcategories.join('|')}',
+      ),
+      initialValue: selectedSubcategory,
+      dropdownColor: palette.panel,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Subcategory'),
+      items: subcategories
+          .map(
+            (item) => DropdownMenuItem<String>(
+              value: item,
+              child: Text(item, style: TextStyle(color: colorScheme.onSurface)),
+            ),
+          )
+          .toList(),
+      onChanged: identityLocked
+          ? null
+          : (value) async {
+              setState(() {
+                selectedSubcategory = value;
+                labelController.clear();
+              });
+              await _generateLabelForNewChemical();
+            },
+      validator: (value) {
+        if ((selectedCategory == 'Base' || selectedCategory == 'Ligand') &&
+            !identityLocked &&
+            (value == null || value.trim().isEmpty)) {
+          return 'Select subcategory';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildCarbonCountField({required bool identityLocked}) {
+    final colorScheme = context.colorScheme;
+
+    return TextFormField(
+      controller: carbonCountController,
+      readOnly: identityLocked,
+      keyboardType: TextInputType.number,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Carbon Count'),
+      onChanged: (_) async {
+        if (!identityLocked) {
+          setState(() {
+            sheetTabController.text = _getSheetTabFromSelection();
+          });
+          await _generateLabelForNewChemical();
+        }
+      },
+      validator: (value) {
+        if (!identityLocked && selectedCategory == 'General') {
+          final count = int.tryParse(value?.trim() ?? '');
+          if (count == null || count <= 0) {
+            return 'Enter valid carbon count';
+          }
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildCatalystMetalField({required bool identityLocked}) {
+    final colorScheme = context.colorScheme;
+
+    return TextFormField(
+      controller: catalystMetalController,
+      readOnly: identityLocked,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Catalyst Metal (Pd, Cu, Fe...)'),
+      onChanged: (_) async {
+        if (!identityLocked) {
+          await _generateLabelForNewChemical();
+        }
+      },
+      validator: (value) {
+        if (!identityLocked && selectedCategory == 'Catalyst') {
+          if (value == null || value.trim().isEmpty) {
+            return 'Enter catalyst metal';
+          }
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildFormulaField() {
+    final colorScheme = context.colorScheme;
+
+    return TextFormField(
+      controller: formulaController,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Molecular Formula'),
+    );
+  }
+
+  Widget _buildMolecularWeightField() {
+    final colorScheme = context.colorScheme;
+
+    return TextFormField(
+      controller: molWtController,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Molecular Weight'),
+    );
+  }
+
+  Widget _buildBrandDropdown() {
+    return _buildCustomizableDropdown(
+      label: 'Brand',
+      value: selectedBrand,
+      builtInOptions: brandOptions,
+      customOptions: _brandDropdownCustomOptions(),
+      hiddenOptions: hiddenChemicalBrandOptions,
+      onChanged: (value) {
+        setState(() {
+          selectedBrand = value;
+        });
+      },
+    );
+  }
+
+  Widget _buildCatalogNumberField() {
+    final colorScheme = context.colorScheme;
+
+    return TextFormField(
+      controller: catNumberController,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Catalog Number'),
+    );
+  }
+
+  Widget _buildVendorDropdown() {
+    return _buildCustomizableDropdown(
+      label: 'Vendor',
+      value: selectedVendor,
+      builtInOptions: vendorOptions,
+      customOptions: customVendorOptions,
+      onChanged: (value) {
+        setState(() {
+          selectedVendor = value;
+        });
+      },
+    );
+  }
+
+  Widget _buildQuantityField() {
+    final colorScheme = context.colorScheme;
+
+    return TextFormField(
+      controller: quantityController,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Number of bottles'),
+    );
+  }
+
+  Widget _buildBottleSizeRow() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 3,
+          child: TextFormField(
+            controller: bottleSizeController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            style: TextStyle(color: colorScheme.onSurface),
+            decoration: inputDecoration('Bottle size/amount'),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 2,
+          child: DropdownButtonFormField<String>(
+            key: ValueKey('bottle_unit_$selectedBottleUnit'),
+            initialValue: selectedBottleUnit,
+            dropdownColor: palette.panel,
+            style: TextStyle(color: colorScheme.onSurface),
+            decoration: inputDecoration('Unit'),
+            items: bottleUnitOptions
+                .map(
+                  (unit) => DropdownMenuItem<String>(
+                    value: unit,
+                    child: Text(
+                      unit,
+                      style: TextStyle(color: colorScheme.onSurface),
+                    ),
+                  ),
+                )
+                .toList(),
+            onChanged: (value) {
+              if (value == null) return;
+              setState(() {
+                selectedBottleUnit = value;
+              });
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildGeneratedLabelField() {
+    final colorScheme = context.colorScheme;
+
+    return TextFormField(
+      controller: labelController,
+      readOnly: true,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Generated Label'),
+    );
+  }
+
+  Widget _buildLocationDropdown() {
+    return _buildCustomizableDropdown(
+      label: 'Location',
+      value: selectedLocation,
+      builtInOptions: locationOptions,
+      customOptions: _locationDropdownCustomOptions(),
+      hiddenOptions: hiddenChemicalLocationOptions,
+      onChanged: (value) {
+        setState(() {
+          selectedLocation = value;
+        });
+      },
+      validator: (value) {
+        if (value == null || value.trim().isEmpty) {
+          return 'Select storage location';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildTextureDropdown() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return DropdownButtonFormField<String>(
+      key: ValueKey('texture_${selectedTexture ?? ''}'),
+      initialValue: selectedTexture,
+      dropdownColor: palette.panel,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Texture / Physical State'),
+      items: textureOptions
+          .map(
+            (item) => DropdownMenuItem<String>(
+              value: item,
+              child: Text(item, style: TextStyle(color: colorScheme.onSurface)),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          selectedTexture = value;
+        });
+      },
+    );
+  }
+
+  Widget _buildArrivalDateField() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return TextFormField(
+      controller: arrivalDateController,
+      readOnly: true,
+      onTap: _pickArrivalDate,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Arrival Date').copyWith(
+        suffixIcon: Icon(
+          Icons.calendar_today_rounded,
+          color: palette.mutedText,
+          size: 20,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOrderedByField() {
+    final colorScheme = context.colorScheme;
+
+    return TextFormField(
+      controller: orderedByController,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Ordered By'),
+    );
+  }
+
+  Widget _buildSheetTabField({required bool isEditMode}) {
+    final colorScheme = context.colorScheme;
+
+    return TextFormField(
+      controller: sheetTabController,
+      readOnly: true,
+      style: TextStyle(color: colorScheme.onSurface),
+      decoration: inputDecoration('Sheet Tab'),
+      validator: (value) {
+        if (isEditMode) {
+          return null;
+        }
+        if (value == null || value.trim().isEmpty) {
+          return 'Sheet tab could not be determined';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildHelperCard(String helperText) {
+    final palette = context.labmate;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: palette.panel,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: palette.border),
+      ),
+      child: Text(
+        helperText,
+        style: TextStyle(
+          color: palette.mutedText,
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          height: 1.4,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRegenerateLabelButton() {
+    final colorScheme = context.colorScheme;
+
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: isGeneratingLabel ? null : _generateLabelForNewChemical,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: colorScheme.primary,
+          side: BorderSide(color: colorScheme.primary),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+        child: Text(isGeneratingLabel ? 'Generating...' : 'Regenerate Label'),
+      ),
+    );
+  }
+
+  Widget _buildSubmitButton(String submitLabel) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: isSaving ? null : submitChemicalEntry,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF14B8A6),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+        child: isSaving
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Text(submitLabel, style: const TextStyle(fontSize: 15)),
+      ),
+    );
+  }
+
+  List<Widget> _buildIdentityFields({
+    required bool identityLocked,
+    required bool isEditMode,
+    required bool includeExistingBanner,
+    required bool includeGeneratedLabel,
+    required bool includeSheetTab,
+    required bool includeRegenerateButton,
+  }) {
+    final subcategories = getSubcategories(selectedCategory);
+
+    return [
+      _buildCasField(),
+      const SizedBox(height: 14),
+      _buildFetchFromCasButton(),
+      const SizedBox(height: 14),
+      _buildChemicalNameField(),
+      if (includeExistingBanner &&
+          selectedEntryType == 'Existing Chemical') ...[
+        const SizedBox(height: 14),
+        _buildExistingCasBanner(),
+      ],
+      const SizedBox(height: 14),
+      _buildChemicalTypeDropdown(identityLocked: identityLocked),
+      const SizedBox(height: 14),
+      if (_isCustomCategorySelected) ...[
+        _buildCustomTextField(
+          controller: customCategoryController,
+          label: 'Custom chemical type',
+          errorText: 'Enter custom chemical type',
+          onChanged: (_) {
+            sheetTabController.text = _getSheetTabFromSelection();
+          },
+        ),
+        const SizedBox(height: 14),
+      ],
+      if (subcategories.isNotEmpty) ...[
+        _buildSubcategoryDropdown(
+          identityLocked: identityLocked,
+          subcategories: subcategories,
+        ),
+        const SizedBox(height: 14),
+      ],
+      if (selectedCategory == 'General') ...[
+        _buildCarbonCountField(identityLocked: identityLocked),
+        const SizedBox(height: 14),
+      ],
+      if (selectedCategory == 'Catalyst') ...[
+        _buildCatalystMetalField(identityLocked: identityLocked),
+        const SizedBox(height: 14),
+      ],
+      _buildFormulaField(),
+      const SizedBox(height: 14),
+      _buildMolecularWeightField(),
+      if (includeGeneratedLabel) ...[
+        const SizedBox(height: 14),
+        _buildGeneratedLabelField(),
+      ],
+      if (includeRegenerateButton && !identityLocked) ...[
+        const SizedBox(height: 14),
+        _buildRegenerateLabelButton(),
+      ],
+      if (includeSheetTab) ...[
+        const SizedBox(height: 14),
+        _buildSheetTabField(isEditMode: isEditMode),
+      ],
+    ];
+  }
+
+  List<Widget> _buildPurchaseStorageFields({
+    required bool isEditMode,
+    required bool includeGeneratedLabel,
+    required bool includeFunctionalGroups,
+    required bool includeSheetTab,
+    bool useInlineManageHeaders = false,
+  }) {
+    return [
+      if (useInlineManageHeaders)
+        _sectionHeaderWithAction(
+          title: 'Brand',
+          actionLabel: 'Brand',
+          onPressed: _showManageBrandOptionsDialog,
+        )
+      else
+        _buildManageOptionsButton(
+          label: 'Brand',
+          onPressed: _showManageBrandOptionsDialog,
+        ),
+      const SizedBox(height: 6),
+      _buildBrandDropdown(),
+      const SizedBox(height: 14),
+      if (_isCustomBrandSelected) ...[
+        _buildCustomTextField(
+          controller: brandController,
+          label: 'Custom brand',
+          errorText: 'Enter custom brand',
+        ),
+        const SizedBox(height: 14),
+      ],
+      _buildCatalogNumberField(),
+      const SizedBox(height: 14),
+      _buildVendorDropdown(),
+      const SizedBox(height: 14),
+      if (_isCustomVendorSelected) ...[
+        _buildCustomTextField(
+          controller: vendorController,
+          label: 'Custom vendor',
+          errorText: 'Enter custom vendor',
+        ),
+        const SizedBox(height: 14),
+      ],
+      _buildQuantityField(),
+      const SizedBox(height: 14),
+      _buildBottleSizeRow(),
+      if (includeGeneratedLabel) ...[
+        const SizedBox(height: 14),
+        _buildGeneratedLabelField(),
+      ],
+      const SizedBox(height: 8),
+      if (useInlineManageHeaders)
+        _sectionHeaderWithAction(
+          title: 'Location',
+          actionLabel: 'Location',
+          onPressed: _showManageLocationOptionsDialog,
+        )
+      else
+        _buildManageOptionsButton(
+          label: 'Location',
+          onPressed: _showManageLocationOptionsDialog,
+        ),
+      const SizedBox(height: 6),
+      _buildLocationDropdown(),
+      const SizedBox(height: 14),
+      if (_isCustomLocationSelected) ...[
+        _buildCustomTextField(
+          controller: customLocationController,
+          label: 'Custom location',
+          errorText: 'Enter custom location',
+        ),
+        const SizedBox(height: 14),
+      ],
+      if (includeFunctionalGroups) ...[
+        _buildFunctionalGroupSelector(),
+        const SizedBox(height: 14),
+      ],
+      _buildTextureDropdown(),
+      const SizedBox(height: 14),
+      _buildArrivalDateField(),
+      const SizedBox(height: 14),
+      _buildOrderedByField(),
+      if (includeSheetTab) ...[
+        const SizedBox(height: 14),
+        _buildSheetTabField(isEditMode: isEditMode),
+      ],
+    ];
+  }
+
+  List<Widget> _buildBottomFields({
+    required bool identityLocked,
+    required String helperText,
+    required String submitLabel,
+    bool includeFunctionalGroups = true,
+  }) {
+    return [
+      if (includeFunctionalGroups) ...[
+        _buildFunctionalGroupSelector(),
+        const SizedBox(height: 14),
+      ],
+      _buildHelperCard(helperText),
+      const SizedBox(height: 18),
+      if (!identityLocked) ...[
+        _buildRegenerateLabelButton(),
+        const SizedBox(height: 14),
+      ],
+      _buildSubmitButton(submitLabel),
+    ];
+  }
+
+  Widget _buildWideFunctionalGroupsSection() {
+    return _sectionCard(
+      title: 'Functional Groups',
+      children: [_buildFunctionalGroupSelector(showTitle: false)],
+    );
+  }
+
+  List<Widget> _buildWideBottomActions({
+    required String helperText,
+    required String submitLabel,
+  }) {
+    return [
+      _buildHelperCard(helperText),
+      const SizedBox(height: 18),
+      _buildSubmitButton(submitLabel),
+    ];
+  }
+
+  Widget _buildWideIdentityColumn({
+    required bool isEditMode,
+    required bool identityLocked,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _sectionCard(
+          title: 'Chemical Identity',
+          children: _buildIdentityFields(
+            identityLocked: identityLocked,
+            isEditMode: isEditMode,
+            includeExistingBanner: false,
+            includeGeneratedLabel: true,
+            includeSheetTab: false,
+            includeRegenerateButton: true,
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildWideFunctionalGroupsSection(),
+      ],
+    );
+  }
+
+  Widget _buildNarrowFormContent({
+    required bool isEditMode,
+    required bool identityLocked,
+    required String helperText,
+    required String submitLabel,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.order != null) ...[
+          _buildDeliveredOrderBanner(),
+          const SizedBox(height: 14),
+        ],
+        ..._buildIdentityFields(
+          identityLocked: identityLocked,
+          isEditMode: isEditMode,
+          includeExistingBanner: true,
+          includeGeneratedLabel: false,
+          includeSheetTab: false,
+          includeRegenerateButton: false,
+        ),
+        const SizedBox(height: 8),
+        ..._buildPurchaseStorageFields(
+          isEditMode: isEditMode,
+          includeGeneratedLabel: true,
+          includeFunctionalGroups: true,
+          includeSheetTab: true,
+        ),
+        const SizedBox(height: 14),
+        ..._buildBottomFields(
+          identityLocked: identityLocked,
+          helperText: helperText,
+          submitLabel: submitLabel,
+          includeFunctionalGroups: false,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildWideFormContent({
+    required bool isEditMode,
+    required bool identityLocked,
+    required String helperText,
+    required String submitLabel,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (widget.order != null) ...[
+          _buildDeliveredOrderBanner(),
+          const SizedBox(height: 14),
+        ],
+        if (selectedEntryType == 'Existing Chemical') ...[
+          _buildExistingCasBanner(),
+          const SizedBox(height: 14),
+        ],
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildWideIdentityColumn(
+                isEditMode: isEditMode,
+                identityLocked: identityLocked,
+              ),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: _sectionCard(
+                title: 'Purchase & Storage',
+                children: _buildPurchaseStorageFields(
+                  isEditMode: isEditMode,
+                  includeGeneratedLabel: false,
+                  includeFunctionalGroups: false,
+                  includeSheetTab: true,
+                  useInlineManageHeaders: true,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 20),
+        ..._buildWideBottomActions(
+          helperText: helperText,
+          submitLabel: submitLabel,
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isEditMode = widget.editChemical != null;
     final isExisting = !isEditMode && selectedEntryType == 'Existing Chemical';
     final identityLocked = isExisting || isEditMode;
-    final subcategories = getSubcategories(selectedCategory);
-    final palette = context.labmate;
-    final colorScheme = context.colorScheme;
     final String helperText;
     final String submitLabel;
     if (isEditMode) {
@@ -1887,491 +2739,34 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
             ? const Center(child: CircularProgressIndicator())
             : Form(
                 key: _formKey,
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    if (widget.order != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: palette.panel,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: palette.border),
-                        ),
-                        child: Text(
-                          'Prefilled from delivered order. Name, CAS, brand, quantity, ordered by, and arrival date come from the order. Formula and molecular weight can be fetched from CAS.',
-                          style: TextStyle(
-                            color: palette.mutedText,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    TextFormField(
-                      controller: chemicalNameController,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Chemical Name'),
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Enter chemical name';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: casController,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('CAS No'),
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton(
-                        onPressed: isFetchingCas
-                            ? null
-                            : _fetchFromCasAndCheckInventory,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: colorScheme.primary,
-                          side: BorderSide(color: colorScheme.primary),
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: Text(
-                          isFetchingCas ? 'Fetching...' : 'Fetch from CAS',
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    if (isExisting)
-                      Container(
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0x2214B8A6),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          'Existing CAS found. Reusing label ${labelController.text.trim()}. This entry will be saved as bottle ${existingBottleCount + 1}.',
-                          style: TextStyle(
-                            color: colorScheme.onSurface,
-                            fontSize: 13.2,
-                            fontWeight: FontWeight.w500,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    if (isExisting) const SizedBox(height: 14),
-                    _buildCustomizableDropdown(
-                      label: 'Type of chemical',
-                      value: selectedCategory,
-                      builtInOptions: categories,
-                      customOptions: customCategoryOptions,
-                      enabled: !identityLocked,
-                      onChanged: (value) async {
-                        if (value == null) return;
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final isWide = constraints.maxWidth >= 900;
 
-                        setState(() {
-                          selectedCategory = value;
-                          selectedSubcategory = null;
-                          labelController.clear();
-                          sheetTabController.text = _getSheetTabFromSelection();
-                        });
-
-                        await _generateLabelForNewChemical();
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    if (_isCustomCategorySelected) ...[
-                      _buildCustomTextField(
-                        controller: customCategoryController,
-                        label: 'Custom chemical type',
-                        errorText: 'Enter custom chemical type',
-                        onChanged: (_) {
-                          sheetTabController.text = _getSheetTabFromSelection();
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    if (subcategories.isNotEmpty) ...[
-                      DropdownButtonFormField<String>(
-                        key: ValueKey(
-                          'subcategory_${selectedCategory}_${selectedSubcategory ?? ''}_${subcategories.join('|')}',
-                        ),
-                        initialValue: selectedSubcategory,
-                        dropdownColor: palette.panel,
-                        style: TextStyle(color: colorScheme.onSurface),
-                        decoration: inputDecoration('Subcategory'),
-                        items: subcategories
-                            .map(
-                              (item) => DropdownMenuItem<String>(
-                                value: item,
-                                child: Text(
-                                  item,
-                                  style: TextStyle(
-                                    color: colorScheme.onSurface,
-                                  ),
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: identityLocked
-                            ? null
-                            : (value) async {
-                                setState(() {
-                                  selectedSubcategory = value;
-                                  labelController.clear();
-                                });
-                                await _generateLabelForNewChemical();
-                              },
-                        validator: (value) {
-                          if ((selectedCategory == 'Base' ||
-                                  selectedCategory == 'Ligand') &&
-                              !identityLocked &&
-                              (value == null || value.trim().isEmpty)) {
-                            return 'Select subcategory';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    if (selectedCategory == 'General') ...[
-                      TextFormField(
-                        controller: carbonCountController,
-                        readOnly: identityLocked,
-                        keyboardType: TextInputType.number,
-                        style: TextStyle(color: colorScheme.onSurface),
-                        decoration: inputDecoration('Carbon Count'),
-                        onChanged: (_) async {
-                          if (!identityLocked) {
-                            setState(() {
-                              sheetTabController.text =
-                                  _getSheetTabFromSelection();
-                            });
-                            await _generateLabelForNewChemical();
-                          }
-                        },
-                        validator: (value) {
-                          if (!identityLocked &&
-                              selectedCategory == 'General') {
-                            final count = int.tryParse(value?.trim() ?? '');
-                            if (count == null || count <= 0) {
-                              return 'Enter valid carbon count';
-                            }
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    if (selectedCategory == 'Catalyst') ...[
-                      TextFormField(
-                        controller: catalystMetalController,
-                        readOnly: identityLocked,
-                        style: TextStyle(color: colorScheme.onSurface),
-                        decoration: inputDecoration(
-                          'Catalyst Metal (Pd, Cu, Fe...)',
-                        ),
-                        onChanged: (_) async {
-                          if (!identityLocked) {
-                            await _generateLabelForNewChemical();
-                          }
-                        },
-                        validator: (value) {
-                          if (!identityLocked &&
-                              selectedCategory == 'Catalyst') {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Enter catalyst metal';
-                            }
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    TextFormField(
-                      controller: formulaController,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Molecular Formula'),
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: molWtController,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Molecular Weight'),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildManageOptionsButton(
-                      label: 'Brand',
-                      onPressed: _showManageBrandOptionsDialog,
-                    ),
-                    const SizedBox(height: 6),
-                    _buildCustomizableDropdown(
-                      label: 'Brand',
-                      value: selectedBrand,
-                      builtInOptions: brandOptions,
-                      customOptions: _brandDropdownCustomOptions(),
-                      hiddenOptions: hiddenChemicalBrandOptions,
-                      onChanged: (value) {
-                        setState(() {
-                          selectedBrand = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    if (_isCustomBrandSelected) ...[
-                      _buildCustomTextField(
-                        controller: brandController,
-                        label: 'Custom brand',
-                        errorText: 'Enter custom brand',
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    TextFormField(
-                      controller: catNumberController,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Catalog Number'),
-                    ),
-                    const SizedBox(height: 14),
-                    _buildCustomizableDropdown(
-                      label: 'Vendor',
-                      value: selectedVendor,
-                      builtInOptions: vendorOptions,
-                      customOptions: customVendorOptions,
-                      onChanged: (value) {
-                        setState(() {
-                          selectedVendor = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    if (_isCustomVendorSelected) ...[
-                      _buildCustomTextField(
-                        controller: vendorController,
-                        label: 'Custom vendor',
-                        errorText: 'Enter custom vendor',
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    TextFormField(
-                      controller: quantityController,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Number of bottles'),
-                    ),
-                    const SizedBox(height: 14),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    return ListView(
+                      padding: const EdgeInsets.all(16),
                       children: [
-                        Expanded(
-                          flex: 3,
-                          child: TextFormField(
-                            controller: bottleSizeController,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                            ),
-                            style: TextStyle(color: colorScheme.onSurface),
-                            decoration: inputDecoration('Bottle size/amount'),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: DropdownButtonFormField<String>(
-                            key: ValueKey('bottle_unit_$selectedBottleUnit'),
-                            initialValue: selectedBottleUnit,
-                            dropdownColor: palette.panel,
-                            style: TextStyle(color: colorScheme.onSurface),
-                            decoration: inputDecoration('Unit'),
-                            items: bottleUnitOptions
-                                .map(
-                                  (unit) => DropdownMenuItem<String>(
-                                    value: unit,
-                                    child: Text(
-                                      unit,
-                                      style: TextStyle(
-                                        color: colorScheme.onSurface,
-                                      ),
-                                    ),
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 1120),
+                            child: isWide
+                                ? _buildWideFormContent(
+                                    isEditMode: isEditMode,
+                                    identityLocked: identityLocked,
+                                    helperText: helperText,
+                                    submitLabel: submitLabel,
+                                  )
+                                : _buildNarrowFormContent(
+                                    isEditMode: isEditMode,
+                                    identityLocked: identityLocked,
+                                    helperText: helperText,
+                                    submitLabel: submitLabel,
                                   ),
-                                )
-                                .toList(),
-                            onChanged: (value) {
-                              if (value == null) return;
-                              setState(() {
-                                selectedBottleUnit = value;
-                              });
-                            },
                           ),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: labelController,
-                      readOnly: true,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Generated Label'),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildManageOptionsButton(
-                      label: 'Location',
-                      onPressed: _showManageLocationOptionsDialog,
-                    ),
-                    const SizedBox(height: 6),
-                    _buildCustomizableDropdown(
-                      label: 'Location',
-                      value: selectedLocation,
-                      builtInOptions: locationOptions,
-                      customOptions: _locationDropdownCustomOptions(),
-                      hiddenOptions: hiddenChemicalLocationOptions,
-                      onChanged: (value) {
-                        setState(() {
-                          selectedLocation = value;
-                        });
-                      },
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Select storage location';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    if (_isCustomLocationSelected) ...[
-                      _buildCustomTextField(
-                        controller: customLocationController,
-                        label: 'Custom location',
-                        errorText: 'Enter custom location',
-                      ),
-                      const SizedBox(height: 14),
-                    ],
-                    _buildFunctionalGroupSelector(),
-                    const SizedBox(height: 14),
-                    DropdownButtonFormField<String>(
-                      key: ValueKey('texture_${selectedTexture ?? ''}'),
-                      initialValue: selectedTexture,
-                      dropdownColor: palette.panel,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Texture / Physical State'),
-                      items: textureOptions
-                          .map(
-                            (item) => DropdownMenuItem<String>(
-                              value: item,
-                              child: Text(
-                                item,
-                                style: TextStyle(color: colorScheme.onSurface),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                      onChanged: (value) {
-                        setState(() {
-                          selectedTexture = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: arrivalDateController,
-                      readOnly: true,
-                      onTap: _pickArrivalDate,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Arrival Date').copyWith(
-                        suffixIcon: Icon(
-                          Icons.calendar_today_rounded,
-                          color: palette.mutedText,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: orderedByController,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Ordered By'),
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: sheetTabController,
-                      readOnly: true,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Sheet Tab'),
-                      validator: (value) {
-                        if (isEditMode) {
-                          return null;
-                        }
-                        if (value == null || value.trim().isEmpty) {
-                          return 'Sheet tab could not be determined';
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 18),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: palette.panel,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: palette.border),
-                      ),
-                      child: Text(
-                        helperText,
-                        style: TextStyle(
-                          color: palette.mutedText,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    if (!identityLocked)
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: isGeneratingLabel
-                              ? null
-                              : _generateLabelForNewChemical,
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: colorScheme.primary,
-                            side: BorderSide(color: colorScheme.primary),
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                          ),
-                          child: Text(
-                            isGeneratingLabel
-                                ? 'Generating...'
-                                : 'Regenerate Label',
-                          ),
-                        ),
-                      ),
-                    if (!identityLocked) const SizedBox(height: 14),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: isSaving ? null : submitChemicalEntry,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF14B8A6),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                        ),
-                        child: isSaving
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : Text(
-                                submitLabel,
-                                style: const TextStyle(fontSize: 15),
-                              ),
-                      ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
       ),
