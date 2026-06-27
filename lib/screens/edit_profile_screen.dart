@@ -39,8 +39,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController relationshipController;
   late final TextEditingController emergencyNumberController;
   late final TextEditingController bloodGroupController;
+  late final TextEditingController designationController;
+  late final TextEditingController researchAreaController;
   String selectedPhotoPath = '';
   String selectedPhotoName = '';
+  late bool showEmailToLabMembers;
+  late bool showMobileToLabMembers;
 
   bool isSaving = false;
 
@@ -78,8 +82,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       text: profile.emergencyContactNumber,
     );
     bloodGroupController = TextEditingController(text: profile.bloodGroup);
+    designationController = TextEditingController(
+      text: profile.designation ?? '',
+    );
+    researchAreaController = TextEditingController(
+      text: profile.researchArea ?? '',
+    );
     selectedPhotoPath = profile.photoUrl;
     selectedPhotoName = _photoSelectionLabel(profile.photoUrl);
+    showEmailToLabMembers = profile.showEmailToLabMembers;
+    showMobileToLabMembers = profile.showMobileToLabMembers;
   }
 
   @override
@@ -95,6 +107,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     relationshipController.dispose();
     emergencyNumberController.dispose();
     bloodGroupController.dispose();
+    designationController.dispose();
+    researchAreaController.dispose();
     super.dispose();
   }
 
@@ -374,6 +388,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       emergencyRelationship: relationshipController.text.trim(),
       emergencyContactNumber: emergencyNumberController.text.trim(),
       bloodGroup: bloodGroupController.text.trim(),
+      designation: designationController.text.trim(),
+      researchArea: researchAreaController.text.trim(),
+      showEmailToLabMembers: showEmailToLabMembers,
+      showMobileToLabMembers: showMobileToLabMembers,
     );
   }
 
@@ -485,6 +503,55 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               controller: contactController,
               keyboardType: TextInputType.phone,
             ),
+            _buildTextField(
+              label: 'Designation',
+              controller: designationController,
+            ),
+            _buildTextField(
+              label: 'Research area',
+              controller: researchAreaController,
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Show my email to lab members',
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: Text(
+                'Lab members can view this in read-only member lists.',
+                style: TextStyle(color: palette.mutedText, fontSize: 12.5),
+              ),
+              value: showEmailToLabMembers,
+              onChanged: (value) {
+                setState(() {
+                  showEmailToLabMembers = value;
+                });
+              },
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                'Show my mobile number to lab members',
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              subtitle: Text(
+                'Your contact number stays hidden when this is off.',
+                style: TextStyle(color: palette.mutedText, fontSize: 12.5),
+              ),
+              value: showMobileToLabMembers,
+              onChanged: (value) {
+                setState(() {
+                  showMobileToLabMembers = value;
+                });
+              },
+            ),
+            const SizedBox(height: 12),
             _buildTextField(
               label: 'Date of birth',
               controller: dobController,

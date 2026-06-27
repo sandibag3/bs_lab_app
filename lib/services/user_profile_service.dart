@@ -21,12 +21,23 @@ class UserProfileService {
 
     if (!doc.exists) {
       final firstLoginAt = accountCreatedAt ?? DateTime.now();
-      final profile = UserProfile.empty().copyWith(firstLoginAt: firstLoginAt);
+      final profile = UserProfile.empty().copyWith(
+        firstLoginAt: firstLoginAt,
+        clearDesignation: true,
+        clearResearchArea: true,
+        showEmailToLabMembers: true,
+        showMobileToLabMembers: false,
+        profileCompleted: false,
+      );
 
       await docRef.set({
         ...profile.toFirestore(),
         'email': email.trim(),
         'firstLoginAt': Timestamp.fromDate(firstLoginAt),
+        'designation': null,
+        'researchArea': null,
+        'showEmailToLabMembers': true,
+        'showMobileToLabMembers': false,
         'profileCompleted': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
@@ -64,6 +75,32 @@ class UserProfileService {
     }, SetOptions(merge: true));
   }
 
+  Future<void> completeBasicProfile({
+    required String uid,
+    required String name,
+    required String contactNumber,
+    String? designation,
+    String? researchArea,
+    required bool showEmailToLabMembers,
+    required bool showMobileToLabMembers,
+  }) async {
+    final cleanUid = uid.trim();
+    if (cleanUid.isEmpty) {
+      return;
+    }
+
+    await _usersRef.doc(cleanUid).set({
+      'name': name.trim(),
+      'contactNumber': contactNumber.trim(),
+      'designation': _nullableTrimmedString(designation),
+      'researchArea': _nullableTrimmedString(researchArea),
+      'showEmailToLabMembers': showEmailToLabMembers,
+      'showMobileToLabMembers': showMobileToLabMembers,
+      'profileCompleted': true,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   Future<Map<String, UserProfile>> getUserProfilesByIds(
     Iterable<String> userIds,
   ) async {
@@ -81,5 +118,10 @@ class UserProfileService {
     }
 
     return profiles;
+  }
+
+  String? _nullableTrimmedString(String? value) {
+    final cleanValue = value?.trim() ?? '';
+    return cleanValue.isEmpty ? null : cleanValue;
   }
 }

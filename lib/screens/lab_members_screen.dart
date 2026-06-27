@@ -348,6 +348,8 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
               : widget.appState.authenticatedUserEmail,
           roleLabel: widget.appState.currentRoleLabel,
           profileRole: '',
+          designation: '',
+          researchArea: '',
           contactNumber: '',
           profileCompleted: false,
           isCurrentUser: true,
@@ -442,18 +444,26 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                           final member = members[index - 1];
                           final membership = member.membership;
                           final profile = member.profile;
+                          final showEmail =
+                              profile?.showEmailToLabMembers ?? true;
+                          final showMobile =
+                              profile?.showMobileToLabMembers ?? false;
                           final isCurrentUser =
                               membership.userId.trim() ==
                               widget.appState.authenticatedUserId;
 
                           return _MemberTile(
                             name: _memberName(member),
-                            email: _memberEmail(member),
+                            email: showEmail ? _memberEmail(member) : 'Hidden',
                             roleLabel: widget.appState.roleLabelFor(
                               membership.role.trim(),
                             ),
                             profileRole: profile?.joinAs.trim() ?? '',
-                            contactNumber: profile?.contactNumber.trim() ?? '',
+                            designation: profile?.designation?.trim() ?? '',
+                            researchArea: profile?.researchArea?.trim() ?? '',
+                            contactNumber: showMobile
+                                ? profile?.contactNumber.trim() ?? ''
+                                : 'Hidden',
                             profileCompleted:
                                 profile?.profileCompleted == true ||
                                 profile?.isComplete == true,
@@ -496,6 +506,8 @@ class _MemberTile extends StatelessWidget {
   final String email;
   final String roleLabel;
   final String profileRole;
+  final String designation;
+  final String researchArea;
   final String contactNumber;
   final bool profileCompleted;
   final bool isCurrentUser;
@@ -509,6 +521,8 @@ class _MemberTile extends StatelessWidget {
     required this.email,
     required this.roleLabel,
     required this.profileRole,
+    required this.designation,
+    required this.researchArea,
     required this.contactNumber,
     required this.profileCompleted,
     required this.isCurrentUser,
@@ -578,6 +592,8 @@ class _MemberTile extends StatelessWidget {
                 ),
                 _buildDetail(context, 'Email', email),
                 _buildDetail(context, 'Profile role', profileRole),
+                _buildDetail(context, 'Designation', designation),
+                _buildDetail(context, 'Research area', researchArea),
                 _buildDetail(context, 'Contact', contactNumber),
                 const SizedBox(height: 10),
                 Wrap(

@@ -76,6 +76,10 @@ class UserProfile {
   final String bloodGroup;
   final String hobbies;
   final String about;
+  final String? designation;
+  final String? researchArea;
+  final bool showEmailToLabMembers;
+  final bool showMobileToLabMembers;
   final bool profileCompleted;
   final DateTime? firstLoginAt;
   final DateTime? updatedAt;
@@ -97,6 +101,10 @@ class UserProfile {
     required this.bloodGroup,
     required this.hobbies,
     required this.about,
+    this.designation,
+    this.researchArea,
+    this.showEmailToLabMembers = true,
+    this.showMobileToLabMembers = false,
     required this.profileCompleted,
     required this.firstLoginAt,
     required this.updatedAt,
@@ -120,6 +128,10 @@ class UserProfile {
       bloodGroup: '',
       hobbies: '',
       about: '',
+      designation: null,
+      researchArea: null,
+      showEmailToLabMembers: true,
+      showMobileToLabMembers: false,
       profileCompleted: false,
       firstLoginAt: null,
       updatedAt: null,
@@ -148,6 +160,14 @@ class UserProfile {
       bloodGroup: (data['bloodGroup'] ?? '').toString(),
       hobbies: (data['hobbies'] ?? '').toString(),
       about: (data['about'] ?? '').toString(),
+      designation: _nullableStringFromValue(data['designation']),
+      researchArea: _nullableStringFromValue(data['researchArea']),
+      showEmailToLabMembers: data['showEmailToLabMembers'] is bool
+          ? data['showEmailToLabMembers'] as bool
+          : true,
+      showMobileToLabMembers: data['showMobileToLabMembers'] is bool
+          ? data['showMobileToLabMembers'] as bool
+          : false,
       profileCompleted: data['profileCompleted'] == true,
       firstLoginAt: _dateTimeFromValue(data['firstLoginAt']),
       updatedAt: _dateTimeFromValue(data['updatedAt']),
@@ -171,6 +191,12 @@ class UserProfile {
     String? bloodGroup,
     String? hobbies,
     String? about,
+    String? designation,
+    bool clearDesignation = false,
+    String? researchArea,
+    bool clearResearchArea = false,
+    bool? showEmailToLabMembers,
+    bool? showMobileToLabMembers,
     bool? profileCompleted,
     DateTime? firstLoginAt,
     DateTime? updatedAt,
@@ -195,6 +221,14 @@ class UserProfile {
       bloodGroup: bloodGroup ?? this.bloodGroup,
       hobbies: hobbies ?? this.hobbies,
       about: about ?? this.about,
+      designation: clearDesignation ? null : (designation ?? this.designation),
+      researchArea: clearResearchArea
+          ? null
+          : (researchArea ?? this.researchArea),
+      showEmailToLabMembers:
+          showEmailToLabMembers ?? this.showEmailToLabMembers,
+      showMobileToLabMembers:
+          showMobileToLabMembers ?? this.showMobileToLabMembers,
       profileCompleted: profileCompleted ?? this.profileCompleted,
       firstLoginAt: firstLoginAt ?? this.firstLoginAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -253,6 +287,10 @@ class UserProfile {
       'bloodGroup': bloodGroup.trim(),
       'hobbies': hobbies.trim(),
       'about': about.trim(),
+      'designation': _nullableStringFromValue(designation),
+      'researchArea': _nullableStringFromValue(researchArea),
+      'showEmailToLabMembers': showEmailToLabMembers,
+      'showMobileToLabMembers': showMobileToLabMembers,
       'profileCompleted': isComplete,
       if (firstLoginAt != null)
         'firstLoginAt': Timestamp.fromDate(firstLoginAt!),
@@ -299,5 +337,14 @@ class UserProfile {
     }
 
     return null;
+  }
+
+  static String? _nullableStringFromValue(dynamic value) {
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+
+    return text;
   }
 }

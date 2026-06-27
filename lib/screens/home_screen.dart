@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../services/user_profile_service.dart';
 import '../theme/labmate_theme.dart';
 import '../widgets/add_action_sheet.dart';
 import '../widgets/bottom_nav_bar.dart';
@@ -38,6 +39,43 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int selectedIndex = 0;
   String? activeHomeOverlay;
+  bool _profileCompletionPromptShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _maybeShowProfileCompletionPrompt();
+    });
+  }
+
+  Future<void> _maybeShowProfileCompletionPrompt() async {
+    if (!mounted || _profileCompletionPromptShown) {
+      return;
+    }
+
+    final userId = widget.appState.authenticatedUserId;
+    if (userId.isEmpty || widget.appState.profile.profileCompleted == true) {
+      return;
+    }
+
+    _profileCompletionPromptShown = true;
+    final completed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => _ProfileCompletionDialog(appState: widget.appState),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (completed == true) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Profile details saved')));
+    }
+  }
 
   void changeTab(int index) {
     setState(() {
@@ -377,6 +415,283 @@ class _HomeScreenState extends State<HomeScreen> {
               : BottomNavBar(currentIndex: selectedIndex, onTap: changeTab),
         );
       },
+    );
+  }
+}
+
+class _ProfileCompletionDialog extends StatefulWidget {
+  final AppState appState;
+
+  const _ProfileCompletionDialog({required this.appState});
+
+  @override
+  State<_ProfileCompletionDialog> createState() =>
+      _ProfileCompletionDialogState();
+}
+
+class _ProfileCompletionDialogState extends State<_ProfileCompletionDialog> {
+  final _formKey = GlobalKey<FormState>();
+  final UserProfileService _userProfileService = UserProfileService();
+
+  late final TextEditingController _nameController;
+  late final TextEditingController _contactController;
+  late final TextEditingController _designationController;
+  late final TextEditingController _researchAreaController;
+
+  late bool _showEmailToLabMembers;
+  late bool _showMobileToLabMembers;
+  bool _isSaving = false;
+  bool _isSigningOut = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final profile = widget.appState.profile;
+    final profileName = profile.name.trim();
+    _nameController = TextEditingController(
+      text: profileName == 'Your Name' ? '' : profileName,
+    );
+    _contactController = TextEditingController(text: profile.contactNumber);
+    _designationController = TextEditingController(
+      text: profile.designation ?? '',
+    );
+    _researchAreaController = TextEditingController(
+      text: profile.researchArea ?? '',
+    );
+    _showEmailToLabMembers = profile.showEmailToLabMembers;
+    _showMobileToLabMembers = profile.showMobileToLabMembers;
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _contactController.dispose();
+    _designationController.dispose();
+    _researchAreaController.dispose();
+    super.dispose();
+  }
+
+  InputDecoration _inputDecoration(String label) {
+    final palette = context.labmate;
+    return InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(
+        color: palette.mutedText,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+      ),
+      filled: true,
+      fillColor: palette.panelAlt,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+
+  Future<void> _saveProfile() async {
+    if (_isSaving || !_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      await _userProfileService.completeBasicProfile(
+        uid: widget.appState.authenticatedUserId,
+        name: _nameController.text,
+        contactNumber: _contactController.text,
+        designation: _designationController.text,
+        researchArea: _researchAreaController.text,
+        showEmailToLabMembers: _showEmailToLabMembers,
+        showMobileToLabMembers: _showMobileToLabMembers,
+      );
+      await widget.appState.loadAuthenticatedUserProfile();
+
+      if (!mounted) {
+        return;
+      }
+
+      Navigator.of(context).pop(true);
+    } catch (error, stackTrace) {
+      debugPrint('Failed to save profile completion details: $error');
+      debugPrintStack(stackTrace: stackTrace);
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to save profile. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _signOut() async {
+    if (_isSigningOut || _isSaving) {
+      return;
+    }
+
+    setState(() {
+      _isSigningOut = true;
+    });
+
+    try {
+      await FirebaseAuth.instance.signOut();
+      await widget.appState.clearSessionContext();
+
+      if (!mounted) {
+        return;
+      }
+
+      final navigator = Navigator.of(context);
+      navigator.pop(false);
+      navigator.popUntil((route) => route.isFirst);
+    } catch (error) {
+      debugPrint('Could not sign out from profile completion dialog: $error');
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not sign out. Please try again.')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSigningOut = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return PopScope(
+      canPop: false,
+      child: AlertDialog(
+        backgroundColor: palette.panel,
+        title: Text(
+          'Complete your profile',
+          style: TextStyle(color: colorScheme.onSurface),
+        ),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
+          child: SingleChildScrollView(
+            child: Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Please complete your basic profile details. Members of the same lab will be able to view these basic details in read-only mode.',
+                    style: TextStyle(
+                      color: palette.mutedText,
+                      fontSize: 13.5,
+                      height: 1.4,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  TextFormField(
+                    controller: _nameController,
+                    decoration: _inputDecoration('Name'),
+                    textInputAction: TextInputAction.next,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Name is required';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _contactController,
+                    decoration: _inputDecoration('Contact number (optional)'),
+                    keyboardType: TextInputType.phone,
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _designationController,
+                    decoration: _inputDecoration('Designation (optional)'),
+                    textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _researchAreaController,
+                    decoration: _inputDecoration('Research area (optional)'),
+                    textInputAction: TextInputAction.done,
+                    onFieldSubmitted: (_) => _saveProfile(),
+                  ),
+                  const SizedBox(height: 14),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Show my email to lab members'),
+                    value: _showEmailToLabMembers,
+                    onChanged: _isSaving
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _showEmailToLabMembers = value;
+                            });
+                          },
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Show my mobile number to lab members'),
+                    value: _showMobileToLabMembers,
+                    onChanged: _isSaving
+                        ? null
+                        : (value) {
+                            setState(() {
+                              _showMobileToLabMembers = value;
+                            });
+                          },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: _isSaving || _isSigningOut ? null : _signOut,
+            child: _isSigningOut
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text('Sign out', style: TextStyle(color: palette.mutedText)),
+          ),
+          ElevatedButton(
+            onPressed: _isSaving || _isSigningOut ? null : _saveProfile,
+            child: _isSaving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 }
