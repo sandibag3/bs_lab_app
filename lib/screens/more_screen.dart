@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../services/lab_membership_service.dart';
 import '../theme/labmate_theme.dart';
 import 'app_settings_screen.dart';
 import 'electronic_lab_manual_screen.dart';
@@ -9,11 +10,20 @@ import 'import_inventory_screen.dart';
 import 'inventory_analytics_screen.dart';
 import 'funds_dashboard_screen.dart';
 
-class MoreScreen extends StatelessWidget {
+class MoreScreen extends StatefulWidget {
   final AppState appState;
   final VoidCallback? onNavigateHome;
 
   const MoreScreen({super.key, required this.appState, this.onNavigateHome});
+
+  @override
+  State<MoreScreen> createState() => _MoreScreenState();
+}
+
+class _MoreScreenState extends State<MoreScreen> {
+  bool _isLeavingLab = false;
+
+  AppState get appState => widget.appState;
 
   void _showComingSoon(BuildContext context, String featureName) {
     final messenger = ScaffoldMessenger.maybeOf(context);
@@ -30,7 +40,7 @@ class MoreScreen extends StatelessWidget {
       return;
     }
 
-    onNavigateHome?.call();
+    widget.onNavigateHome?.call();
   }
 
   Widget buildSectionTitle(BuildContext context, String title) {
@@ -206,10 +216,163 @@ class MoreScreen extends StatelessWidget {
     );
   }
 
+  bool get _canShowLeaveCurrentLab {
+    return appState.authenticatedUserId.isNotEmpty &&
+        appState.hasSelectedLab &&
+        !appState.isDemoLabSelected &&
+        !appState.isLocalFallbackLabSelected;
+  }
+
+  String _friendlyLeaveError(Object error) {
+    if (error is LabMembershipException) {
+      return error.message;
+    }
+
+    final message = error.toString();
+    const knownMessages = [
+      'Membership no longer exists.',
+      'You have already left this lab.',
+      'You cannot leave this lab because you are the only PI/Admin. Assign another PI/Admin first.',
+    ];
+
+    for (final knownMessage in knownMessages) {
+      if (message.contains(knownMessage)) {
+        return knownMessage;
+      }
+    }
+
+    return 'Failed to leave lab. Please try again.';
+  }
+
+  Future<void> _confirmLeaveCurrentLab(BuildContext context) async {
+    if (_isLeavingLab) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    var isProcessing = false;
+    String? errorMessage;
+
+    final didLeave = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setDialogState) {
+            Future<void> leaveLab() async {
+              if (isProcessing) return;
+
+              setDialogState(() {
+                isProcessing = true;
+                errorMessage = null;
+              });
+              if (mounted) {
+                setState(() {
+                  _isLeavingLab = true;
+                });
+              }
+
+              try {
+                await appState.leaveCurrentLab();
+                if (dialogContext.mounted) {
+                  Navigator.pop(dialogContext, true);
+                }
+              } catch (error) {
+                if (!dialogContext.mounted) return;
+                setDialogState(() {
+                  errorMessage = _friendlyLeaveError(error);
+                  isProcessing = false;
+                });
+                if (mounted) {
+                  setState(() {
+                    _isLeavingLab = false;
+                  });
+                }
+              }
+            }
+
+            return AlertDialog(
+              backgroundColor: Theme.of(context).colorScheme.surface,
+              title: const Text('Leave current lab?'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'You will lose access to this lab, but your previous requirements, orders, notebooks, inventory actions, and activity history will remain for audit purposes.',
+                    style: TextStyle(height: 1.4),
+                  ),
+                  if (appState.isPiAdmin) ...[
+                    const SizedBox(height: 12),
+                    const Text(
+                      'If you are the only PI/Admin, you must assign another PI/Admin before leaving.',
+                      style: TextStyle(
+                        height: 1.4,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  if (errorMessage != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      errorMessage!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isProcessing
+                      ? null
+                      : () => Navigator.pop(dialogContext, false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: isProcessing ? null : leaveLab,
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFFB7185),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: isProcessing
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text('Leave Lab'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      _isLeavingLab = false;
+    });
+
+    if (didLeave == true) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(content: Text('You have left the lab.')),
+      );
+      if (!context.mounted) return;
+      Navigator.popUntil(context, (route) => route.isFirst);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final canPop = Navigator.of(context).canPop();
-    final canNavigateHome = onNavigateHome != null;
+    final canNavigateHome = widget.onNavigateHome != null;
 
     return Scaffold(
       appBar: AppBar(
@@ -328,6 +491,19 @@ class MoreScreen extends StatelessWidget {
                 onTap: () => _showComingSoon(context, 'Admin tools'),
               ),
               buildSectionTitle(context, 'Account'),
+              if (_canShowLeaveCurrentLab)
+                buildOptionCard(
+                  context: context,
+                  icon: Icons.exit_to_app_rounded,
+                  title: _isLeavingLab ? 'Leaving Lab...' : 'Leave Current Lab',
+                  subtitle:
+                      'Remove your access to this lab while preserving audit history.',
+                  accentColor: const Color(0xFFFB7185),
+                  showChevron: false,
+                  onTap: _isLeavingLab
+                      ? null
+                      : () => _confirmLeaveCurrentLab(context),
+                ),
               buildOptionCard(
                 context: context,
                 icon: Icons.logout_rounded,

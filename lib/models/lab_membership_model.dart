@@ -11,6 +11,8 @@ class LabMembershipModel {
   final String labName;
   final Timestamp? createdAt;
   final Timestamp? updatedAt;
+  final DateTime? leftAt;
+  final String? leftBy;
 
   LabMembershipModel({
     required this.id,
@@ -23,6 +25,8 @@ class LabMembershipModel {
     required this.labName,
     required this.createdAt,
     required this.updatedAt,
+    this.leftAt,
+    this.leftBy,
   });
 
   factory LabMembershipModel.fromFirestore(DocumentSnapshot doc) {
@@ -39,6 +43,8 @@ class LabMembershipModel {
       labName: data['labName'] ?? '',
       createdAt: data['createdAt'],
       updatedAt: data['updatedAt'],
+      leftAt: _dateTimeFromValue(data['leftAt']),
+      leftBy: (data['leftBy'] as String?)?.trim(),
     );
   }
 
@@ -53,6 +59,18 @@ class LabMembershipModel {
       'labName': labName,
       'createdAt': createdAt,
       'updatedAt': updatedAt,
+      'leftAt': leftAt,
+      'leftBy': leftBy,
     };
+  }
+
+  static DateTime? _dateTimeFromValue(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    return null;
   }
 }

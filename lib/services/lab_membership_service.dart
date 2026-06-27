@@ -1,14 +1,30 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/lab_membership_model.dart';
 
+class LabMembershipException implements Exception {
+  final String message;
+
+  const LabMembershipException(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class LabMembershipService {
   final CollectionReference<Map<String, dynamic>> _membershipsRef =
       FirebaseFirestore.instance.collection('memberships');
 
-  String _membershipDocId({required String userId, required String labId}) {
+  static String membershipIdFor({
+    required String userId,
+    required String labId,
+  }) {
     final safeLabId = labId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
     final safeUserId = userId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
     return '${safeLabId}_$safeUserId';
+  }
+
+  String _membershipDocId({required String userId, required String labId}) {
+    return membershipIdFor(userId: userId, labId: labId);
   }
 
   Future<void> upsertMembership({
@@ -190,6 +206,83 @@ class LabMembershipService {
         .update({'role': cleanRole, 'updatedAt': FieldValue.serverTimestamp()});
   }
 
+  Future<void> leaveLab({required String labId, required String userId}) async {
+    final cleanLabId = labId.trim();
+    final cleanUserId = userId.trim();
+
+    if (cleanLabId.isEmpty || cleanUserId.isEmpty) {
+      throw const LabMembershipException('Membership no longer exists.');
+    }
+
+    final membershipRef = _membershipsRef.doc(
+      _membershipDocId(userId: cleanUserId, labId: cleanLabId),
+    );
+
+    final initialSnapshot = await membershipRef.get();
+    if (!initialSnapshot.exists) {
+      throw const LabMembershipException('Membership no longer exists.');
+    }
+
+    final initialMembership = LabMembershipModel.fromFirestore(initialSnapshot);
+    _validateMembershipOwner(
+      membership: initialMembership,
+      labId: cleanLabId,
+      userId: cleanUserId,
+    );
+
+    final initialStatus = initialMembership.status.trim().toLowerCase();
+    if (initialStatus == 'left') {
+      throw const LabMembershipException('You have already left this lab.');
+    }
+
+    final isPiAdmin = initialMembership.role.trim().toLowerCase() == 'piadmin';
+    var hasAnotherPiAdmin = false;
+    if (isPiAdmin) {
+      hasAnotherPiAdmin = await labHasActivePiAdmin(
+        labId: cleanLabId,
+        excludingUserId: cleanUserId,
+      );
+      if (!hasAnotherPiAdmin) {
+        throw const LabMembershipException(
+          'You cannot leave this lab because you are the only PI/Admin. Assign another PI/Admin first.',
+        );
+      }
+    }
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final snapshot = await transaction.get(membershipRef);
+      if (!snapshot.exists) {
+        throw const LabMembershipException('Membership no longer exists.');
+      }
+
+      final membership = LabMembershipModel.fromFirestore(snapshot);
+      _validateMembershipOwner(
+        membership: membership,
+        labId: cleanLabId,
+        userId: cleanUserId,
+      );
+
+      final status = membership.status.trim().toLowerCase();
+      if (status == 'left') {
+        throw const LabMembershipException('You have already left this lab.');
+      }
+
+      final role = membership.role.trim().toLowerCase();
+      if (role == 'piadmin' && !hasAnotherPiAdmin) {
+        throw const LabMembershipException(
+          'You cannot leave this lab because you are the only PI/Admin. Assign another PI/Admin first.',
+        );
+      }
+
+      transaction.update(membershipRef, {
+        'status': 'left',
+        'leftAt': FieldValue.serverTimestamp(),
+        'leftBy': cleanUserId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
   Future<int> deleteMembershipsForLabs(List<String> labIds) async {
     final cleanedLabIds = labIds
         .map((labId) => labId.trim())
@@ -237,5 +330,16 @@ class LabMembershipService {
     }
 
     return membership.userId.trim();
+  }
+
+  void _validateMembershipOwner({
+    required LabMembershipModel membership,
+    required String labId,
+    required String userId,
+  }) {
+    if (membership.labId.trim() != labId ||
+        membership.userId.trim() != userId) {
+      throw const LabMembershipException('Membership no longer exists.');
+    }
   }
 }

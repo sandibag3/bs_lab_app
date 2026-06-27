@@ -267,9 +267,7 @@ class AppState extends ChangeNotifier {
     _selectedLabName = prefs.getString(_selectedLabNameKey) ?? '';
     _selectedLabLocalRole = prefs.getString(_selectedLabLocalRoleKey) ?? '';
     _selectedLabUserId = prefs.getString(_selectedLabUserIdKey) ?? '';
-    _themeMode = _themeModeFromName(
-      prefs.getString(_themeModeKey) ?? 'dark',
-    );
+    _themeMode = _themeModeFromName(prefs.getString(_themeModeKey) ?? 'dark');
     _compactDesktopMode = prefs.getBool(_compactDesktopModeKey) ?? false;
     _hasAttemptedSelectedLabMembershipLoad = false;
 
@@ -451,6 +449,53 @@ class AppState extends ChangeNotifier {
     await _loadSelectedLabRole();
 
     notifyListeners();
+  }
+
+  Future<void> leaveCurrentLab() async {
+    final labId = selectedLabId.trim();
+    final userId = authenticatedUserId;
+
+    if (labId.isEmpty ||
+        userId.isEmpty ||
+        isDemoLabSelected ||
+        isLocalFallbackLabSelected) {
+      throw const LabMembershipException('Membership no longer exists.');
+    }
+
+    await _labMembershipService.leaveLab(labId: labId, userId: userId);
+    await clearSessionContext();
+
+    List<LabMembershipModel> memberships;
+    try {
+      memberships = await _labMembershipService.getMembershipsForUser(
+        userId: userId,
+      );
+    } catch (_) {
+      memberships = [];
+    }
+
+    if (memberships.isEmpty) {
+      return;
+    }
+
+    final membership = memberships.firstWhere(
+      (membership) => membership.labId.trim().isNotEmpty,
+      orElse: () => memberships.first,
+    );
+
+    if (membership.labId.trim().isEmpty) {
+      return;
+    }
+
+    await saveSelectedLabContextWithRole(
+      LabContextModel(
+        selectedLabId: membership.labId,
+        selectedLabName: membership.labName.trim().isEmpty
+            ? membership.labId
+            : membership.labName,
+      ),
+      localRoleName: '',
+    );
   }
 
   Future<void> enterDemoLab() async {
