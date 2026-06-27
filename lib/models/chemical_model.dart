@@ -12,6 +12,8 @@ class ChemicalModel {
   final String texture;
   final String location;
   final String quantity;
+  final String bottleSize;
+  final String bottleUnit;
   final String brand;
   final String vendor;
   final String catNumber;
@@ -33,6 +35,8 @@ class ChemicalModel {
     required this.texture,
     required this.location,
     required this.quantity,
+    this.bottleSize = '',
+    this.bottleUnit = '',
     required this.brand,
     required this.vendor,
     required this.catNumber,
@@ -58,6 +62,8 @@ class ChemicalModel {
       texture: data['texture'] ?? '',
       location: data['location'] ?? '',
       quantity: data['quantity'] ?? '',
+      bottleSize: data['bottleSize'] ?? '',
+      bottleUnit: data['bottleUnit'] ?? '',
       brand: data['brand'] ?? '',
       vendor: data['vendor'] ?? '',
       catNumber: data['catNumber'] ?? '',
@@ -81,6 +87,8 @@ class ChemicalModel {
       'texture': texture,
       'location': location,
       'quantity': quantity,
+      'bottleSize': bottleSize,
+      'bottleUnit': bottleUnit,
       'brand': brand,
       'vendor': vendor,
       'catNumber': catNumber,

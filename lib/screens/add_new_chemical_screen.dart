@@ -38,6 +38,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   late final TextEditingController casController;
   late final TextEditingController brandController;
   late final TextEditingController quantityController;
+  late final TextEditingController bottleSizeController;
   late final TextEditingController formulaController;
   late final TextEditingController molWtController;
   late final TextEditingController vendorController;
@@ -64,6 +65,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
   String? selectedLocation;
   String? selectedTexture;
+  String selectedBottleUnit = 'g';
   List<String> selectedFunctionalGroups = [];
 
   int existingBottleCount = 0;
@@ -141,6 +143,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     'Other',
   ];
 
+  final List<String> bottleUnitOptions = const ['mg', 'g', 'kg', 'mL', 'L'];
+
   final List<String> functionalGroupOptions = const [
     'Alcohol',
     'Aldehyde',
@@ -188,6 +192,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     );
     quantityController = TextEditingController(
       text: manualPrefill?.quantity ?? order?.quantity ?? '',
+    );
+    bottleSizeController = TextEditingController(
+      text: manualPrefill?.bottleSize ?? '',
     );
     formulaController = TextEditingController(
       text: manualPrefill?.formula ?? '',
@@ -255,8 +262,13 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       selectedFunctionalGroups = manualPrefill!.functionalGroups
           .split(',')
           .map((e) => e.trim())
-          .where((e) => functionalGroupOptions.contains(e))
+          .where((e) => e.isNotEmpty)
           .toList();
+    }
+
+    final prefillBottleUnit = manualPrefill?.bottleUnit.trim() ?? '';
+    if (bottleUnitOptions.contains(prefillBottleUnit)) {
+      selectedBottleUnit = prefillBottleUnit;
     }
 
     _loadHiddenDropdownOptionPreferences();
@@ -767,7 +779,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
             final parsed = existing.functionalGroups
                 .split(',')
                 .map((e) => e.trim())
-                .where((e) => functionalGroupOptions.contains(e))
+                .where((e) => e.isNotEmpty)
                 .toList();
             selectedFunctionalGroups = parsed;
           } else {
@@ -831,6 +843,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     casController.dispose();
     brandController.dispose();
     quantityController.dispose();
+    bottleSizeController.dispose();
     formulaController.dispose();
     molWtController.dispose();
     vendorController.dispose();
@@ -1109,9 +1122,81 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     );
   }
 
+  Future<void> _pickArrivalDate() async {
+    final initialDate = _parseArrivalDate(arrivalDateController.text);
+    final selectedDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate ?? DateTime.now(),
+      firstDate: DateTime(1990),
+      lastDate: DateTime(DateTime.now().year + 20),
+    );
+
+    if (selectedDate == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      arrivalDateController.text = _formatArrivalDate(selectedDate);
+    });
+  }
+
+  DateTime? _parseArrivalDate(String value) {
+    final parts = value.trim().split('/');
+    if (parts.length != 3) {
+      return null;
+    }
+
+    final day = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final year = int.tryParse(parts[2]);
+    if (day == null || month == null || year == null) {
+      return null;
+    }
+
+    return DateTime(year, month, day);
+  }
+
+  String _formatArrivalDate(DateTime date) {
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    return '$day/$month/${date.year}';
+  }
+
+  Future<void> _addCustomFunctionalGroup() async {
+    final customGroup = await showDialog<String>(
+      context: context,
+      builder: (context) => const _CustomFunctionalGroupDialog(),
+    );
+    final cleanGroup = customGroup?.trim() ?? '';
+    if (cleanGroup.isEmpty || !mounted) {
+      return;
+    }
+
+    final alreadySelected = selectedFunctionalGroups.any(
+      (group) => _normalizedOption(group) == _normalizedOption(cleanGroup),
+    );
+
+    if (alreadySelected) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$cleanGroup is already selected.')),
+      );
+      return;
+    }
+
+    setState(() {
+      selectedFunctionalGroups.add(cleanGroup);
+    });
+  }
+
   Widget _buildFunctionalGroupSelector() {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
+    final visibleFunctionalGroups = [
+      ...functionalGroupOptions,
+      ...selectedFunctionalGroups.where(
+        (group) => !_matchesAnyOption(group, functionalGroupOptions),
+      ),
+    ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1136,39 +1221,134 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           child: Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: functionalGroupOptions.map((group) {
-              final isSelected = selectedFunctionalGroups.contains(group);
+            children: [
+              ...visibleFunctionalGroups.map((group) {
+                final isSelected = selectedFunctionalGroups.any(
+                  (selectedGroup) =>
+                      _normalizedOption(selectedGroup) ==
+                      _normalizedOption(group),
+                );
 
-              return FilterChip(
-                label: Text(group),
-                selected: isSelected,
-                selectedColor: const Color(0xFF14B8A6),
-                backgroundColor: palette.panelAlt,
-                checkmarkColor: Colors.white,
-                labelStyle: TextStyle(
-                  color: isSelected ? Colors.white : colorScheme.onSurface,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                ),
-                side: BorderSide(
-                  color: isSelected ? const Color(0xFF14B8A6) : palette.border,
-                ),
-                onSelected: (selected) {
-                  setState(() {
-                    if (selected) {
-                      if (!selectedFunctionalGroups.contains(group)) {
-                        selectedFunctionalGroups.add(group);
+                return FilterChip(
+                  label: Text(group),
+                  selected: isSelected,
+                  selectedColor: const Color(0xFF14B8A6),
+                  backgroundColor: palette.panelAlt,
+                  checkmarkColor: Colors.white,
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.white : colorScheme.onSurface,
+                    fontWeight: isSelected
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
+                  side: BorderSide(
+                    color: isSelected
+                        ? const Color(0xFF14B8A6)
+                        : palette.border,
+                  ),
+                  onSelected: (selected) {
+                    setState(() {
+                      if (selected) {
+                        if (!isSelected) {
+                          selectedFunctionalGroups.add(group);
+                        }
+                      } else {
+                        selectedFunctionalGroups.removeWhere(
+                          (selectedGroup) =>
+                              _normalizedOption(selectedGroup) ==
+                              _normalizedOption(group),
+                        );
                       }
-                    } else {
-                      selectedFunctionalGroups.remove(group);
-                    }
-                  });
-                },
-              );
-            }).toList(),
+                    });
+                  },
+                );
+              }),
+              ActionChip(
+                avatar: Icon(
+                  Icons.add_rounded,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+                label: const Text('Add functional group'),
+                backgroundColor: palette.panelAlt,
+                side: BorderSide(color: palette.border),
+                labelStyle: TextStyle(
+                  color: colorScheme.primary,
+                  fontWeight: FontWeight.w600,
+                ),
+                onPressed: _addCustomFunctionalGroup,
+              ),
+            ],
           ),
         ),
       ],
     );
+  }
+
+  Future<void> _handleSuccessfulManualAdd() async {
+    final addAnother = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Chemical added successfully'),
+          content: const Text('Add another chemical?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('No'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Yes'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (addAnother == true) {
+      _resetForAnotherManualChemical();
+      return;
+    }
+
+    Navigator.pop(context);
+  }
+
+  void _resetForAnotherManualChemical() {
+    setState(() {
+      chemicalNameController.clear();
+      casController.clear();
+      brandController.clear();
+      quantityController.clear();
+      bottleSizeController.clear();
+      formulaController.clear();
+      molWtController.clear();
+      vendorController.clear();
+      catNumberController.clear();
+      arrivalDateController.clear();
+      orderedByController.clear();
+      labelController.clear();
+      sheetTabController.clear();
+      carbonCountController.clear();
+      catalystMetalController.clear();
+      customLocationController.clear();
+      customCategoryController.clear();
+      selectedEntryType = null;
+      selectedCategory = 'General';
+      selectedSubcategory = null;
+      selectedBrand = null;
+      selectedVendor = null;
+      selectedLocation = null;
+      selectedTexture = null;
+      selectedBottleUnit = 'g';
+      selectedFunctionalGroups = [];
+      existingBottleCount = 0;
+    });
   }
 
   Future<void> submitChemicalEntry() async {
@@ -1259,6 +1439,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         texture: selectedTexture ?? '',
         location: _resolvedLocation,
         quantity: quantityController.text.trim(),
+        bottleSize: bottleSizeController.text.trim(),
+        bottleUnit: selectedBottleUnit,
         brand: _resolvedBrand,
         vendor: _resolvedVendor,
         catNumber: catNumberController.text.trim(),
@@ -1314,11 +1496,15 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         message = 'New chemical added to inventory';
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
-
-      Navigator.pop(context);
+      final isManualAdd = !isEditMode && widget.order == null;
+      if (isManualAdd) {
+        await _handleSuccessfulManualAdd();
+      } else {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(message)));
+        Navigator.pop(context);
+      }
     } on OrderInventoryException catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -1617,6 +1803,12 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       ),
                       const SizedBox(height: 14),
                     ],
+                    TextFormField(
+                      controller: catNumberController,
+                      style: TextStyle(color: colorScheme.onSurface),
+                      decoration: inputDecoration('Catalog Number'),
+                    ),
+                    const SizedBox(height: 14),
                     _buildCustomizableDropdown(
                       label: 'Vendor',
                       value: selectedVendor,
@@ -1640,7 +1832,54 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     TextFormField(
                       controller: quantityController,
                       style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Quantity'),
+                      decoration: inputDecoration('Number of bottles'),
+                    ),
+                    const SizedBox(height: 14),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          flex: 3,
+                          child: TextFormField(
+                            controller: bottleSizeController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            style: TextStyle(color: colorScheme.onSurface),
+                            decoration: inputDecoration('Bottle size/amount'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          flex: 2,
+                          child: DropdownButtonFormField<String>(
+                            key: ValueKey('bottle_unit_$selectedBottleUnit'),
+                            initialValue: selectedBottleUnit,
+                            dropdownColor: palette.panel,
+                            style: TextStyle(color: colorScheme.onSurface),
+                            decoration: inputDecoration('Unit'),
+                            items: bottleUnitOptions
+                                .map(
+                                  (unit) => DropdownMenuItem<String>(
+                                    value: unit,
+                                    child: Text(
+                                      unit,
+                                      style: TextStyle(
+                                        color: colorScheme.onSurface,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (value) {
+                              if (value == null) return;
+                              setState(() {
+                                selectedBottleUnit = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
@@ -1709,15 +1948,17 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
-                      controller: catNumberController,
-                      style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Catalog Number'),
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
                       controller: arrivalDateController,
+                      readOnly: true,
+                      onTap: _pickArrivalDate,
                       style: TextStyle(color: colorScheme.onSurface),
-                      decoration: inputDecoration('Arrival Date'),
+                      decoration: inputDecoration('Arrival Date').copyWith(
+                        suffixIcon: Icon(
+                          Icons.calendar_today_rounded,
+                          color: palette.mutedText,
+                          size: 20,
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 14),
                     TextFormField(
@@ -1808,6 +2049,54 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                 ),
               ),
       ),
+    );
+  }
+}
+
+class _CustomFunctionalGroupDialog extends StatefulWidget {
+  const _CustomFunctionalGroupDialog();
+
+  @override
+  State<_CustomFunctionalGroupDialog> createState() =>
+      _CustomFunctionalGroupDialogState();
+}
+
+class _CustomFunctionalGroupDialogState
+    extends State<_CustomFunctionalGroupDialog> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (value.isEmpty) {
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add functional group'),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        decoration: const InputDecoration(labelText: 'Functional group name'),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Add')),
+      ],
     );
   }
 }
