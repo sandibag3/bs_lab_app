@@ -96,6 +96,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   List<String> customVendorOptions = const [];
   List<String> customLocationOptions = const [];
   List<String> customCategoryOptions = const [];
+  List<String> manualChemicalBrandOptions = const [];
+  List<String> manualChemicalLocationOptions = const [];
   Set<String> hiddenChemicalBrandOptions = const {};
   Set<String> hiddenChemicalLocationOptions = const {};
 
@@ -310,6 +312,14 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     return 'hiddenChemicalLocationOptions_$_optionPreferenceLabId';
   }
 
+  String get _customBrandOptionsKey {
+    return 'customChemicalBrandOptions_$_optionPreferenceLabId';
+  }
+
+  String get _customLocationOptionsKey {
+    return 'customChemicalLocationOptions_$_optionPreferenceLabId';
+  }
+
   void _setDropdownSelection({
     required String value,
     required List<String> builtInOptions,
@@ -358,12 +368,65 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     return items;
   }
 
+  List<String> _cleanCustomOptions(
+    Iterable<String> values, {
+    Iterable<String> excludedOptions = const [],
+  }) {
+    final excluded = excludedOptions
+        .map((option) => _normalizedOption(option))
+        .where((option) => option.isNotEmpty)
+        .toSet();
+    final unique = <String, String>{};
+
+    for (final value in values) {
+      final trimmed = value.trim();
+      final normalized = _normalizedOption(trimmed);
+      if (trimmed.isEmpty ||
+          trimmed == _customOption ||
+          excluded.contains(normalized)) {
+        continue;
+      }
+      unique.putIfAbsent(normalized, () => trimmed);
+    }
+
+    return unique.values.toList();
+  }
+
+  List<String> _brandDropdownCustomOptions() {
+    return [...manualChemicalBrandOptions, ...customBrandOptions];
+  }
+
+  List<String> _locationDropdownCustomOptions() {
+    return [...manualChemicalLocationOptions, ...customLocationOptions];
+  }
+
   List<String> _mergedOptions(
     List<String> builtInOptions,
     List<String> customOptions,
   ) {
-    final custom = _distinctCustomValues(customOptions, builtInOptions);
-    return [...builtInOptions, ...custom, _customOption];
+    final merged = <String>[];
+    final seen = <String>{};
+
+    void addOption(String value) {
+      final trimmed = value.trim();
+      final normalized = _normalizedOption(trimmed);
+      if (trimmed.isEmpty ||
+          trimmed == _customOption ||
+          seen.contains(normalized)) {
+        return;
+      }
+      seen.add(normalized);
+      merged.add(trimmed);
+    }
+
+    for (final option in builtInOptions) {
+      addOption(option);
+    }
+    for (final option in customOptions) {
+      addOption(option);
+    }
+
+    return [...merged, _customOption];
   }
 
   List<String> _baseManageableOptions(
@@ -505,6 +568,14 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     if (!mounted) return;
 
     setState(() {
+      manualChemicalBrandOptions = _cleanCustomOptions(
+        prefs.getStringList(_customBrandOptionsKey) ?? const <String>[],
+        excludedOptions: brandOptions,
+      );
+      manualChemicalLocationOptions = _cleanCustomOptions(
+        prefs.getStringList(_customLocationOptionsKey) ?? const <String>[],
+        excludedOptions: locationOptions,
+      );
       hiddenChemicalBrandOptions = _cleanHiddenOptions(
         prefs.getStringList(_hiddenBrandOptionsKey) ?? const <String>[],
       );
@@ -533,6 +604,34 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
     setState(() {
       hiddenChemicalLocationOptions = cleanOptions;
+    });
+  }
+
+  Future<void> _saveManualBrandOptions(List<String> customOptions) async {
+    final cleanOptions = _cleanCustomOptions(
+      customOptions,
+      excludedOptions: brandOptions,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_customBrandOptionsKey, cleanOptions);
+    if (!mounted) return;
+
+    setState(() {
+      manualChemicalBrandOptions = cleanOptions;
+    });
+  }
+
+  Future<void> _saveManualLocationOptions(List<String> customOptions) async {
+    final cleanOptions = _cleanCustomOptions(
+      customOptions,
+      excludedOptions: locationOptions,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_customLocationOptionsKey, cleanOptions);
+    if (!mounted) return;
+
+    setState(() {
+      manualChemicalLocationOptions = cleanOptions;
     });
   }
 
@@ -982,15 +1081,75 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     );
   }
 
-  Future<bool> _confirmHideOption(String option) async {
+  bool _optionExists(Iterable<String> options, String value, {String? except}) {
+    final normalizedValue = _normalizedOption(value);
+    final normalizedExcept = _normalizedOption(except ?? '');
+    if (normalizedValue.isEmpty) {
+      return false;
+    }
+
+    return options.any((option) {
+      final normalizedOption = _normalizedOption(option);
+      return normalizedOption == normalizedValue &&
+          normalizedOption != normalizedExcept;
+    });
+  }
+
+  Future<String?> _showOptionValueDialog({
+    required String title,
+    required String label,
+    String initialValue = '',
+  }) async {
+    return showDialog<String>(
+      context: context,
+      builder: (context) {
+        return _OptionValueDialog(
+          title: title,
+          label: label,
+          initialValue: initialValue,
+        );
+      },
+    );
+  }
+
+  Future<void> _showDuplicateOptionMessage(String message) async {
+    if (!mounted) return;
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<bool> _confirmFutureOnlyRename({required String warning}) async {
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Rename dropdown option?'),
+          content: Text(warning),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Rename'),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result == true;
+  }
+
+  Future<bool> _confirmHideOption({required String warning}) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Hide option?'),
-          content: Text(
-            'Hide "$option" from future dropdowns? Existing inventory records will not be changed.',
-          ),
+          content: Text(warning),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(false),
@@ -1010,12 +1169,26 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
   Future<void> _showManageOptionsDialog({
     required String title,
+    required String optionLabel,
+    required String addButtonLabel,
+    required String duplicateMessage,
+    required String renameWarning,
+    required String hideWarning,
     required List<String> builtInOptions,
-    required List<String> customOptions,
+    required List<String> manualCustomOptions,
+    required List<String> inventoryDerivedOptions,
     required Set<String> hiddenOptions,
+    required Future<void> Function(List<String> customOptions)
+    onManualOptionsChanged,
     required Future<void> Function(Set<String> hiddenOptions)
     onHiddenOptionsChanged,
+    required void Function(String oldValue, String newValue)
+    onSelectedValueRenamed,
   }) async {
+    var dialogManualOptions = _cleanCustomOptions(
+      manualCustomOptions,
+      excludedOptions: builtInOptions,
+    );
     var dialogHiddenOptions = _cleanHiddenOptions(hiddenOptions);
 
     await showDialog<void>(
@@ -1023,10 +1196,126 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
+            final manageableOptions = _baseManageableOptions(builtInOptions, [
+              ...dialogManualOptions,
+              ...inventoryDerivedOptions,
+            ]);
             final visibleOptions = _filterHiddenOptions(
-              options: _baseManageableOptions(builtInOptions, customOptions),
+              options: manageableOptions,
               hiddenOptions: dialogHiddenOptions,
             );
+
+            Future<void> addOption() async {
+              final value = await _showOptionValueDialog(
+                title: addButtonLabel,
+                label: optionLabel,
+              );
+              final cleanValue = value?.trim() ?? '';
+              if (cleanValue.isEmpty) {
+                return;
+              }
+
+              if (_optionExists(manageableOptions, cleanValue)) {
+                await _showDuplicateOptionMessage(duplicateMessage);
+                return;
+              }
+
+              final nextManualOptions = _cleanCustomOptions([
+                ...dialogManualOptions,
+                cleanValue,
+              ], excludedOptions: builtInOptions);
+              setDialogState(() {
+                dialogManualOptions = nextManualOptions;
+              });
+              await onManualOptionsChanged(nextManualOptions);
+            }
+
+            Future<void> renameOption(String option) async {
+              final value = await _showOptionValueDialog(
+                title: 'Edit $optionLabel',
+                label: optionLabel,
+                initialValue: option,
+              );
+              final cleanValue = value?.trim() ?? '';
+              if (cleanValue.isEmpty) {
+                return;
+              }
+
+              if (_normalizedOption(cleanValue) == _normalizedOption(option)) {
+                return;
+              }
+
+              if (_optionExists(
+                manageableOptions,
+                cleanValue,
+                except: option,
+              )) {
+                await _showDuplicateOptionMessage(duplicateMessage);
+                return;
+              }
+
+              final isManualOption = _optionSetsContain(
+                dialogManualOptions,
+                option,
+              );
+
+              if (isManualOption) {
+                final nextManualOptions = _cleanCustomOptions(
+                  dialogManualOptions.map((manualOption) {
+                    return _normalizedOption(manualOption) ==
+                            _normalizedOption(option)
+                        ? cleanValue
+                        : manualOption;
+                  }),
+                  excludedOptions: builtInOptions,
+                );
+                setDialogState(() {
+                  dialogManualOptions = nextManualOptions;
+                });
+                await onManualOptionsChanged(nextManualOptions);
+                onSelectedValueRenamed(option, cleanValue);
+                return;
+              }
+
+              final confirmed = await _confirmFutureOnlyRename(
+                warning: renameWarning,
+              );
+              if (!confirmed) {
+                return;
+              }
+
+              final nextManualOptions = _cleanCustomOptions([
+                ...dialogManualOptions,
+                cleanValue,
+              ], excludedOptions: builtInOptions);
+              final nextHiddenOptions = _cleanHiddenOptions([
+                ...dialogHiddenOptions,
+                option,
+              ]);
+              setDialogState(() {
+                dialogManualOptions = nextManualOptions;
+                dialogHiddenOptions = nextHiddenOptions;
+              });
+              await onManualOptionsChanged(nextManualOptions);
+              await onHiddenOptionsChanged(nextHiddenOptions);
+              onSelectedValueRenamed(option, cleanValue);
+            }
+
+            Future<void> hideOption(String option) async {
+              final shouldHide = await _confirmHideOption(warning: hideWarning);
+              if (!shouldHide) {
+                return;
+              }
+
+              final nextHiddenOptions = _cleanHiddenOptions([
+                ...dialogHiddenOptions,
+                option,
+              ]);
+              setDialogState(() {
+                dialogHiddenOptions = nextHiddenOptions;
+              });
+              await onHiddenOptionsChanged(nextHiddenOptions);
+            }
 
             return AlertDialog(
               title: Text(title),
@@ -1050,27 +1339,22 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                               dense: true,
                               contentPadding: EdgeInsets.zero,
                               title: Text(option),
-                              trailing: IconButton(
-                                tooltip: 'Hide',
-                                icon: const Icon(Icons.visibility_off_outlined),
-                                onPressed: () async {
-                                  final shouldHide = await _confirmHideOption(
-                                    option,
-                                  );
-                                  if (!shouldHide) {
-                                    return;
-                                  }
-
-                                  final nextHiddenOptions = _cleanHiddenOptions(
-                                    [...dialogHiddenOptions, option],
-                                  );
-                                  setDialogState(() {
-                                    dialogHiddenOptions = nextHiddenOptions;
-                                  });
-                                  await onHiddenOptionsChanged(
-                                    nextHiddenOptions,
-                                  );
-                                },
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Edit',
+                                    icon: const Icon(Icons.edit_outlined),
+                                    onPressed: () => renameOption(option),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Hide',
+                                    icon: const Icon(
+                                      Icons.visibility_off_outlined,
+                                    ),
+                                    onPressed: () => hideOption(option),
+                                  ),
+                                ],
                               ),
                             );
                           },
@@ -1078,6 +1362,11 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                 ),
               ),
               actions: [
+                TextButton.icon(
+                  onPressed: addOption,
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(addButtonLabel),
+                ),
                 TextButton(
                   onPressed: dialogHiddenOptions.isEmpty
                       ? null
@@ -1105,20 +1394,57 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   Future<void> _showManageBrandOptionsDialog() async {
     await _showManageOptionsDialog(
       title: 'Manage Brand Options',
+      optionLabel: 'brand',
+      addButtonLabel: 'Add brand',
+      duplicateMessage: 'This brand already exists.',
+      renameWarning:
+          'This will rename the dropdown option for future entries only. Existing chemical records will not be changed.',
+      hideWarning:
+          'Hide this brand from future dropdowns? Existing chemical records will not be changed.',
       builtInOptions: brandOptions,
-      customOptions: customBrandOptions,
+      manualCustomOptions: manualChemicalBrandOptions,
+      inventoryDerivedOptions: customBrandOptions,
       hiddenOptions: hiddenChemicalBrandOptions,
+      onManualOptionsChanged: _saveManualBrandOptions,
       onHiddenOptionsChanged: _saveHiddenBrandOptions,
+      onSelectedValueRenamed: (oldValue, newValue) {
+        if (_normalizedOption(_resolvedBrand) != _normalizedOption(oldValue)) {
+          return;
+        }
+        setState(() {
+          selectedBrand = newValue;
+          brandController.clear();
+        });
+      },
     );
   }
 
   Future<void> _showManageLocationOptionsDialog() async {
     await _showManageOptionsDialog(
       title: 'Manage Location Options',
+      optionLabel: 'location',
+      addButtonLabel: 'Add location',
+      duplicateMessage: 'This location already exists.',
+      renameWarning:
+          'This will rename the dropdown option for future entries only. Existing chemical records will not be changed.',
+      hideWarning:
+          'Hide this location from future dropdowns? Existing chemical records will not be changed.',
       builtInOptions: locationOptions,
-      customOptions: customLocationOptions,
+      manualCustomOptions: manualChemicalLocationOptions,
+      inventoryDerivedOptions: customLocationOptions,
       hiddenOptions: hiddenChemicalLocationOptions,
+      onManualOptionsChanged: _saveManualLocationOptions,
       onHiddenOptionsChanged: _saveHiddenLocationOptions,
+      onSelectedValueRenamed: (oldValue, newValue) {
+        if (_normalizedOption(_resolvedLocation) !=
+            _normalizedOption(oldValue)) {
+          return;
+        }
+        setState(() {
+          selectedLocation = newValue;
+          customLocationController.clear();
+        });
+      },
     );
   }
 
@@ -1786,7 +2112,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       label: 'Brand',
                       value: selectedBrand,
                       builtInOptions: brandOptions,
-                      customOptions: customBrandOptions,
+                      customOptions: _brandDropdownCustomOptions(),
                       hiddenOptions: hiddenChemicalBrandOptions,
                       onChanged: (value) {
                         setState(() {
@@ -1898,7 +2224,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                       label: 'Location',
                       value: selectedLocation,
                       builtInOptions: locationOptions,
-                      customOptions: customLocationOptions,
+                      customOptions: _locationDropdownCustomOptions(),
                       hiddenOptions: hiddenChemicalLocationOptions,
                       onChanged: (value) {
                         setState(() {
@@ -2049,6 +2375,70 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                 ),
               ),
       ),
+    );
+  }
+}
+
+class _OptionValueDialog extends StatefulWidget {
+  final String title;
+  final String label;
+  final String initialValue;
+
+  const _OptionValueDialog({
+    required this.title,
+    required this.label,
+    this.initialValue = '',
+  });
+
+  @override
+  State<_OptionValueDialog> createState() => _OptionValueDialogState();
+}
+
+class _OptionValueDialogState extends State<_OptionValueDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialValue);
+    _controller.selection = TextSelection(
+      baseOffset: 0,
+      extentOffset: _controller.text.length,
+    );
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final value = _controller.text.trim();
+    if (value.isEmpty) {
+      return;
+    }
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(widget.title),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        decoration: InputDecoration(labelText: widget.label),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(onPressed: _submit, child: const Text('Save')),
+      ],
     );
   }
 }
