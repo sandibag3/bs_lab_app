@@ -76,6 +76,33 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     'Paste',
     'Other',
   ];
+  static const List<String> _functionalGroupOptions = [
+    'Alcohol',
+    'Aldehyde',
+    'Ketone',
+    'Ester',
+    'Amide',
+    'Amine',
+    'Carboxylic Acid',
+    'Halide',
+    'Nitrile',
+    'Nitro',
+    'Ether',
+    'Thioether',
+    'Phosphine',
+    'Pyridine',
+    'Imine',
+    'Alkene',
+    'Alkyne',
+    'Arene',
+    'Heteroarene',
+    'Boronic Acid',
+    'Sulfonamide',
+    'Peroxide',
+    'Carbonate',
+    'Hydride',
+    'Other',
+  ];
 
   late Future<PubChemChemicalDetails?> pubChemFuture;
   late AnimationController _animationController;
@@ -93,7 +120,14 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   final TextEditingController editTextureController = TextEditingController();
   final TextEditingController editCatalogController = TextEditingController();
   final TextEditingController editOrderedByController = TextEditingController();
+  final TextEditingController functionalGroupCustomController =
+      TextEditingController();
   final FocusNode _keyboardNavigationFocusNode = FocusNode();
+  String? editingFunctionalGroupChemicalId;
+  List<String> availableFunctionalGroups = const [];
+  Set<String> selectedFunctionalGroupKeys = const {};
+  String? functionalGroupEditorError;
+  bool isSavingFunctionalGroups = false;
 
   @override
   void initState() {
@@ -126,6 +160,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     editTextureController.dispose();
     editCatalogController.dispose();
     editOrderedByController.dispose();
+    functionalGroupCustomController.dispose();
     _keyboardNavigationFocusNode.dispose();
     super.dispose();
   }
@@ -245,9 +280,10 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       return;
     }
 
-    final exists = [...builtInOptions, ...currentOptions].any(
-      (option) => _normalizedOption(option) == _normalizedOption(trimmed),
-    );
+    final exists = [
+      ...builtInOptions,
+      ...currentOptions,
+    ].any((option) => _normalizedOption(option) == _normalizedOption(trimmed));
     if (exists) {
       return;
     }
@@ -321,14 +357,205 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
 
       if (!mounted) return;
       _cancelBottleEditing();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Bottle details updated.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Bottle details updated.')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Could not update bottle details. Please try again.'),
+        ),
+      );
+    }
+  }
+
+  List<String> _functionalGroupList(String groups) {
+    final seen = <String>{};
+    final normalized = <String>[];
+
+    for (final rawGroup in groups.split(',')) {
+      final cleanGroup = rawGroup.trim();
+      if (cleanGroup.isEmpty) continue;
+
+      final key = cleanGroup.toLowerCase();
+      if (seen.add(key)) {
+        normalized.add(cleanGroup);
+      }
+    }
+
+    return normalized;
+  }
+
+  String _functionalGroupKey(String group) => group.trim().toLowerCase();
+
+  List<String> _availableFunctionalGroupsFor(ChemicalModel chemical) {
+    final values = <String>[];
+    final seen = <String>{};
+
+    void addGroup(String group) {
+      final cleanGroup = group.trim();
+      if (cleanGroup.isEmpty) return;
+
+      final key = _functionalGroupKey(cleanGroup);
+      if (seen.add(key)) {
+        values.add(cleanGroup);
+      }
+    }
+
+    for (final group in _functionalGroupOptions) {
+      addGroup(group);
+    }
+    for (final group in _functionalGroupList(chemical.functionalGroups)) {
+      addGroup(group);
+    }
+
+    return values;
+  }
+
+  void _startFunctionalGroupEditing(ChemicalModel chemical) {
+    final currentGroups = _functionalGroupList(chemical.functionalGroups);
+
+    setState(() {
+      editingFunctionalGroupChemicalId = chemical.id;
+      availableFunctionalGroups = _availableFunctionalGroupsFor(chemical);
+      selectedFunctionalGroupKeys = currentGroups
+          .map(_functionalGroupKey)
+          .toSet();
+      functionalGroupCustomController.clear();
+      functionalGroupEditorError = null;
+      isSavingFunctionalGroups = false;
+    });
+  }
+
+  void _cancelFunctionalGroupEditing() {
+    setState(() {
+      editingFunctionalGroupChemicalId = null;
+      availableFunctionalGroups = const [];
+      selectedFunctionalGroupKeys = const {};
+      functionalGroupCustomController.clear();
+      functionalGroupEditorError = null;
+      isSavingFunctionalGroups = false;
+    });
+  }
+
+  void _toggleFunctionalGroup(String group) {
+    final key = _functionalGroupKey(group);
+    if (key.isEmpty || isSavingFunctionalGroups) return;
+
+    final updatedSelection = {...selectedFunctionalGroupKeys};
+    if (updatedSelection.contains(key)) {
+      updatedSelection.remove(key);
+    } else {
+      updatedSelection.add(key);
+    }
+
+    setState(() {
+      selectedFunctionalGroupKeys = updatedSelection;
+      functionalGroupEditorError = null;
+    });
+  }
+
+  void _addCustomFunctionalGroup() {
+    if (isSavingFunctionalGroups) return;
+
+    final value = functionalGroupCustomController.text.trim();
+    if (value.isEmpty) {
+      setState(() {
+        functionalGroupEditorError = 'Enter a functional group name.';
+      });
+      return;
+    }
+
+    final key = _functionalGroupKey(value);
+    if (availableFunctionalGroups.any(
+      (group) => _functionalGroupKey(group) == key,
+    )) {
+      setState(() {
+        functionalGroupEditorError = 'This functional group already exists.';
+      });
+      return;
+    }
+
+    setState(() {
+      availableFunctionalGroups = [...availableFunctionalGroups, value];
+      selectedFunctionalGroupKeys = {...selectedFunctionalGroupKeys, key};
+      functionalGroupCustomController.clear();
+      functionalGroupEditorError = null;
+    });
+  }
+
+  List<String> _selectedFunctionalGroupsInDisplayOrder() {
+    final values = <String>[];
+    final seen = <String>{};
+
+    for (final group in availableFunctionalGroups) {
+      final cleanGroup = group.trim();
+      final key = _functionalGroupKey(cleanGroup);
+      if (cleanGroup.isEmpty || !selectedFunctionalGroupKeys.contains(key)) {
+        continue;
+      }
+      if (seen.add(key)) {
+        values.add(cleanGroup);
+      }
+    }
+
+    return values;
+  }
+
+  Future<void> _saveFunctionalGroups(ChemicalModel chemical) async {
+    if (isSavingFunctionalGroups) return;
+
+    final selectedGroups = _selectedFunctionalGroupsInDisplayOrder();
+    final updatedValue = selectedGroups.join(', ');
+    final currentValue = _functionalGroupList(
+      chemical.functionalGroups,
+    ).join(', ');
+
+    if (updatedValue == currentValue) {
+      _cancelFunctionalGroupEditing();
+      return;
+    }
+
+    setState(() {
+      isSavingFunctionalGroups = true;
+      functionalGroupEditorError = null;
+    });
+
+    try {
+      await inventoryService.updateChemicalFunctionalGroups(
+        chemicalId: chemical.id,
+        functionalGroups: updatedValue,
+      );
+
+      if (!mounted) return;
+      setState(() {
+        if (_currentChemical.id == chemical.id) {
+          _currentChemical = _chemicalWithFunctionalGroups(
+            _currentChemical,
+            updatedValue,
+          );
+        }
+        editingFunctionalGroupChemicalId = null;
+        availableFunctionalGroups = const [];
+        selectedFunctionalGroupKeys = const {};
+        functionalGroupCustomController.clear();
+        functionalGroupEditorError = null;
+        isSavingFunctionalGroups = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Functional groups updated.')),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        isSavingFunctionalGroups = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Failed to update functional groups. Please try again.',
+          ),
         ),
       );
     }
@@ -451,6 +678,35 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
+  ChemicalModel _chemicalWithFunctionalGroups(
+    ChemicalModel chemical,
+    String functionalGroups,
+  ) {
+    return ChemicalModel(
+      id: chemical.id,
+      labId: chemical.labId,
+      label: chemical.label,
+      chemicalName: chemical.chemicalName,
+      cas: chemical.cas,
+      formula: chemical.formula,
+      molWt: chemical.molWt,
+      availability: chemical.availability,
+      texture: chemical.texture,
+      location: chemical.location,
+      quantity: chemical.quantity,
+      bottleSize: chemical.bottleSize,
+      bottleUnit: chemical.bottleUnit,
+      brand: chemical.brand,
+      vendor: chemical.vendor,
+      catNumber: chemical.catNumber,
+      arrivalDate: chemical.arrivalDate,
+      orderedBy: chemical.orderedBy,
+      functionalGroups: functionalGroups,
+      sheetTab: chemical.sheetTab,
+      isActiveBottle: chemical.isActiveBottle,
+    );
+  }
+
   Future<void> _setActiveBottle(ChemicalModel bottle) async {
     try {
       await inventoryService.setActiveBottle(
@@ -460,9 +716,9 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       );
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Active bottle updated.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Active bottle updated.')));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -687,11 +943,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
           .map(
             (option) => DropdownMenuItem<String>(
               value: option,
-              child: Text(
-                option,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              child: Text(option, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
           )
           .toList(),
@@ -730,9 +982,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             ? constraints.maxWidth
             : MediaQuery.sizeOf(context).width - 32;
         final columnCount = maxWidth >= 520 ? 2 : 1;
-        final fieldWidth = columnCount == 1
-            ? maxWidth
-            : (maxWidth - 8) / 2;
+        final fieldWidth = columnCount == 1 ? maxWidth : (maxWidth - 8) / 2;
 
         Widget field(String label, TextEditingController controller) {
           return SizedBox(
@@ -905,16 +1155,11 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
-  Widget buildFunctionalGroupChips(String groups) {
+  Widget buildFunctionalGroupChips(ChemicalModel chemical) {
     final palette = context.labmate;
-
-    if (groups.trim().isEmpty) return const SizedBox();
-
-    final list = groups
-        .split(',')
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList();
+    final colorScheme = context.colorScheme;
+    final list = _functionalGroupList(chemical.functionalGroups);
+    final isEditing = editingFunctionalGroupChemicalId == chemical.id;
 
     return Container(
       width: double.infinity,
@@ -927,46 +1172,173 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Functional Groups',
-            style: TextStyle(
-              color: palette.mutedText,
-              fontSize: 13.5,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: list.map((group) {
-              return GestureDetector(
-                onTap: () {
-                  Navigator.pop(context, group);
-                },
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Functional Groups',
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
                   ),
-                  decoration: BoxDecoration(
-                    color: const Color(0x2214B8A6),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    group,
-                    style: const TextStyle(
-                      color: Color(0xFF14B8A6),
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w600,
+                ),
+              ),
+              if (!isEditing)
+                TextButton.icon(
+                  onPressed: () => _startFunctionalGroupEditing(chemical),
+                  icon: const Icon(Icons.edit_rounded, size: 15),
+                  label: const Text('Edit'),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(0, 30),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    textStyle: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
-              );
-            }).toList(),
+            ],
           ),
+          const SizedBox(height: 10),
+          if (isEditing)
+            _buildFunctionalGroupInlineEditor(chemical)
+          else if (list.isEmpty)
+            Text(
+              'No functional groups added yet.',
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 12.8,
+                fontWeight: FontWeight.w500,
+              ),
+            )
+          else
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: list.map((group) {
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context, group);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0x2214B8A6),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      group,
+                      style: const TextStyle(
+                        color: Color(0xFF14B8A6),
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
         ],
       ),
+    );
+  }
+
+  Widget _buildFunctionalGroupInlineEditor(ChemicalModel chemical) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: availableFunctionalGroups.map((group) {
+            final selected = selectedFunctionalGroupKeys.contains(
+              _functionalGroupKey(group),
+            );
+
+            return FilterChip(
+              label: Text(group),
+              selected: selected,
+              onSelected: isSavingFunctionalGroups
+                  ? null
+                  : (_) => _toggleFunctionalGroup(group),
+              selectedColor: colorScheme.primary.withValues(alpha: 0.18),
+              checkmarkColor: colorScheme.primary,
+              labelStyle: TextStyle(
+                color: selected ? colorScheme.primary : colorScheme.onSurface,
+                fontSize: 12.4,
+                fontWeight: FontWeight.w700,
+              ),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              side: BorderSide(
+                color: selected
+                    ? colorScheme.primary.withValues(alpha: 0.45)
+                    : palette.border,
+              ),
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: functionalGroupCustomController,
+                enabled: !isSavingFunctionalGroups,
+                textCapitalization: TextCapitalization.words,
+                decoration: InputDecoration(
+                  labelText: 'Add custom functional group',
+                  errorText: functionalGroupEditorError,
+                  isDense: true,
+                ),
+                onSubmitted: (_) => _addCustomFunctionalGroup(),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: isSavingFunctionalGroups
+                  ? null
+                  : _addCustomFunctionalGroup,
+              icon: const Icon(Icons.add_rounded, size: 16),
+              label: const Text('Add'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: isSavingFunctionalGroups
+                  ? null
+                  : _cancelFunctionalGroupEditing,
+              child: const Text('Cancel'),
+            ),
+            const SizedBox(width: 8),
+            FilledButton.icon(
+              onPressed: isSavingFunctionalGroups
+                  ? null
+                  : () => _saveFunctionalGroups(chemical),
+              icon: isSavingFunctionalGroups
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.save_rounded, size: 16),
+              label: Text(isSavingFunctionalGroups ? 'Saving' : 'Save'),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -1148,10 +1520,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  if (isEditing) ...[
-                    const SizedBox(width: 8),
-                    _editingBadge(),
-                  ],
+                  if (isEditing) ...[const SizedBox(width: 8), _editingBadge()],
                   if (showActiveControls && b.isActiveBottle) ...[
                     const SizedBox(width: 6),
                     _activeBottleBadge(),
@@ -1261,7 +1630,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
               p.imageUrl,
               height: 150,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => Text(
+              errorBuilder: (context, error, stackTrace) => Text(
                 'Structure image unavailable',
                 style: TextStyle(color: palette.mutedText),
               ),
@@ -1324,9 +1693,11 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                 width: 62,
                 height: 62,
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.42),
+                  color: Colors.black.withValues(alpha: 0.42),
                   shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white.withOpacity(0.45)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.45),
+                  ),
                 ),
                 child: Icon(icon, color: Colors.white, size: 44),
               ),
@@ -1337,7 +1708,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.36),
+                  color: Colors.black.withValues(alpha: 0.36),
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: Text(
@@ -1378,8 +1749,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       label: Text(label),
       style: OutlinedButton.styleFrom(
         foregroundColor: enabled ? colorScheme.onSurface : palette.subtleText,
-        disabledForegroundColor: palette.subtleText.withOpacity(0.55),
-        backgroundColor: palette.panel.withOpacity(0.94),
+        disabledForegroundColor: palette.subtleText.withValues(alpha: 0.55),
+        backgroundColor: palette.panel.withValues(alpha: 0.94),
         side: BorderSide(color: palette.border),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
@@ -1450,9 +1821,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                   child: _sideNavigationButton(
                     label: 'Previous',
                     icon: Icons.chevron_left_rounded,
-                    onTap: () => _navigateToChemical(
-                      _currentNavigationIndex! - 1,
-                    ),
+                    onTap: () =>
+                        _navigateToChemical(_currentNavigationIndex! - 1),
                   ),
                 ),
               if (_canGoNext)
@@ -1462,9 +1832,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                   child: _sideNavigationButton(
                     label: 'Next',
                     icon: Icons.chevron_right_rounded,
-                    onTap: () => _navigateToChemical(
-                      _currentNavigationIndex! + 1,
-                    ),
+                    onTap: () =>
+                        _navigateToChemical(_currentNavigationIndex! + 1),
                   ),
                 ),
             ],
@@ -1608,7 +1977,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                     ),
 
                     const SizedBox(height: 14),
-                    buildFunctionalGroupChips(representative.functionalGroups),
+                    buildFunctionalGroupChips(representative),
 
                     sectionTitle('Bottles'),
                     ...List.generate(
@@ -1801,7 +2170,11 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
-  Widget _compactPanel({required String title, required Widget child}) {
+  Widget _compactPanel({
+    required String title,
+    required Widget child,
+    Widget? action,
+  }) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
 
@@ -1817,13 +2190,20 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            title,
-            style: TextStyle(
-              color: colorScheme.onSurface,
-              fontSize: 13.2,
-              fontWeight: FontWeight.w800,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 13.2,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              ?action,
+            ],
           ),
           const SizedBox(height: 9),
           child,
@@ -1832,44 +2212,68 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
-  Widget _desktopFunctionalGroups(String groups) {
-    final list = groups
-        .split(',')
-        .map((value) => value.trim())
-        .where((value) => value.isNotEmpty)
-        .toList();
-
-    if (list.isEmpty) {
-      return _compactMetric(label: 'Functional groups', value: '-');
-    }
+  Widget _desktopFunctionalGroups(ChemicalModel chemical) {
+    final list = _functionalGroupList(chemical.functionalGroups);
+    final palette = context.labmate;
+    final isEditing = editingFunctionalGroupChemicalId == chemical.id;
 
     return _compactPanel(
       title: 'Functional Groups',
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 6,
-        children: list.map((group) {
-          return InkWell(
-            borderRadius: BorderRadius.circular(999),
-            onTap: () => Navigator.pop(context, group),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-              decoration: BoxDecoration(
-                color: const Color(0x2214B8A6),
-                borderRadius: BorderRadius.circular(999),
-              ),
-              child: Text(
-                group,
-                style: const TextStyle(
-                  color: Color(0xFF14B8A6),
+      action: isEditing
+          ? null
+          : TextButton.icon(
+              onPressed: () => _startFunctionalGroupEditing(chemical),
+              icon: const Icon(Icons.edit_rounded, size: 15),
+              label: const Text('Edit'),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 30),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                textStyle: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w700,
                 ),
               ),
             ),
-          );
-        }).toList(),
-      ),
+      child: isEditing
+          ? _buildFunctionalGroupInlineEditor(chemical)
+          : list.isEmpty
+          ? Text(
+              'No functional groups added yet.',
+              style: TextStyle(
+                color: palette.mutedText,
+                fontSize: 12.8,
+                fontWeight: FontWeight.w500,
+              ),
+            )
+          : Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: list.map((group) {
+                return InkWell(
+                  borderRadius: BorderRadius.circular(999),
+                  onTap: () => Navigator.pop(context, group),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: const Color(0x2214B8A6),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      group,
+                      style: const TextStyle(
+                        color: Color(0xFF14B8A6),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
     );
   }
 
@@ -1889,7 +2293,9 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
         decoration: BoxDecoration(
           color: palette.selected,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: colorScheme.primary.withValues(alpha: 0.45)),
+          border: Border.all(
+            color: colorScheme.primary.withValues(alpha: 0.45),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2154,7 +2560,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                     child: Image.network(
                       p.imageUrl,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => const Icon(
+                      errorBuilder: (context, error, stackTrace) => const Icon(
                         Icons.biotech_rounded,
                         color: Color(0xFF14B8A6),
                         size: 42,
@@ -2264,9 +2670,11 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.14),
+                  color: statusColor.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: statusColor.withOpacity(0.34)),
+                  border: Border.all(
+                    color: statusColor.withValues(alpha: 0.34),
+                  ),
                 ),
                 child: Text(
                   '$availability - $bottleCount ${bottleCount == 1 ? 'bottle' : 'bottles'}',
@@ -2395,7 +2803,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                     const SizedBox(height: 10),
                     _desktopBottlePanel(bottles),
                     const SizedBox(height: 10),
-                    _desktopFunctionalGroups(c.functionalGroups),
+                    _desktopFunctionalGroups(c),
                   ],
                 ),
               ),

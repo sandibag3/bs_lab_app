@@ -339,6 +339,21 @@ class InventoryService {
     });
   }
 
+  Future<void> updateChemicalFunctionalGroups({
+    required String chemicalId,
+    required String functionalGroups,
+  }) async {
+    final cleanChemicalId = chemicalId.trim();
+    if (cleanChemicalId.isEmpty) {
+      throw Exception('Chemical id is missing.');
+    }
+
+    await inventoryRef.doc(cleanChemicalId).update({
+      'functionalGroups': functionalGroups.trim(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> setActiveBottle({
     required String labId,
     required String cas,
