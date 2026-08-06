@@ -44,6 +44,12 @@ class ChemicalLabelService {
       return 'L';
     }
 
+    if (c == 'solvent') return 'SOL';
+
+    if (c == 'd-solvent' || c == 'd solvent' || c == 'deuterated solvent') {
+      return 'DSOL';
+    }
+
     if (c == 'general') {
       if (carbonCount != null && carbonCount > 0) {
         return 'C$carbonCount';
@@ -65,10 +71,7 @@ class ChemicalLabelService {
     return value[0].toUpperCase() + value.substring(1).toLowerCase();
   }
 
-  int? parseLabelSerial({
-    required String label,
-    required String prefix,
-  }) {
+  int? parseLabelSerial({required String label, required String prefix}) {
     try {
       final cleanLabel = label.trim();
       final cleanPrefix = prefix.trim();
@@ -171,16 +174,10 @@ class ChemicalLabelService {
     }
   }
 
-  Future<Map<String, dynamic>> generateLabel({
-    required String prefix,
-  }) async {
+  Future<Map<String, dynamic>> generateLabel({required String prefix}) async {
     final cleanPrefix = prefix.trim();
     if (cleanPrefix.isEmpty) {
-      return {
-        'prefix': cleanPrefix,
-        'serialNumber': 1,
-        'label': 'UNK-1',
-      };
+      return {'prefix': cleanPrefix, 'serialNumber': 1, 'label': 'UNK-1'};
     }
 
     final query = await _firestore

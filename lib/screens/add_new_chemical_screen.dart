@@ -116,6 +116,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     'Metal',
     'Catalyst',
     'Ligand',
+    'Solvent',
+    'D-Solvent',
   ];
 
   final List<String> locationOptions = const [
@@ -301,6 +303,41 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
   String _normalizedOption(String value) {
     return value.trim().toLowerCase();
+  }
+
+  bool _isGeneralChemicalType(String value) {
+    final normalized = _normalizedOption(value);
+    return normalized == 'general' || normalized == 'general chemical';
+  }
+
+  bool _areFunctionalGroupsEnabledForCurrentType() {
+    return _isGeneralChemicalType(_resolvedCategory);
+  }
+
+  void _clearFunctionalGroupsWhenUnavailable() {
+    if (!_areFunctionalGroupsEnabledForCurrentType()) {
+      selectedFunctionalGroups = [];
+    }
+  }
+
+  String _labelPrefixForCurrentType() {
+    final carbonCount = int.tryParse(carbonCountController.text.trim());
+    return chemicalLabelService.getPrefix(
+      category: _resolvedCategory,
+      subcategory: selectedSubcategory,
+      carbonCount: carbonCount,
+      catalystMetal: catalystMetalController.text.trim().isEmpty
+          ? null
+          : catalystMetalController.text.trim(),
+    );
+  }
+
+  bool _labelMatchesPrefix(String label, String prefix) {
+    return chemicalLabelService.parseLabelSerial(
+          label: label,
+          prefix: prefix,
+        ) !=
+        null;
   }
 
   String _normalizeCasForLookup(String value) {
@@ -715,6 +752,14 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       'metals': 'Metal',
       'catalysts': 'Catalyst',
       'ligands': 'Ligand',
+      'solvent': 'Solvent',
+      'solvents': 'Solvent',
+      'd-solvent': 'D-Solvent',
+      'd-solvents': 'D-Solvent',
+      'd solvent': 'D-Solvent',
+      'd solvents': 'D-Solvent',
+      'deuterated solvent': 'D-Solvent',
+      'deuterated solvents': 'D-Solvent',
     };
 
     if (builtInSheetTabs.containsKey(normalized)) {
@@ -881,6 +926,10 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         return 'Catalysts';
       case 'Ligand':
         return 'Ligands';
+      case 'Solvent':
+        return 'Solvents';
+      case 'D-Solvent':
+        return 'D-Solvents';
       case 'General':
         final carbonCount = int.tryParse(carbonCountController.text.trim());
         if (carbonCount != null && carbonCount > 0) {
@@ -915,16 +964,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     });
 
     try {
-      final carbonCount = int.tryParse(carbonCountController.text.trim());
-
-      final prefix = chemicalLabelService.getPrefix(
-        category: _resolvedCategory,
-        subcategory: selectedSubcategory,
-        carbonCount: carbonCount,
-        catalystMetal: catalystMetalController.text.trim().isEmpty
-            ? null
-            : catalystMetalController.text.trim(),
-      );
+      final prefix = _labelPrefixForCurrentType();
 
       final labId = AppState.instance.resolveWriteLabId(widget.order?.labId);
       debugPrint('AddNewChemical: label prefix used: $prefix');
@@ -1026,6 +1066,20 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         sheetTabController.text = existing.sheetTab.trim();
         formulaController.text = existing.formula.trim();
         molWtController.text = existing.molWt.trim();
+        final existingCategory = _categoryFromSheetTab(existing.sheetTab);
+        if (existingCategory != null) {
+          if (_matchesAnyOption(existingCategory, categories)) {
+            selectedCategory = categories.firstWhere(
+              (category) =>
+                  _normalizedOption(category) ==
+                  _normalizedOption(existingCategory),
+            );
+            customCategoryController.clear();
+          } else {
+            selectedCategory = _customOption;
+            customCategoryController.text = existingCategory;
+          }
+        }
         selectedTexture = textureOptions.contains(existing.texture)
             ? existing.texture
             : null;
@@ -1111,6 +1165,56 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       lookupRequestId: requestId,
       lookupCas: cas,
     );
+  }
+
+  Future<String> _resolveUniqueLabelForSave({
+    required String labId,
+    required String cas,
+  }) async {
+    final prefix = _labelPrefixForCurrentType();
+    if (prefix.trim().isEmpty) {
+      throw Exception('Could not determine a label prefix for this chemical.');
+    }
+
+    for (var attempt = 0; attempt < 3; attempt++) {
+      final candidate = await chemicalLabelService.suggestNextLabelForPrefix(
+        labId: labId,
+        prefix: prefix,
+      );
+      final cleanCandidate = candidate.trim();
+
+      if (!_labelMatchesPrefix(cleanCandidate, prefix)) {
+        throw Exception(
+          'Generated label does not match the selected chemical type.',
+        );
+      }
+
+      final conflictingCas = await inventoryService.getCasForLabel(
+        labId: labId,
+        label: cleanCandidate,
+        differentFromCas: cas,
+      );
+
+      if (conflictingCas == null) {
+        return cleanCandidate;
+      }
+    }
+
+    throw Exception(
+      'Could not find a unique chemical label. Please try again.',
+    );
+  }
+
+  String _functionalGroupsForSave({required bool isExistingCasBottle}) {
+    if (isExistingCasBottle) {
+      return selectedFunctionalGroups.join(', ');
+    }
+
+    if (_areFunctionalGroupsEnabledForCurrentType()) {
+      return selectedFunctionalGroups.join(', ');
+    }
+
+    return '';
   }
 
   Future<void> _fetchFromCasAndCheckInventory() async {
@@ -1847,6 +1951,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   Widget _buildFunctionalGroupSelector({bool showTitle = true}) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
+    final functionalGroupsEnabled = _areFunctionalGroupsEnabledForCurrentType();
     final visibleFunctionalGroups = [
       ...functionalGroupOptions,
       ...selectedFunctionalGroups.where(
@@ -1876,68 +1981,80 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: palette.border),
           ),
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ...visibleFunctionalGroups.map((group) {
-                final isSelected = selectedFunctionalGroups.any(
-                  (selectedGroup) =>
-                      _normalizedOption(selectedGroup) ==
-                      _normalizedOption(group),
-                );
+          child: functionalGroupsEnabled
+              ? Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ...visibleFunctionalGroups.map((group) {
+                      final isSelected = selectedFunctionalGroups.any(
+                        (selectedGroup) =>
+                            _normalizedOption(selectedGroup) ==
+                            _normalizedOption(group),
+                      );
 
-                return FilterChip(
-                  label: Text(group),
-                  selected: isSelected,
-                  selectedColor: const Color(0xFF14B8A6),
-                  backgroundColor: palette.panelAlt,
-                  checkmarkColor: Colors.white,
-                  labelStyle: TextStyle(
-                    color: isSelected ? Colors.white : colorScheme.onSurface,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
+                      return FilterChip(
+                        label: Text(group),
+                        selected: isSelected,
+                        selectedColor: const Color(0xFF14B8A6),
+                        backgroundColor: palette.panelAlt,
+                        checkmarkColor: Colors.white,
+                        labelStyle: TextStyle(
+                          color: isSelected
+                              ? Colors.white
+                              : colorScheme.onSurface,
+                          fontWeight: isSelected
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                        side: BorderSide(
+                          color: isSelected
+                              ? const Color(0xFF14B8A6)
+                              : palette.border,
+                        ),
+                        onSelected: (selected) {
+                          setState(() {
+                            if (selected) {
+                              if (!isSelected) {
+                                selectedFunctionalGroups.add(group);
+                              }
+                            } else {
+                              selectedFunctionalGroups.removeWhere(
+                                (selectedGroup) =>
+                                    _normalizedOption(selectedGroup) ==
+                                    _normalizedOption(group),
+                              );
+                            }
+                          });
+                        },
+                      );
+                    }),
+                    ActionChip(
+                      avatar: Icon(
+                        Icons.add_rounded,
+                        size: 18,
+                        color: colorScheme.primary,
+                      ),
+                      label: const Text('Add functional group'),
+                      backgroundColor: palette.panelAlt,
+                      side: BorderSide(color: palette.border),
+                      labelStyle: TextStyle(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      onPressed: _addCustomFunctionalGroup,
+                    ),
+                  ],
+                )
+              : Text(
+                  'Functional groups are available only for General Chemicals.',
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    height: 1.35,
                   ),
-                  side: BorderSide(
-                    color: isSelected
-                        ? const Color(0xFF14B8A6)
-                        : palette.border,
-                  ),
-                  onSelected: (selected) {
-                    setState(() {
-                      if (selected) {
-                        if (!isSelected) {
-                          selectedFunctionalGroups.add(group);
-                        }
-                      } else {
-                        selectedFunctionalGroups.removeWhere(
-                          (selectedGroup) =>
-                              _normalizedOption(selectedGroup) ==
-                              _normalizedOption(group),
-                        );
-                      }
-                    });
-                  },
-                );
-              }),
-              ActionChip(
-                avatar: Icon(
-                  Icons.add_rounded,
-                  size: 18,
-                  color: colorScheme.primary,
                 ),
-                label: const Text('Add functional group'),
-                backgroundColor: palette.panelAlt,
-                side: BorderSide(color: palette.border),
-                labelStyle: TextStyle(
-                  color: colorScheme.primary,
-                  fontWeight: FontWeight.w600,
-                ),
-                onPressed: _addCustomFunctionalGroup,
-              ),
-            ],
-          ),
         ),
       ],
     );
@@ -2019,38 +2136,103 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     final editChemical = widget.editChemical;
     final isEditMode = editChemical != null;
     final isAddingExistingBottle = selectedEntryType == 'Existing Chemical';
-    if (!isEditMode && !isAddingExistingBottle) {
-      sheetTabController.text = _getSheetTabFromSelection();
-    }
-
-    FocusScope.of(context).unfocus();
-    final isValid = _formKey.currentState?.validate() ?? false;
-    if (!isValid) {
-      _showEntryValidationSnackBar(isEditMode: isEditMode);
-      return;
-    }
 
     setState(() {
       isSaving = true;
     });
 
     try {
+      ChemicalModel? existingChemical;
+      if (!isEditMode && !isAddingExistingBottle) {
+        final currentCas = _normalizeCasForLookup(casController.text);
+        if (_isStructurallyPlausibleCas(currentCas)) {
+          existingChemical = await inventoryService.findExistingByCas(
+            currentCas,
+          );
+          if (existingChemical != null) {
+            final selectedTypeBeforeExistingLookup = _resolvedCategory;
+            final bottleCount = await inventoryService.getBottleCountByCas(
+              currentCas,
+            );
+            if (!mounted) return;
+
+            final existingType =
+                _categoryFromSheetTab(existingChemical.sheetTab) ??
+                existingChemical.sheetTab.trim();
+            final isReusingDifferentType =
+                existingType.trim().isNotEmpty &&
+                selectedTypeBeforeExistingLookup.trim().isNotEmpty &&
+                _normalizedOption(existingType) !=
+                    _normalizedOption(selectedTypeBeforeExistingLookup);
+
+            _applyInventoryLookupResult(
+              existing: existingChemical,
+              bottleCount: bottleCount,
+            );
+
+            if (isReusingDifferentType) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'Existing CAS uses $existingType. Reusing the stored type and label for this bottle.',
+                  ),
+                ),
+              );
+            }
+          }
+        }
+      }
+
+      if (!isEditMode &&
+          selectedEntryType != 'Existing Chemical' &&
+          existingChemical == null) {
+        setState(() {
+          sheetTabController.text = _getSheetTabFromSelection();
+          _clearFunctionalGroupsWhenUnavailable();
+        });
+
+        final prefix = _labelPrefixForCurrentType();
+        if (labelController.text.trim().isEmpty ||
+            !_labelMatchesPrefix(labelController.text.trim(), prefix)) {
+          await _generateLabelForNewChemical();
+        }
+      }
+
+      if (!mounted) return;
+      FocusScope.of(context).unfocus();
+      final isValid = _formKey.currentState?.validate() ?? false;
+      if (!isValid) {
+        _showEntryValidationSnackBar(isEditMode: isEditMode);
+        return;
+      }
+
       final labId =
           editChemical?.labId ??
           AppState.instance.resolveWriteLabId(widget.order?.labId);
       final cas = _normalizeCasForLookup(casController.text);
       var label = labelController.text.trim();
+      var sheetTab = sheetTabController.text.trim();
 
       if (!isEditMode && cas.isNotEmpty) {
-        final existingChemical = await inventoryService.findExistingByCas(cas);
+        final selectedTypeBeforeExistingLookup = _resolvedCategory;
+        existingChemical ??= await inventoryService.findExistingByCas(cas);
         final existingLabel = existingChemical?.label.trim() ?? '';
 
         if (existingChemical != null) {
+          final foundExistingChemical = existingChemical;
           final bottleCount = await inventoryService.getBottleCountByCas(cas);
           if (!mounted) return;
+          final existingType =
+              _categoryFromSheetTab(foundExistingChemical.sheetTab) ??
+              foundExistingChemical.sheetTab.trim();
           final isReusingDifferentLabel =
               existingLabel.isNotEmpty &&
               _normalizedOption(existingLabel) != _normalizedOption(label);
+          final isReusingDifferentType =
+              existingType.trim().isNotEmpty &&
+              selectedTypeBeforeExistingLookup.trim().isNotEmpty &&
+              _normalizedOption(existingType) !=
+                  _normalizedOption(selectedTypeBeforeExistingLookup);
 
           setState(() {
             selectedEntryType = 'Existing Chemical';
@@ -2059,8 +2241,25 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
               labelController.text = existingLabel;
               label = existingLabel;
             }
-            if (existingChemical.sheetTab.trim().isNotEmpty) {
-              sheetTabController.text = existingChemical.sheetTab.trim();
+            if (foundExistingChemical.sheetTab.trim().isNotEmpty) {
+              sheetTabController.text = foundExistingChemical.sheetTab.trim();
+              sheetTab = foundExistingChemical.sheetTab.trim();
+              final category = _categoryFromSheetTab(
+                foundExistingChemical.sheetTab,
+              );
+              if (category != null) {
+                if (_matchesAnyOption(category, categories)) {
+                  selectedCategory = categories.firstWhere(
+                    (option) =>
+                        _normalizedOption(option) ==
+                        _normalizedOption(category),
+                  );
+                  customCategoryController.clear();
+                } else {
+                  selectedCategory = _customOption;
+                  customCategoryController.text = category;
+                }
+              }
             }
           });
 
@@ -2073,7 +2272,28 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
               ),
             );
           }
+          if (isReusingDifferentType) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Existing CAS uses $existingType. Reusing the stored type and label for this bottle.',
+                ),
+              ),
+            );
+          }
         }
+      }
+
+      final isExistingCasBottle = !isEditMode && existingChemical != null;
+      if (!isEditMode && !isExistingCasBottle) {
+        label = await _resolveUniqueLabelForSave(labId: labId, cas: cas);
+        sheetTab = _getSheetTabFromSelection();
+        if (!mounted) return;
+        setState(() {
+          labelController.text = label;
+          sheetTabController.text = sheetTab;
+          _clearFunctionalGroupsWhenUnavailable();
+        });
       }
 
       final consistencyError = await inventoryService
@@ -2113,8 +2333,10 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         catNumber: catNumberController.text.trim(),
         arrivalDate: arrivalDateController.text.trim(),
         orderedBy: orderedByController.text.trim(),
-        functionalGroups: selectedFunctionalGroups.join(', '),
-        sheetTab: sheetTabController.text.trim(),
+        functionalGroups: _functionalGroupsForSave(
+          isExistingCasBottle: isExistingCasBottle,
+        ),
+        sheetTab: sheetTab,
       );
 
       String? inventoryRecordId;
@@ -2354,6 +2576,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           selectedSubcategory = null;
           labelController.clear();
           sheetTabController.text = _getSheetTabFromSelection();
+          _clearFunctionalGroupsWhenUnavailable();
         });
 
         await _generateLabelForNewChemical();
@@ -2795,7 +3018,10 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           label: 'Custom chemical type',
           errorText: 'Enter custom chemical type',
           onChanged: (_) {
-            sheetTabController.text = _getSheetTabFromSelection();
+            setState(() {
+              sheetTabController.text = _getSheetTabFromSelection();
+              _clearFunctionalGroupsWhenUnavailable();
+            });
           },
         ),
         const SizedBox(height: 14),
