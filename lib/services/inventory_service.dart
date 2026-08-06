@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../app_state.dart';
 import '../models/chemical_model.dart';
 import 'firestore_access_guard.dart';
+import 'inventory_audit_service.dart';
 import 'order_service.dart';
 
 class InventoryService {
@@ -69,10 +70,11 @@ class InventoryService {
   }
 
   Future<void> addChemical(ChemicalModel chemical) async {
+    final timestamp = FieldValue.serverTimestamp();
     await inventoryRef.add({
       ...chemical.toMap(),
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      ...InventoryAuditService.createAuditFields(timestamp: timestamp),
+      'updatedAt': timestamp,
     });
   }
 
@@ -127,7 +129,7 @@ class InventoryService {
 
       transaction.set(chemicalRef, {
         ...chemical.toMap(),
-        'createdAt': serverTimestamp,
+        ...InventoryAuditService.createAuditFields(timestamp: serverTimestamp),
         'updatedAt': serverTimestamp,
       });
       transaction.update(orderRef, orderUpdates);
@@ -291,10 +293,12 @@ class InventoryService {
     }
 
     final batch = FirebaseFirestore.instance.batch();
+    final timestamp = FieldValue.serverTimestamp();
     for (final doc in snapshot.docs) {
       batch.update(doc.reference, {
         'label': cleanLabel,
-        'updatedAt': FieldValue.serverTimestamp(),
+        ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+        'updatedAt': timestamp,
       });
     }
 
@@ -308,9 +312,11 @@ class InventoryService {
       throw Exception('Chemical id is missing.');
     }
 
+    final timestamp = FieldValue.serverTimestamp();
     await inventoryRef.doc(cleanDocId).update({
       ...chemical.toMap(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+      'updatedAt': timestamp,
     });
   }
 
@@ -328,6 +334,7 @@ class InventoryService {
       throw Exception('Bottle id is missing.');
     }
 
+    final timestamp = FieldValue.serverTimestamp();
     await inventoryRef.doc(cleanBottleId).update({
       'brand': brand.trim(),
       'quantity': quantity.trim(),
@@ -335,7 +342,25 @@ class InventoryService {
       'texture': texture.trim(),
       'catNumber': catNumber.trim(),
       'orderedBy': orderedBy.trim(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+      'updatedAt': timestamp,
+    });
+  }
+
+  Future<void> updateBottleAvailability({
+    required String bottleId,
+    required String availability,
+  }) async {
+    final cleanBottleId = bottleId.trim();
+    if (cleanBottleId.isEmpty) {
+      throw Exception('Bottle id is missing.');
+    }
+
+    final timestamp = FieldValue.serverTimestamp();
+    await inventoryRef.doc(cleanBottleId).update({
+      'availability': availability.trim(),
+      ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+      'updatedAt': timestamp,
     });
   }
 
@@ -348,9 +373,11 @@ class InventoryService {
       throw Exception('Chemical id is missing.');
     }
 
+    final timestamp = FieldValue.serverTimestamp();
     await inventoryRef.doc(cleanChemicalId).update({
       'functionalGroups': functionalGroups.trim(),
-      'updatedAt': FieldValue.serverTimestamp(),
+      ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+      'updatedAt': timestamp,
     });
   }
 
@@ -380,10 +407,12 @@ class InventoryService {
         .get();
 
     final batch = FirebaseFirestore.instance.batch();
+    final timestamp = FieldValue.serverTimestamp();
     for (final doc in snapshot.docs) {
       batch.update(doc.reference, {
         'isActiveBottle': doc.id == cleanBottleId,
-        'updatedAt': FieldValue.serverTimestamp(),
+        ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+        'updatedAt': timestamp,
       });
     }
 
@@ -416,6 +445,7 @@ class InventoryService {
     String? functionalGroups,
     String? availability,
   }) async {
+    final timestamp = FieldValue.serverTimestamp();
     await inventoryRef.doc(docId).update({
       'quantity': quantity,
       'brand': brand,
@@ -426,7 +456,8 @@ class InventoryService {
       'texture': texture,
       'functionalGroups': functionalGroups,
       'availability': availability,
-      'updatedAt': FieldValue.serverTimestamp(),
+      ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+      'updatedAt': timestamp,
     });
   }
 
@@ -452,12 +483,14 @@ class InventoryService {
     const batchLimit = 450;
     for (var start = 0; start < cleanDocIds.length; start += batchLimit) {
       final batch = FirebaseFirestore.instance.batch();
+      final timestamp = FieldValue.serverTimestamp();
       final chunk = cleanDocIds.skip(start).take(batchLimit);
 
       for (final docId in chunk) {
         batch.update(inventoryRef.doc(docId), {
           'location': cleanLocation,
-          'updatedAt': FieldValue.serverTimestamp(),
+          ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+          'updatedAt': timestamp,
         });
       }
 
@@ -487,12 +520,14 @@ class InventoryService {
     const batchLimit = 450;
     for (var start = 0; start < cleanDocIds.length; start += batchLimit) {
       final batch = FirebaseFirestore.instance.batch();
+      final timestamp = FieldValue.serverTimestamp();
       final chunk = cleanDocIds.skip(start).take(batchLimit);
 
       for (final docId in chunk) {
         batch.update(inventoryRef.doc(docId), {
           'availability': cleanAvailability,
-          'updatedAt': FieldValue.serverTimestamp(),
+          ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+          'updatedAt': timestamp,
         });
       }
 
@@ -569,9 +604,11 @@ class InventoryService {
       return false;
     }
 
+    final timestamp = FieldValue.serverTimestamp();
     await inventoryRef.doc(targetDoc.id).update({
       'availability': 'low',
-      'updatedAt': FieldValue.serverTimestamp(),
+      ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+      'updatedAt': timestamp,
     });
 
     return true;
@@ -644,9 +681,11 @@ class InventoryService {
       return false;
     }
 
+    final timestamp = FieldValue.serverTimestamp();
     await inventoryRef.doc(targetDoc.id).update({
       'availability': 'finished',
-      'updatedAt': FieldValue.serverTimestamp(),
+      ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+      'updatedAt': timestamp,
     });
 
     return true;
@@ -710,9 +749,11 @@ class InventoryService {
       throw Exception('Bottle id is missing.');
     }
 
+    final timestamp = FieldValue.serverTimestamp();
     await inventoryRef.doc(cleanDocId).update({
       'availability': 'finished',
-      'updatedAt': FieldValue.serverTimestamp(),
+      ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+      'updatedAt': timestamp,
     });
   }
 
@@ -722,9 +763,11 @@ class InventoryService {
       throw Exception('Bottle id is missing.');
     }
 
+    final timestamp = FieldValue.serverTimestamp();
     await inventoryRef.doc(cleanDocId).update({
       'availability': 'low',
-      'updatedAt': FieldValue.serverTimestamp(),
+      ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+      'updatedAt': timestamp,
     });
   }
 

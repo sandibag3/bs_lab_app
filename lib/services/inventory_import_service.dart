@@ -3,9 +3,11 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:excel/excel.dart';
 
+import 'inventory_audit_service.dart';
+
 class InventoryImportService {
-  final CollectionReference inventoryRef =
-      FirebaseFirestore.instance.collection('inventory');
+  final CollectionReference inventoryRef = FirebaseFirestore.instance
+      .collection('inventory');
 
   Future<void> freshReplaceFromExcelBytes(Uint8List bytes) async {
     // 1. Delete existing inventory
@@ -48,12 +50,14 @@ class InventoryImportService {
             ? currentLabel
             : suggestedLabel;
 
-        final formula = rowMap['Molecular Formula'] ??
+        final formula =
+            rowMap['Molecular Formula'] ??
             rowMap['Formula'] ??
             rowMap['Molecular Formula '] ??
             '';
 
-        final molWt = rowMap['Mol. Wt.'] ??
+        final molWt =
+            rowMap['Mol. Wt.'] ??
             rowMap['Molecular Weight'] ??
             rowMap['Mol Wt'] ??
             '';
@@ -66,15 +70,15 @@ class InventoryImportService {
         final location = rowMap['Location'] ?? '';
         final quantity = rowMap['Quantity'] ?? '';
         final brand = rowMap['Brand'] ?? '';
-        final catNumber = rowMap['Catalogue Number'] ??
-            rowMap['Catalog Number'] ??
-            '';
+        final catNumber =
+            rowMap['Catalogue Number'] ?? rowMap['Catalog Number'] ?? '';
         final arrivalDate = rowMap['Arrival Date'] ?? '';
         final orderedBy = rowMap['Ordered by'] ?? rowMap['Ordered By'] ?? '';
         final functionalGroups = rowMap['Functional Groups'] ?? '';
         final cas = rowMap['CAS'] ?? '';
 
         final docRef = inventoryRef.doc();
+        final timestamp = FieldValue.serverTimestamp();
 
         batch.set(docRef, {
           'label': finalLabel,
@@ -92,8 +96,8 @@ class InventoryImportService {
           'orderedBy': orderedBy,
           'functionalGroups': functionalGroups,
           'sheetTab': sheetName,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
+          ...InventoryAuditService.createAuditFields(timestamp: timestamp),
+          'updatedAt': timestamp,
         });
 
         opCount++;

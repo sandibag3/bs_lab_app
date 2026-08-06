@@ -22,6 +22,12 @@ class ChemicalModel {
   final String functionalGroups;
   final String sheetTab;
   final bool isActiveBottle;
+  final String? createdByUid;
+  final String? createdByName;
+  final DateTime? createdAt;
+  final String? lastModifiedByUid;
+  final String? lastModifiedByName;
+  final DateTime? lastModifiedAt;
 
   ChemicalModel({
     required this.id,
@@ -45,6 +51,12 @@ class ChemicalModel {
     required this.functionalGroups,
     required this.sheetTab,
     this.isActiveBottle = false,
+    this.createdByUid,
+    this.createdByName,
+    this.createdAt,
+    this.lastModifiedByUid,
+    this.lastModifiedByName,
+    this.lastModifiedAt,
   });
 
   factory ChemicalModel.fromFirestore(DocumentSnapshot doc) {
@@ -72,6 +84,12 @@ class ChemicalModel {
       functionalGroups: data['functionalGroups'] ?? '',
       sheetTab: data['sheetTab'] ?? '',
       isActiveBottle: data['isActiveBottle'] == true,
+      createdByUid: _nullableStringFromValue(data['createdByUid']),
+      createdByName: _nullableStringFromValue(data['createdByName']),
+      createdAt: _dateTimeFromValue(data['createdAt']),
+      lastModifiedByUid: _nullableStringFromValue(data['lastModifiedByUid']),
+      lastModifiedByName: _nullableStringFromValue(data['lastModifiedByName']),
+      lastModifiedAt: _dateTimeFromValue(data['lastModifiedAt']),
     );
   }
 
@@ -113,4 +131,25 @@ class ChemicalModel {
 
   String get normalizedCas => cas.trim().toLowerCase();
   String get normalizedName => chemicalName.trim().toLowerCase();
+
+  static DateTime? _dateTimeFromValue(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    return null;
+  }
+
+  static String? _nullableStringFromValue(dynamic value) {
+    final text = value?.toString().trim();
+    if (text == null || text.isEmpty) {
+      return null;
+    }
+
+    return text;
+  }
 }

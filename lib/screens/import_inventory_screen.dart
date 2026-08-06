@@ -7,6 +7,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../services/inventory_audit_service.dart';
 import '../theme/labmate_theme.dart';
 
 class ImportInventoryScreen extends StatefulWidget {
@@ -269,6 +270,7 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
         final cas = rowMap['CAS'] ?? '';
 
         final docRef = inventoryRef.doc();
+        final timestamp = FieldValue.serverTimestamp();
 
         batch.set(docRef, {
           'labId': labId,
@@ -287,8 +289,8 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
           'orderedBy': orderedBy,
           'functionalGroups': functionalGroups,
           'sheetTab': sheetName,
-          'createdAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
+          ...InventoryAuditService.createAuditFields(timestamp: timestamp),
+          'updatedAt': timestamp,
         });
 
         batchCount++;
@@ -365,6 +367,7 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
       }
 
       final docRef = inventoryRef.doc();
+      final timestamp = FieldValue.serverTimestamp();
 
       batch.set(docRef, {
         'labId': labId,
@@ -397,8 +400,8 @@ class _ImportInventoryScreenState extends State<ImportInventoryScreen> {
         'sheetTab': _csvCell(row, headerMap, 'Category').isNotEmpty
             ? _csvCell(row, headerMap, 'Category')
             : 'Sheet1',
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
+        ...InventoryAuditService.createAuditFields(timestamp: timestamp),
+        'updatedAt': timestamp,
       });
 
       batchCount++;
