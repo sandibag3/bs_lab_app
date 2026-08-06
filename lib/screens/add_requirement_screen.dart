@@ -10,6 +10,8 @@ import '../services/requirement_service.dart';
 import '../models/requirement_model.dart';
 import '../theme/labmate_theme.dart';
 
+enum _RequirementPostSubmitAction { addAnother, home }
+
 class AddRequirementScreen extends StatefulWidget {
   const AddRequirementScreen({super.key});
 
@@ -22,6 +24,8 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
 
   final _formKey = GlobalKey<FormState>();
   final RequirementService _requirementService = RequirementService();
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _casFocusNode = FocusNode();
 
   // Common controllers
   final TextEditingController quantityController = TextEditingController();
@@ -62,6 +66,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
 
   bool isFetchingChemicalName = false;
   bool _isSubmitting = false;
+  bool _isSuccessDialogShowing = false;
 
   final List<String> brands = const [
     'Merck',
@@ -350,6 +355,125 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
         content: Text('Please complete all required fields before submitting.'),
       ),
     );
+  }
+
+  void _resetRequirementForm() {
+    FocusScope.of(context).unfocus();
+    _formKey.currentState?.reset();
+
+    setState(() {
+      quantityController.clear();
+      estimatedCostController.clear();
+      chemicalNameController.clear();
+      casController.clear();
+      catalogNoController.clear();
+      manualConsumableVariantController.clear();
+      manualConsumableNameController.clear();
+      customBrandController.clear();
+      customVendorController.clear();
+      customModeOfPurchaseController.clear();
+      customChemicalTypeController.clear();
+      customConsumableCategoryController.clear();
+      customPackSizeController.clear();
+
+      selectedMainType = 'chemical';
+      selectedBrand = null;
+      selectedVendor = null;
+      selectedChemicalType = null;
+      selectedConsumableCategory = null;
+      selectedConsumableVariant = null;
+      selectedConsumableType = null;
+      selectedModeOfPurchase = null;
+      selectedQuantity = null;
+      selectedPackSize = null;
+
+      isFetchingChemicalName = false;
+      _isSubmitting = false;
+    });
+
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
+    }
+    _casFocusNode.requestFocus();
+  }
+
+  void _navigateHomeAfterSubmit() {
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.popUntil((route) => route.isFirst);
+      return;
+    }
+
+    _resetRequirementForm();
+  }
+
+  Future<_RequirementPostSubmitAction?>
+  _showRequirementSubmittedDialog() async {
+    if (_isSuccessDialogShowing) {
+      return null;
+    }
+
+    _isSuccessDialogShowing = true;
+    try {
+      return await showDialog<_RequirementPostSubmitAction>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          final palette = dialogContext.labmate;
+          final colorScheme = Theme.of(dialogContext).colorScheme;
+
+          return PopScope(
+            canPop: false,
+            child: AlertDialog(
+              backgroundColor: palette.panel,
+              title: Text(
+                'Requirement submitted',
+                style: TextStyle(color: colorScheme.onSurface),
+              ),
+              content: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 420),
+                child: Text(
+                  'The requirement was submitted successfully. Would you like to add another requirement?',
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 14,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(
+                      dialogContext,
+                    ).pop(_RequirementPostSubmitAction.home);
+                  },
+                  child: const Text('Home'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.of(
+                      dialogContext,
+                    ).pop(_RequirementPostSubmitAction.addAnother);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF14B8A6),
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('Add Another'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+    } finally {
+      _isSuccessDialogShowing = false;
+    }
   }
 
   String? _validateRequiredCas(String? value) {
@@ -917,11 +1041,23 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Requirement submitted successfully.')),
-      );
+      setState(() {
+        _isSubmitting = false;
+      });
 
-      Navigator.pop(context);
+      final action = await _showRequirementSubmittedDialog();
+      if (!mounted) return;
+
+      switch (action) {
+        case _RequirementPostSubmitAction.addAnother:
+          _resetRequirementForm();
+          break;
+        case _RequirementPostSubmitAction.home:
+          _navigateHomeAfterSubmit();
+          break;
+        case null:
+          break;
+      }
     } catch (error) {
       debugPrint('Requirement submission error: $error');
 
@@ -943,6 +1079,8 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
 
   @override
   void dispose() {
+    _scrollController.dispose();
+    _casFocusNode.dispose();
     quantityController.dispose();
     estimatedCostController.dispose();
     chemicalNameController.dispose();
@@ -1021,6 +1159,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     return [
       TextFormField(
         controller: casController,
+        focusNode: _casFocusNode,
         style: TextStyle(color: colorScheme.onSurface),
         decoration: inputDecoration(
           'CAS No',
@@ -1472,6 +1611,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
               final isWide = constraints.maxWidth >= 900;
 
               return ListView(
+                controller: _scrollController,
                 padding: const EdgeInsets.all(16),
                 children: [
                   Center(
