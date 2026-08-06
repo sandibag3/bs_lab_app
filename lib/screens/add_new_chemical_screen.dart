@@ -10,6 +10,8 @@ import '../services/pubchem_service.dart';
 import '../services/chemical_label_service.dart';
 import '../theme/labmate_theme.dart';
 
+enum _ChemicalLookupSource { none, inventory, pubChem, manual }
+
 class AddNewChemicalScreen extends StatefulWidget {
   final OrderModel? order;
   final ChemicalModel? manualPrefill;
@@ -69,6 +71,11 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   List<String> selectedFunctionalGroups = [];
 
   int existingBottleCount = 0;
+  int _casLookupRequestId = 0;
+  String _lastObservedCas = '';
+  String? _chemicalLookupMessage;
+  _ChemicalLookupSource _chemicalLookupSource = _ChemicalLookupSource.none;
+  bool _isApplyingChemicalLookupResult = false;
 
   final List<String> brandOptions = const [
     'Merck',
@@ -224,6 +231,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     catalystMetalController = TextEditingController();
     customLocationController = TextEditingController();
     customCategoryController = TextEditingController();
+    _lastObservedCas = _normalizeCasForLookup(casController.text);
+    casController.addListener(_handleCasChanged);
+    chemicalNameController.addListener(_handleChemicalNameChanged);
 
     _setDropdownSelection(
       value: manualPrefill?.brand ?? order?.brand ?? '',
@@ -291,6 +301,81 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
   String _normalizedOption(String value) {
     return value.trim().toLowerCase();
+  }
+
+  String _normalizeCasForLookup(String value) {
+    var cleanValue = value.trim();
+    cleanValue = cleanValue.replaceAll('"', '').replaceAll("'", '');
+    if (cleanValue.endsWith('.0')) {
+      cleanValue = cleanValue.substring(0, cleanValue.length - 2);
+    }
+    return cleanValue;
+  }
+
+  bool _isStructurallyPlausibleCas(String value) {
+    final cleanValue = _normalizeCasForLookup(value);
+    return RegExp(r'^\d{1,7}-\d{2}-\d$').hasMatch(cleanValue);
+  }
+
+  void _clearCasDerivedIdentityMetadata() {
+    chemicalNameController.clear();
+    formulaController.clear();
+    molWtController.clear();
+    carbonCountController.clear();
+    catalystMetalController.clear();
+    selectedFunctionalGroups = [];
+    selectedTexture = null;
+  }
+
+  void _handleCasChanged() {
+    final currentCas = _normalizeCasForLookup(casController.text);
+    if (currentCas == _lastObservedCas) {
+      return;
+    }
+
+    _lastObservedCas = currentCas;
+    _casLookupRequestId++;
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _chemicalLookupMessage = null;
+      _chemicalLookupSource = _ChemicalLookupSource.none;
+      existingBottleCount = 0;
+      if (widget.editChemical == null) {
+        selectedEntryType = null;
+        labelController.clear();
+        sheetTabController.text = _getSheetTabFromSelection();
+      }
+      _clearCasDerivedIdentityMetadata();
+    });
+  }
+
+  void _handleChemicalNameChanged() {
+    if (_isApplyingChemicalLookupResult) {
+      return;
+    }
+
+    final hasManualName = chemicalNameController.text.trim().isNotEmpty;
+    if (!mounted) {
+      return;
+    }
+
+    if (hasManualName &&
+        _chemicalLookupSource != _ChemicalLookupSource.manual) {
+      setState(() {
+        _chemicalLookupSource = _ChemicalLookupSource.manual;
+        _chemicalLookupMessage = 'Chemical name entered manually.';
+      });
+    } else if (!hasManualName &&
+        _chemicalLookupSource == _ChemicalLookupSource.manual) {
+      setState(() {
+        _chemicalLookupSource = _ChemicalLookupSource.none;
+        _chemicalLookupMessage = null;
+      });
+    }
   }
 
   bool _optionSetsContain(Iterable<String> options, String value) {
@@ -533,7 +618,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       return null;
     }
 
-    final cleanValue = value?.trim() ?? '';
+    final cleanValue = _normalizeCasForLookup(value ?? '');
     if (cleanValue.isEmpty) {
       return 'Enter CAS number';
     }
@@ -819,7 +904,10 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     return int.tryParse(digits);
   }
 
-  Future<void> _generateLabelForNewChemical() async {
+  Future<void> _generateLabelForNewChemical({
+    int? lookupRequestId,
+    String? lookupCas,
+  }) async {
     if (selectedEntryType == 'Existing Chemical') return;
 
     setState(() {
@@ -878,6 +966,11 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           missingLabels.isNotEmpty && suggestedLabel == missingLabels.first;
 
       if (!mounted) return;
+      if (lookupRequestId != null &&
+          lookupCas != null &&
+          !_isCurrentLookupResult(lookupRequestId, lookupCas)) {
+        return;
+      }
 
       setState(() {
         labelController.text = suggestedLabel;
@@ -895,6 +988,11 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       }
     } catch (_) {
       if (!mounted) return;
+      if (lookupRequestId != null &&
+          lookupCas != null &&
+          !_isCurrentLookupResult(lookupRequestId, lookupCas)) {
+        return;
+      }
 
       setState(() {
         labelController.text = 'Could not auto-generate';
@@ -908,116 +1006,186 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     }
   }
 
+  bool _isCurrentLookupResult(int requestId, String cas) {
+    return mounted &&
+        requestId == _casLookupRequestId &&
+        _normalizeCasForLookup(casController.text) == cas;
+  }
+
+  void _applyInventoryLookupResult({
+    required ChemicalModel existing,
+    required int bottleCount,
+  }) {
+    _isApplyingChemicalLookupResult = true;
+    try {
+      setState(() {
+        selectedEntryType = 'Existing Chemical';
+        existingBottleCount = bottleCount;
+        chemicalNameController.text = existing.chemicalName.trim();
+        labelController.text = existing.label.trim();
+        sheetTabController.text = existing.sheetTab.trim();
+        formulaController.text = existing.formula.trim();
+        molWtController.text = existing.molWt.trim();
+        selectedTexture = textureOptions.contains(existing.texture)
+            ? existing.texture
+            : null;
+
+        if (existing.functionalGroups.trim().isNotEmpty) {
+          selectedFunctionalGroups = existing.functionalGroups
+              .split(',')
+              .map((group) => group.trim())
+              .where((group) => group.isNotEmpty)
+              .toList();
+        } else {
+          selectedFunctionalGroups = [];
+        }
+
+        final carbonCount = _extractCarbonCount(existing.formula);
+        carbonCountController.text = carbonCount?.toString() ?? '';
+        _chemicalLookupSource = _ChemicalLookupSource.inventory;
+        _chemicalLookupMessage = 'Chemical details loaded from inventory.';
+      });
+    } finally {
+      _isApplyingChemicalLookupResult = false;
+    }
+  }
+
+  Future<void> _applyPubChemLookupResult(
+    PubChemChemicalDetails pubchem, {
+    required int requestId,
+    required String cas,
+  }) async {
+    _isApplyingChemicalLookupResult = true;
+    try {
+      setState(() {
+        selectedEntryType = 'New Chemical';
+        existingBottleCount = 0;
+        chemicalNameController.text = pubchem.iupacName.trim();
+        formulaController.text = pubchem.molecularFormula.trim();
+        molWtController.text = pubchem.molecularWeight.trim();
+        selectedFunctionalGroups = [];
+        sheetTabController.text = _getSheetTabFromSelection();
+
+        final carbonCount = _extractCarbonCount(pubchem.molecularFormula);
+        carbonCountController.text = carbonCount?.toString() ?? '';
+        _chemicalLookupSource = _ChemicalLookupSource.pubChem;
+        _chemicalLookupMessage = 'Chemical details loaded from PubChem.';
+      });
+    } finally {
+      _isApplyingChemicalLookupResult = false;
+    }
+
+    await _generateLabelForNewChemical(
+      lookupRequestId: requestId,
+      lookupCas: cas,
+    );
+  }
+
+  Future<void> _applyManualLookupFallback(
+    String message, {
+    required int requestId,
+    required String cas,
+    required bool preserveManualName,
+  }) async {
+    _isApplyingChemicalLookupResult = true;
+    try {
+      setState(() {
+        selectedEntryType = 'New Chemical';
+        existingBottleCount = 0;
+        if (!preserveManualName) {
+          chemicalNameController.clear();
+        }
+        formulaController.clear();
+        molWtController.clear();
+        carbonCountController.clear();
+        selectedFunctionalGroups = [];
+        sheetTabController.text = _getSheetTabFromSelection();
+        _chemicalLookupSource = _ChemicalLookupSource.manual;
+        _chemicalLookupMessage = message;
+      });
+    } finally {
+      _isApplyingChemicalLookupResult = false;
+    }
+
+    await _generateLabelForNewChemical(
+      lookupRequestId: requestId,
+      lookupCas: cas,
+    );
+  }
+
   Future<void> _fetchFromCasAndCheckInventory() async {
+    if (isFetchingCas) return;
+
+    final cas = _normalizeCasForLookup(casController.text);
+    if (cas.isEmpty) {
+      setState(() {
+        _chemicalLookupSource = _ChemicalLookupSource.none;
+        _chemicalLookupMessage = 'Enter a CAS number to look up details.';
+      });
+      return;
+    }
+
+    if (!_isStructurallyPlausibleCas(cas)) {
+      setState(() {
+        _chemicalLookupSource = _ChemicalLookupSource.none;
+        _chemicalLookupMessage = 'Enter a complete valid CAS number.';
+      });
+      return;
+    }
+
+    final requestId = ++_casLookupRequestId;
+    final preserveManualName =
+        _chemicalLookupSource == _ChemicalLookupSource.manual &&
+        chemicalNameController.text.trim().isNotEmpty;
     setState(() {
       isFetchingCas = true;
+      _chemicalLookupSource = _ChemicalLookupSource.none;
+      _chemicalLookupMessage =
+          'Checking inventory first, then PubChem if needed...';
     });
 
     try {
-      final cas = casController.text.trim();
-
-      if (cas.isNotEmpty) {
-        final pubchem = await pubChemService.fetchByCas(cas);
-        if (pubchem != null) {
-          formulaController.text = pubchem.molecularFormula;
-          molWtController.text = pubchem.molecularWeight;
-
-          final carbonCount = _extractCarbonCount(pubchem.molecularFormula);
-          if (carbonCount != null) {
-            carbonCountController.text = carbonCount.toString();
-          }
-        }
-      }
-
-      final existing = cas.isEmpty
-          ? null
-          : await inventoryService.findExistingByCas(cas);
+      final existing = await inventoryService.findExistingByCas(cas);
+      if (!_isCurrentLookupResult(requestId, cas)) return;
 
       if (existing != null) {
         final bottleCount = await inventoryService.getBottleCountByCas(cas);
-
-        if (!mounted) return;
-        setState(() {
-          selectedEntryType = 'Existing Chemical';
-          existingBottleCount = bottleCount;
-          labelController.text = existing.label;
-          sheetTabController.text = existing.sheetTab;
-
-          _setDropdownSelection(
-            value: existing.location,
-            builtInOptions: locationOptions,
-            onKnownValue: (value) => selectedLocation = value,
-            onCustomValue: (value) {
-              selectedLocation = _customOption;
-              customLocationController.text = value;
-            },
-          );
-
-          if (_resolvedBrand.isEmpty) {
-            _setDropdownSelection(
-              value: existing.brand,
-              builtInOptions: brandOptions,
-              onKnownValue: (value) => selectedBrand = value,
-              onCustomValue: (value) {
-                selectedBrand = _customOption;
-                brandController.text = value;
-              },
-            );
-          }
-
-          if (_resolvedVendor.isEmpty) {
-            _setDropdownSelection(
-              value: existing.vendor,
-              builtInOptions: vendorOptions,
-              onKnownValue: (value) => selectedVendor = value,
-              onCustomValue: (value) {
-                selectedVendor = _customOption;
-                vendorController.text = value;
-              },
-            );
-          }
-
-          selectedTexture = textureOptions.contains(existing.texture)
-              ? existing.texture
-              : null;
-
-          if (existing.functionalGroups.isNotEmpty) {
-            final parsed = existing.functionalGroups
-                .split(',')
-                .map((e) => e.trim())
-                .where((e) => e.isNotEmpty)
-                .toList();
-            selectedFunctionalGroups = parsed;
-          } else {
-            selectedFunctionalGroups = [];
-          }
-
-          if (formulaController.text.trim().isEmpty) {
-            formulaController.text = existing.formula;
-          }
-          if (molWtController.text.trim().isEmpty) {
-            molWtController.text = existing.molWt;
-          }
-          if (catNumberController.text.trim().isEmpty) {
-            catNumberController.text = existing.catNumber;
-          }
-        });
-      } else {
-        if (!mounted) return;
-        setState(() {
-          selectedEntryType = 'New Chemical';
-          existingBottleCount = 0;
-          selectedFunctionalGroups = [];
-          sheetTabController.text = _getSheetTabFromSelection();
-        });
-
-        await _generateLabelForNewChemical();
+        if (!_isCurrentLookupResult(requestId, cas)) return;
+        _applyInventoryLookupResult(
+          existing: existing,
+          bottleCount: bottleCount,
+        );
+        return;
       }
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        selectedEntryType ??= 'New Chemical';
-      });
+
+      final pubchem = await pubChemService.fetchByCas(cas);
+      if (!_isCurrentLookupResult(requestId, cas)) return;
+
+      if (pubchem != null && pubchem.iupacName.trim().isNotEmpty) {
+        await _applyPubChemLookupResult(
+          pubchem,
+          requestId: requestId,
+          cas: cas,
+        );
+        return;
+      }
+
+      await _applyManualLookupFallback(
+        'No matching chemical was found in inventory or PubChem. Please enter the chemical name manually.',
+        requestId: requestId,
+        cas: cas,
+        preserveManualName: preserveManualName,
+      );
+    } catch (error) {
+      debugPrint('CAS lookup failed: $error');
+      if (!mounted || !_isCurrentLookupResult(requestId, cas)) return;
+
+      await _applyManualLookupFallback(
+        'Could not complete chemical lookup. Please enter the chemical name manually.',
+        requestId: requestId,
+        cas: cas,
+        preserveManualName: preserveManualName,
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -1028,23 +1196,24 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   }
 
   Future<void> _prefillFromCas() async {
-    setState(() {
-      isLoadingMetadata = true;
-    });
-
-    try {
-      await _fetchFromCasAndCheckInventory();
-    } finally {
-      if (mounted) {
-        setState(() {
-          isLoadingMetadata = false;
-        });
-      }
+    if (mounted) {
+      setState(() {
+        isLoadingMetadata = false;
+      });
     }
+
+    final cas = _normalizeCasForLookup(casController.text);
+    if (cas.isEmpty || !_isStructurallyPlausibleCas(cas)) {
+      return;
+    }
+
+    await _fetchFromCasAndCheckInventory();
   }
 
   @override
   void dispose() {
+    casController.removeListener(_handleCasChanged);
+    chemicalNameController.removeListener(_handleChemicalNameChanged);
     chemicalNameController.dispose();
     casController.dispose();
     brandController.dispose();
@@ -1827,6 +1996,10 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       catalystMetalController.clear();
       customLocationController.clear();
       customCategoryController.clear();
+      _lastObservedCas = '';
+      _chemicalLookupMessage = null;
+      _chemicalLookupSource = _ChemicalLookupSource.none;
+      _casLookupRequestId++;
       selectedEntryType = null;
       selectedCategory = 'General';
       selectedSubcategory = null;
@@ -1865,7 +2038,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       final labId =
           editChemical?.labId ??
           AppState.instance.resolveWriteLabId(widget.order?.labId);
-      final cas = casController.text.trim();
+      final cas = _normalizeCasForLookup(casController.text);
       var label = labelController.text.trim();
 
       if (!isEditMode && cas.isNotEmpty) {
@@ -2081,6 +2254,61 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     );
   }
 
+  Widget _buildChemicalLookupStatus() {
+    final message = isFetchingCas
+        ? 'Checking inventory first, then PubChem if needed...'
+        : _chemicalLookupMessage;
+    if (message == null || message.trim().isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final Color accentColor = switch (_chemicalLookupSource) {
+      _ChemicalLookupSource.inventory => const Color(0xFF14B8A6),
+      _ChemicalLookupSource.pubChem => colorScheme.primary,
+      _ChemicalLookupSource.manual => const Color(0xFFF59E0B),
+      _ChemicalLookupSource.none => palette.mutedText,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: palette.panelAlt,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: palette.border),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isFetchingCas)
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: accentColor,
+              ),
+            )
+          else
+            Icon(Icons.info_outline_rounded, size: 17, color: accentColor),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 12.8,
+                fontWeight: FontWeight.w500,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCasField() {
     final colorScheme = context.colorScheme;
 
@@ -2088,6 +2316,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       controller: casController,
       style: TextStyle(color: colorScheme.onSurface),
       decoration: inputDecoration('CAS No'),
+      textInputAction: TextInputAction.search,
+      onFieldSubmitted: (_) => _fetchFromCasAndCheckInventory(),
       validator: _validateRequiredCas,
     );
   }
@@ -2546,6 +2776,11 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       _buildFetchFromCasButton(),
       const SizedBox(height: 14),
       _buildChemicalNameField(),
+      if (isFetchingCas ||
+          (_chemicalLookupMessage?.trim().isNotEmpty ?? false)) ...[
+        const SizedBox(height: 10),
+        _buildChemicalLookupStatus(),
+      ],
       if (includeExistingBanner &&
           selectedEntryType == 'Existing Chemical') ...[
         const SizedBox(height: 14),
