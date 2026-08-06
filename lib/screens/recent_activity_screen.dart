@@ -2,12 +2,22 @@ import 'package:flutter/material.dart';
 import '../app_state.dart';
 import '../models/activity_model.dart';
 import '../services/activity_service.dart';
+import '../services/person_display_resolver.dart';
 import '../theme/labmate_theme.dart';
 
-class RecentActivityScreen extends StatelessWidget {
+class RecentActivityScreen extends StatefulWidget {
   final AppState appState;
 
   const RecentActivityScreen({super.key, required this.appState});
+
+  @override
+  State<RecentActivityScreen> createState() => _RecentActivityScreenState();
+}
+
+class _RecentActivityScreenState extends State<RecentActivityScreen> {
+  final PersonDisplayResolver _personDisplayResolver = PersonDisplayResolver();
+  final Map<String, String> _personDisplayNameCache = {};
+  final Set<String> _personDisplayNameRequests = {};
 
   String _formatDate(ActivityModel activity) {
     final date = activity.createdAt.toDate();
@@ -35,9 +45,79 @@ class RecentActivityScreen extends StatelessWidget {
     }
   }
 
+  void _scheduleActorNameResolution(List<ActivityModel> activities) {
+    final userIds = <String>{};
+    final explicitNamesByUid = <String, String>{};
+    final emailByUid = <String, String>{};
+
+    for (final activity in activities) {
+      final userId = activity.createdBy.trim();
+      final actorName = activity.actorName.trim();
+      if (userId.isEmpty ||
+          _personDisplayNameCache.containsKey(userId) ||
+          _personDisplayNameRequests.contains(userId) ||
+          PersonDisplayResolver.hasUsableDisplayName(actorName)) {
+        continue;
+      }
+
+      userIds.add(userId);
+      explicitNamesByUid[userId] = actorName;
+      if (PersonDisplayResolver.isLikelyEmail(actorName)) {
+        emailByUid[userId] = actorName;
+      }
+    }
+
+    if (userIds.isEmpty) {
+      return;
+    }
+
+    final pendingUserIds = userIds.toList(growable: false);
+    _personDisplayNameRequests.addAll(pendingUserIds);
+
+    Future<void>(() async {
+      final resolvedNames = await _personDisplayResolver.resolvePeopleForLab(
+        labId: widget.appState.selectedLabId,
+        userIds: pendingUserIds,
+        explicitDisplayNamesByUid: explicitNamesByUid,
+        emailByUid: emailByUid,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _personDisplayNameCache.addAll(resolvedNames);
+        _personDisplayNameRequests.removeAll(pendingUserIds);
+      });
+    }).catchError((_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _personDisplayNameRequests.removeAll(pendingUserIds);
+      });
+    });
+  }
+
+  String _actorLabel(ActivityModel activity) {
+    final userId = activity.createdBy.trim();
+    final cachedName = _personDisplayNameCache[userId]?.trim() ?? '';
+    if (cachedName.isNotEmpty) {
+      return cachedName;
+    }
+
+    return PersonDisplayResolver.resolvePersonDisplayName(
+      explicitDisplayName: activity.actorName,
+      email: activity.actorName,
+      uid: userId,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final labId = appState.selectedLabId.trim();
+    final labId = widget.appState.selectedLabId.trim();
     final activityService = ActivityService();
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
@@ -53,6 +133,7 @@ class RecentActivityScreen extends StatelessWidget {
             }
 
             final activities = snapshot.data ?? [];
+            _scheduleActorNameResolution(activities);
             if (activities.isEmpty) {
               return Center(
                 child: Text(
@@ -68,7 +149,7 @@ class RecentActivityScreen extends StatelessWidget {
               separatorBuilder: (context, index) => const SizedBox(height: 12),
               itemBuilder: (context, index) {
                 final activity = activities[index];
-                final actor = activity.actorName.trim();
+                final actor = _actorLabel(activity);
 
                 return Container(
                   padding: const EdgeInsets.all(16),

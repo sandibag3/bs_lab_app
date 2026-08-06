@@ -8,6 +8,7 @@ import '../services/activity_service.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/fund_service.dart';
 import '../services/order_service.dart';
+import '../services/person_display_resolver.dart';
 import '../services/requirement_service.dart';
 import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
@@ -57,6 +58,20 @@ class _CartScreenState extends State<CartScreen> {
 
   String _typeLabel(RequirementModel req) {
     return _isConsumableRequirement(req) ? 'Consumable' : 'Chemical';
+  }
+
+  String _personLabel({
+    String? name,
+    String? email,
+    String? uid,
+    String fallbackLabel = '',
+  }) {
+    return PersonDisplayResolver.resolvePersonDisplayName(
+      explicitDisplayName: name,
+      email: email ?? name,
+      uid: uid,
+      fallbackLabel: fallbackLabel,
+    );
   }
 
   Color _statusColor(String status) {
@@ -196,8 +211,17 @@ class _CartScreenState extends State<CartScreen> {
       return false;
     }
 
-    final currentUserName = appState.authenticatedUserName.trim().toLowerCase();
+    final currentUserName = PersonDisplayResolver.currentUserDisplayName()
+        .trim()
+        .toLowerCase();
     if (currentUserName.isNotEmpty && requestedBy == currentUserName) {
+      return true;
+    }
+
+    final authenticatedName = appState.authenticatedUserName
+        .trim()
+        .toLowerCase();
+    if (authenticatedName.isNotEmpty && requestedBy == authenticatedName) {
       return true;
     }
 
@@ -221,7 +245,7 @@ class _CartScreenState extends State<CartScreen> {
     required String status,
   }) async {
     final appState = AppState.instance;
-    final currentUserName = appState.authenticatedUserName;
+    final currentUserName = PersonDisplayResolver.currentUserDisplayName();
 
     await requirementService.updateRequirementStatus(
       docId: req.id,
@@ -304,7 +328,7 @@ class _CartScreenState extends State<CartScreen> {
       await requirementService.cancelPendingRequirement(
         requirementId: req.id,
         requesterUid: AppState.instance.authenticatedUserId,
-        requesterUserName: AppState.instance.authenticatedUserName,
+        requesterUserName: PersonDisplayResolver.currentUserDisplayName(),
         requesterEmail: AppState.instance.authenticatedUserEmail,
       );
 
@@ -368,7 +392,7 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _recordApprovalActivity(RequirementModel req) async {
     final appState = AppState.instance;
-    final currentUserName = appState.authenticatedUserName;
+    final currentUserName = PersonDisplayResolver.currentUserDisplayName();
 
     try {
       await ActivityService().addActivity(
@@ -523,7 +547,7 @@ class _CartScreenState extends State<CartScreen> {
 
   Future<void> _placeOrder(RequirementModel req) async {
     final appState = AppState.instance;
-    final currentUserName = appState.authenticatedUserName;
+    final currentUserName = PersonDisplayResolver.currentUserDisplayName();
     final estimatedTotal = _parseEstimatedTotal(req.estimatedTotal);
 
     final order = OrderModel(
@@ -1086,7 +1110,7 @@ class _CartScreenState extends State<CartScreen> {
           ],
           const SizedBox(height: 4),
           Text(
-            'Requested by: ${req.userName.isEmpty ? "-" : req.userName}',
+            'Requested by: ${_personLabel(name: req.userName, uid: req.createdBy, fallbackLabel: "-")}',
             style: TextStyle(color: palette.mutedText),
           ),
           const SizedBox(height: 10),
@@ -1098,7 +1122,7 @@ class _CartScreenState extends State<CartScreen> {
           if (req.approvedBy.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
-              'Updated by: ${req.approvedBy}',
+              'Updated by: ${_personLabel(name: req.approvedBy, uid: req.approvedBy)}',
               style: TextStyle(color: palette.subtleText, fontSize: 12.5),
             ),
           ],
@@ -1729,6 +1753,12 @@ class _RequirementFundApprovalPanelState
   }) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
+    final requestedBy = PersonDisplayResolver.resolvePersonDisplayName(
+      explicitDisplayName: widget.requirement.userName,
+      email: widget.requirement.userName,
+      uid: widget.requirement.createdBy,
+      fallbackLabel: '-',
+    );
 
     return Container(
       width: double.infinity,
@@ -1764,7 +1794,7 @@ class _RequirementFundApprovalPanelState
           ),
           const SizedBox(height: 4),
           Text(
-            'Requested by: ${widget.requirement.userName.trim().isEmpty ? '-' : widget.requirement.userName.trim()}',
+            'Requested by: $requestedBy',
             style: TextStyle(color: palette.mutedText),
           ),
         ],

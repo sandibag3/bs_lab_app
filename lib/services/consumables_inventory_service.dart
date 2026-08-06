@@ -3,7 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../app_state.dart';
 import '../models/order_model.dart';
 import 'firestore_access_guard.dart';
+import 'inventory_audit_service.dart';
 import 'order_service.dart';
+import 'person_display_resolver.dart';
 
 class ConsumableInventoryConfirmationResult {
   const ConsumableInventoryConfirmationResult({required this.inventoryId});
@@ -126,8 +128,8 @@ class ConsumablesInventoryService {
 
         const previousQuantity = 0.0;
         final newQuantity = quantityAdded;
-        final timestamp = Timestamp.now();
         final serverTimestamp = FieldValue.serverTimestamp();
+        final timestamp = Timestamp.now();
         final deliveredAt = order.deliveredAt ?? timestamp;
         final orderUpdates = <String, dynamic>{
           'inventoryAdded': true,
@@ -156,8 +158,10 @@ class ConsumablesInventoryService {
           'orderedBy': cleanOrderedBy,
           'receivedBy': order.receivedBy,
           'deliveredAt': deliveredAt,
-          'createdAt': timestamp,
-          'updatedAt': timestamp,
+          ...InventoryAuditService.createAuditFields(
+            timestamp: serverTimestamp,
+          ),
+          'updatedAt': serverTimestamp,
         });
 
         transaction.set(purchaseLogRef, {
@@ -176,7 +180,7 @@ class ConsumablesInventoryService {
           'sourceOrderId': cleanOrderId,
           'createdAt': timestamp,
           'createdBy': AppState.instance.authenticatedUserId,
-          'actorName': AppState.instance.authenticatedUserName,
+          'actorName': PersonDisplayResolver.currentUserDisplayName(),
         });
 
         transaction.update(orderRef, orderUpdates);
@@ -200,8 +204,8 @@ class ConsumablesInventoryService {
         );
         final previousQuantity = currentQuantity ?? 0;
         final newQuantity = previousQuantity + quantityAdded;
-        final timestamp = Timestamp.now();
         final serverTimestamp = FieldValue.serverTimestamp();
+        final timestamp = Timestamp.now();
         final deliveredAt = order.deliveredAt ?? timestamp;
         final orderUpdates = <String, dynamic>{
           'inventoryAdded': true,
@@ -226,7 +230,10 @@ class ConsumablesInventoryService {
           'orderedBy': cleanOrderedBy,
           'receivedBy': order.receivedBy,
           'deliveredAt': deliveredAt,
-          'updatedAt': timestamp,
+          ...InventoryAuditService.updateAuditFields(
+            timestamp: serverTimestamp,
+          ),
+          'updatedAt': serverTimestamp,
         });
 
         transaction.set(purchaseLogRef, {
@@ -245,7 +252,7 @@ class ConsumablesInventoryService {
           'sourceOrderId': cleanOrderId,
           'createdAt': timestamp,
           'createdBy': AppState.instance.authenticatedUserId,
-          'actorName': AppState.instance.authenticatedUserName,
+          'actorName': PersonDisplayResolver.currentUserDisplayName(),
         });
 
         transaction.update(orderRef, orderUpdates);
@@ -343,16 +350,16 @@ class ConsumablesInventoryService {
     const batchLimit = 450;
     for (var start = 0; start < cleanDocIds.length; start += batchLimit) {
       final batch = _firestore.batch();
+      final timestamp = FieldValue.serverTimestamp();
       final chunk = cleanDocIds.skip(start).take(batchLimit);
 
       for (final docId in chunk) {
-        batch.update(
-          _firestore.collection('consumables_inventory').doc(docId),
-          {
-            'location': cleanLocation,
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-        );
+        batch
+            .update(_firestore.collection('consumables_inventory').doc(docId), {
+              'location': cleanLocation,
+              ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+              'updatedAt': timestamp,
+            });
       }
 
       await batch.commit();
@@ -381,13 +388,15 @@ class ConsumablesInventoryService {
     const batchLimit = 450;
     for (var start = 0; start < cleanDocIds.length; start += batchLimit) {
       final batch = _firestore.batch();
+      final timestamp = FieldValue.serverTimestamp();
       final chunk = cleanDocIds.skip(start).take(batchLimit);
 
       for (final docId in chunk) {
         batch
             .update(_firestore.collection('consumables_inventory').doc(docId), {
               'availability': cleanAvailability,
-              'updatedAt': FieldValue.serverTimestamp(),
+              ...InventoryAuditService.updateAuditFields(timestamp: timestamp),
+              'updatedAt': timestamp,
             });
       }
 

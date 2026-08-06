@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/activity_model.dart';
+import 'person_display_resolver.dart';
 
 class ActivityService {
   final CollectionReference<Map<String, dynamic>> _activitiesRef =
@@ -28,7 +29,11 @@ class ActivityService {
       message: cleanMessage,
       createdAt: Timestamp.now(),
       createdBy: createdBy.trim(),
-      actorName: actorName.trim(),
+      actorName: PersonDisplayResolver.resolvePersonDisplayName(
+        explicitDisplayName: actorName,
+        email: actorName,
+        uid: createdBy,
+      ),
       relatedId: relatedId.trim(),
     );
 

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../app_state.dart';
 import '../models/chemical_model.dart';
 import '../services/inventory_service.dart';
+import '../services/person_display_resolver.dart';
 import '../services/pubchem_service.dart';
 import '../theme/labmate_theme.dart';
 import '../utils/dropdown_option_utils.dart';
@@ -27,6 +29,7 @@ class ChemicalDetailScreen extends StatefulWidget {
 class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     with SingleTickerProviderStateMixin {
   final InventoryService inventoryService = InventoryService();
+  final PersonDisplayResolver _personDisplayResolver = PersonDisplayResolver();
   final PubChemService pubChemService = PubChemService();
   static const List<String> _allowedBottleStatuses = [
     'available',
@@ -123,6 +126,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   final TextEditingController functionalGroupCustomController =
       TextEditingController();
   final FocusNode _keyboardNavigationFocusNode = FocusNode();
+  final Map<String, String> _personDisplayNameCache = {};
+  final Set<String> _personDisplayNameRequests = {};
   String? editingFunctionalGroupChemicalId;
   List<String> availableFunctionalGroups = const [];
   Set<String> selectedFunctionalGroupKeys = const {};
@@ -675,6 +680,12 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       functionalGroups: chemical.functionalGroups,
       sheetTab: chemical.sheetTab,
       isActiveBottle: chemical.isActiveBottle,
+      createdByUid: chemical.createdByUid,
+      createdByName: chemical.createdByName,
+      createdAt: chemical.createdAt,
+      lastModifiedByUid: chemical.lastModifiedByUid,
+      lastModifiedByName: chemical.lastModifiedByName,
+      lastModifiedAt: chemical.lastModifiedAt,
     );
   }
 
@@ -704,6 +715,12 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       functionalGroups: functionalGroups,
       sheetTab: chemical.sheetTab,
       isActiveBottle: chemical.isActiveBottle,
+      createdByUid: chemical.createdByUid,
+      createdByName: chemical.createdByName,
+      createdAt: chemical.createdAt,
+      lastModifiedByUid: chemical.lastModifiedByUid,
+      lastModifiedByName: chemical.lastModifiedByName,
+      lastModifiedAt: chemical.lastModifiedAt,
     );
   }
 
@@ -1396,6 +1413,272 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
+  String _activeLabIdForPersonLookup() {
+    final chemicalLabId = _currentChemical.labId.trim();
+    if (chemicalLabId.isNotEmpty) {
+      return chemicalLabId;
+    }
+
+    return AppState.instance.selectedLabId.trim();
+  }
+
+  void _scheduleAuditNameResolution(List<ChemicalModel> bottles) {
+    final userIds = <String>{};
+    final explicitNamesByUid = <String, String>{};
+    final emailByUid = <String, String>{};
+
+    void collect({String? uid, String? storedName}) {
+      final cleanUid = uid?.trim() ?? '';
+      if (cleanUid.isEmpty ||
+          _personDisplayNameCache.containsKey(cleanUid) ||
+          _personDisplayNameRequests.contains(cleanUid) ||
+          PersonDisplayResolver.hasUsableDisplayName(storedName)) {
+        return;
+      }
+
+      final cleanStoredName = storedName?.trim() ?? '';
+      userIds.add(cleanUid);
+      explicitNamesByUid[cleanUid] = cleanStoredName;
+      if (PersonDisplayResolver.isLikelyEmail(cleanStoredName)) {
+        emailByUid[cleanUid] = cleanStoredName;
+      }
+    }
+
+    for (final bottle in bottles) {
+      collect(uid: bottle.createdByUid, storedName: bottle.createdByName);
+      collect(
+        uid: bottle.lastModifiedByUid,
+        storedName: bottle.lastModifiedByName,
+      );
+    }
+
+    if (userIds.isEmpty) {
+      return;
+    }
+
+    final pendingUserIds = userIds.toList(growable: false);
+    _personDisplayNameRequests.addAll(pendingUserIds);
+
+    Future<void>(() async {
+      final resolvedNames = await _personDisplayResolver.resolvePeopleForLab(
+        labId: _activeLabIdForPersonLookup(),
+        userIds: pendingUserIds,
+        explicitDisplayNamesByUid: explicitNamesByUid,
+        emailByUid: emailByUid,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _personDisplayNameCache.addAll(resolvedNames);
+        _personDisplayNameRequests.removeAll(pendingUserIds);
+      });
+    }).catchError((_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _personDisplayNameRequests.removeAll(pendingUserIds);
+      });
+    });
+  }
+
+  String _formatAuditDateTime(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final month = months[date.month - 1];
+    final day = date.day.toString().padLeft(2, '0');
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '$day $month ${date.year} $hour:$minute';
+  }
+
+  String _auditActorLabel({String? name, String? uid}) {
+    final cleanUid = uid?.trim() ?? '';
+    final cachedName = _personDisplayNameCache[cleanUid]?.trim() ?? '';
+    if (cachedName.isNotEmpty) {
+      return cachedName;
+    }
+
+    return PersonDisplayResolver.resolvePersonDisplayName(
+      explicitDisplayName: name,
+      email: name,
+      uid: cleanUid,
+    );
+  }
+
+  bool _hasAuditInformation(ChemicalModel chemical) {
+    return _auditActorLabel(
+          name: chemical.createdByName,
+          uid: chemical.createdByUid,
+        ).isNotEmpty ||
+        chemical.createdAt != null ||
+        _auditActorLabel(
+          name: chemical.lastModifiedByName,
+          uid: chemical.lastModifiedByUid,
+        ).isNotEmpty ||
+        chemical.lastModifiedAt != null;
+  }
+
+  String _lastUpdatedValue(ChemicalModel chemical) {
+    final lastUpdated = chemical.lastModifiedAt ?? chemical.createdAt;
+    if (lastUpdated != null) {
+      return _formatAuditDateTime(lastUpdated);
+    }
+
+    return chemical.arrivalDate;
+  }
+
+  String _personLabel(String value) {
+    return PersonDisplayResolver.resolvePersonDisplayName(
+      explicitDisplayName: value,
+      email: value,
+    );
+  }
+
+  String _bottleQuantityLabel(ChemicalModel bottle) {
+    final quantity = bottle.quantity.trim();
+    final size = [
+      bottle.bottleSize.trim(),
+      bottle.bottleUnit.trim(),
+    ].where((value) => value.isNotEmpty).join(' ');
+
+    if (quantity.isNotEmpty && size.isNotEmpty && quantity != size) {
+      return '$quantity / $size';
+    }
+
+    if (quantity.isNotEmpty) {
+      return quantity;
+    }
+
+    return size;
+  }
+
+  Widget _auditInfoPill({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: palette.panel.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.border.withValues(alpha: 0.72)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: palette.subtleText, size: 13),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              '$label: $value',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colorScheme.onSurface.withValues(alpha: 0.82),
+                fontSize: 11.5,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuditInformationSection(ChemicalModel chemical) {
+    if (!_hasAuditInformation(chemical)) {
+      return const SizedBox.shrink();
+    }
+
+    final palette = context.labmate;
+    final createdBy = _auditActorLabel(
+      name: chemical.createdByName,
+      uid: chemical.createdByUid,
+    );
+    final lastModifiedBy = _auditActorLabel(
+      name: chemical.lastModifiedByName,
+      uid: chemical.lastModifiedByUid,
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: palette.panelAlt.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: palette.border.withValues(alpha: 0.72)),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.history_rounded, color: palette.subtleText, size: 14),
+              const SizedBox(width: 5),
+              Text(
+                'Audit Information',
+                style: TextStyle(
+                  color: palette.mutedText,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          if (createdBy.isNotEmpty)
+            _auditInfoPill(
+              icon: Icons.person_outline_rounded,
+              label: 'Created By',
+              value: createdBy,
+            ),
+          if (chemical.createdAt != null)
+            _auditInfoPill(
+              icon: Icons.event_outlined,
+              label: 'Created On',
+              value: _formatAuditDateTime(chemical.createdAt!),
+            ),
+          if (lastModifiedBy.isNotEmpty)
+            _auditInfoPill(
+              icon: Icons.manage_accounts_outlined,
+              label: 'Last Modified By',
+              value: lastModifiedBy,
+            ),
+          if (chemical.lastModifiedAt != null)
+            _auditInfoPill(
+              icon: Icons.update_rounded,
+              label: 'Last Modified',
+              value: _formatAuditDateTime(chemical.lastModifiedAt!),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget twoColumnDetailBox({
     required String leftLabel,
     required String leftValue,
@@ -1505,9 +1788,9 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       margin: const EdgeInsets.only(bottom: 12),
       child: Material(
         color: isEditing ? palette.selected : palette.panel,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1547,10 +1830,10 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                       onChanged: (value) async {
                         if (value == null) return;
 
-                        await inventoryService.inventoryRef.doc(b.id).update({
-                          'availability': _safeBottleStatus(value),
-                          'updatedAt': DateTime.now(),
-                        });
+                        await inventoryService.updateBottleAvailability(
+                          bottleId: b.id,
+                          availability: _safeBottleStatus(value),
+                        );
 
                         setState(() {});
                       },
@@ -1573,12 +1856,16 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                   runSpacing: 8,
                   children: [
                     chip('Brand: ${b.brand.isEmpty ? '-' : b.brand}'),
-                    chip('Qty: ${b.quantity.isEmpty ? '-' : b.quantity}'),
+                    chip('Qty / size: ${_display(_bottleQuantityLabel(b))}'),
                     chip('Loc: ${b.location.isEmpty ? '-' : b.location}'),
                     if (showActiveControls && !b.isActiveBottle)
                       _activeBottleControl(b),
                   ],
                 ),
+              if (!isEditing && _hasAuditInformation(b)) ...[
+                const SizedBox(height: 10),
+                _buildAuditInformationSection(b),
+              ],
             ],
           ),
         ),
@@ -1884,7 +2171,6 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
   Widget build(BuildContext context) {
     final c = _currentChemical;
     final palette = context.labmate;
-    final colorScheme = context.colorScheme;
     final showDesktopNavigation = MediaQuery.sizeOf(context).width >= 900;
 
     return Scaffold(
@@ -1924,11 +2210,15 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                 final representative = bottles.isEmpty
                     ? c
                     : _representativeBottle(bottles);
+                _scheduleAuditNameResolution(bottles);
 
                 final isDesktop = MediaQuery.sizeOf(context).width >= 900;
                 if (isDesktop) {
                   return _buildDesktopDetail(representative, bottles);
                 }
+
+                final availability = _overallBottleStatus(bottles);
+                final statusColor = availabilityColor(availability);
 
                 return ListView(
                   padding: EdgeInsets.fromLTRB(
@@ -1938,42 +2228,11 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                     _hasNavigationContext ? 92 : 14,
                   ),
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: palette.panel,
-                        borderRadius: BorderRadius.circular(18),
-                        border: Border.all(color: palette.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _editableLabelBadge(representative),
-                          const SizedBox(height: 10),
-                          Text(
-                            representative.chemicalName,
-                            style: TextStyle(
-                              color: colorScheme.onSurface,
-                              fontSize: 19,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'CAS: ${representative.cas}',
-                            style: TextStyle(
-                              color: palette.mutedText,
-                              fontSize: 12.8,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            '${bottles.length} bottles',
-                            style: TextStyle(color: palette.mutedText),
-                          ),
-                        ],
-                      ),
+                    _mobileSummaryCard(
+                      chemical: representative,
+                      bottleCount: bottles.length,
+                      availability: availability,
+                      statusColor: statusColor,
                     ),
 
                     const SizedBox(height: 14),
@@ -2170,6 +2429,101 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     );
   }
 
+  Widget _summaryMetricGrid({
+    required ChemicalModel chemical,
+    required String availability,
+    required Color statusColor,
+    required int bottleCount,
+    required int columns,
+  }) {
+    return _compactMetricGrid([
+      _compactMetric(label: 'CAS', value: chemical.cas),
+      _compactMetric(label: 'Label', value: chemical.label),
+      _compactMetric(label: 'Type', value: chemical.sheetTab),
+      _compactMetric(label: 'Texture', value: chemical.texture),
+      _compactMetric(label: 'Formula', value: chemical.formula),
+      _compactMetric(label: 'MW', value: chemical.molWt),
+      _compactMetric(
+        label: 'Availability',
+        value: availability,
+        valueColor: statusColor,
+      ),
+      _compactMetric(label: 'Total bottles', value: bottleCount.toString()),
+      _compactMetric(label: 'Last updated', value: _lastUpdatedValue(chemical)),
+    ], columns: columns);
+  }
+
+  Widget _mobileSummaryCard({
+    required ChemicalModel chemical,
+    required int bottleCount,
+    required String availability,
+    required Color statusColor,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: palette.panel,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: palette.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _editableLabelBadge(chemical),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: statusColor.withValues(alpha: 0.34),
+                  ),
+                ),
+                child: Text(
+                  availability,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 11.8,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            chemical.chemicalName,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 19,
+              fontWeight: FontWeight.bold,
+              height: 1.18,
+            ),
+          ),
+          const SizedBox(height: 10),
+          _summaryMetricGrid(
+            chemical: chemical,
+            availability: availability,
+            statusColor: statusColor,
+            bottleCount: bottleCount,
+            columns: 2,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _compactPanel({
     required String title,
     required Widget child,
@@ -2332,85 +2686,100 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: palette.border),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Expanded(
-            flex: 2,
-            child: Row(
-              children: [
-                Flexible(
-                  child: Text(
-                    'Bottle ${index + 1}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: colorScheme.onSurface,
-                      fontSize: 12.5,
-                      fontWeight: FontWeight.w800,
+          Row(
+            children: [
+              Expanded(
+                flex: 2,
+                child: Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        'Bottle ${index + 1}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: colorScheme.onSurface,
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _desktopTableCell(_display(bottle.brand), flex: 3),
+              _desktopTableCell(
+                _display(_bottleQuantityLabel(bottle)),
+                flex: 2,
+              ),
+              _desktopTableCell(_display(bottle.location), flex: 3),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 126,
+                height: 30,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: palette.panel,
+                    borderRadius: BorderRadius.circular(9),
+                    border: Border.all(color: palette.border),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: safeStatus,
+                      dropdownColor: palette.panel,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 12,
+                      ),
+                      isDense: true,
+                      isExpanded: true,
+                      items: _allowedBottleStatuses
+                          .map(
+                            (status) => DropdownMenuItem<String>(
+                              value: status,
+                              child: Text(
+                                _bottleStatusLabel(status),
+                                style: TextStyle(color: colorScheme.onSurface),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                      onChanged: (value) async {
+                        if (value == null) return;
+
+                        await inventoryService.updateBottleAvailability(
+                          bottleId: bottle.id,
+                          availability: _safeBottleStatus(value),
+                        );
+
+                        setState(() {});
+                      },
                     ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          _desktopTableCell(_display(bottle.brand), flex: 3),
-          _desktopTableCell(_display(bottle.quantity), flex: 2),
-          _desktopTableCell(_display(bottle.location), flex: 3),
-          const SizedBox(width: 8),
-          SizedBox(
-            width: 126,
-            height: 30,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              decoration: BoxDecoration(
-                color: palette.panel,
-                borderRadius: BorderRadius.circular(9),
-                border: Border.all(color: palette.border),
               ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  value: safeStatus,
-                  dropdownColor: palette.panel,
-                  style: TextStyle(color: colorScheme.onSurface, fontSize: 12),
-                  isDense: true,
-                  isExpanded: true,
-                  items: _allowedBottleStatuses
-                      .map(
-                        (status) => DropdownMenuItem<String>(
-                          value: status,
-                          child: Text(
-                            _bottleStatusLabel(status),
-                            style: TextStyle(color: colorScheme.onSurface),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) async {
-                    if (value == null) return;
-
-                    await inventoryService.inventoryRef.doc(bottle.id).update({
-                      'availability': _safeBottleStatus(value),
-                      'updatedAt': DateTime.now(),
-                    });
-
-                    setState(() {});
-                  },
+              if (showActiveControls) ...[
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 76,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: _activeBottleControl(bottle),
+                  ),
                 ),
-              ),
-            ),
+              ],
+              const SizedBox(width: 8),
+              _editBottleButton(bottle),
+            ],
           ),
-          if (showActiveControls) ...[
-            const SizedBox(width: 8),
-            SizedBox(
-              width: 76,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: _activeBottleControl(bottle),
-              ),
-            ),
+          if (_hasAuditInformation(bottle)) ...[
+            const SizedBox(height: 8),
+            _buildAuditInformationSection(bottle),
           ],
-          const SizedBox(width: 8),
-          _editBottleButton(bottle),
         ],
       ),
     );
@@ -2425,7 +2794,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
         children: [
           _desktopTableHeader('Bottle', flex: 2),
           _desktopTableHeader('Brand', flex: 3),
-          _desktopTableHeader('Qty', flex: 2),
+          _desktopTableHeader('Qty / size', flex: 2),
           _desktopTableHeader('Location', flex: 3),
           const SizedBox(width: 8),
           SizedBox(
@@ -2700,11 +3069,13 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             ),
           ),
           const SizedBox(height: 12),
-          _compactMetricGrid([
-            _compactMetric(label: 'CAS', value: chemical.cas),
-            _compactMetric(label: 'Formula', value: chemical.formula),
-            _compactMetric(label: 'MW', value: chemical.molWt),
-          ], columns: 3),
+          _summaryMetricGrid(
+            chemical: chemical,
+            availability: availability,
+            statusColor: statusColor,
+            bottleCount: bottleCount,
+            columns: 3,
+          ),
         ],
       ),
     );
@@ -2715,9 +3086,6 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     required String brand,
     required String quantity,
     required String location,
-    required String availability,
-    required Color statusColor,
-    required int bottleCount,
   }) {
     return _compactPanel(
       title: 'Inventory Details',
@@ -2725,19 +3093,14 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
         children: [
           _compactMetricGrid([
             _compactMetric(label: 'Brand', value: brand),
-            _compactMetric(label: 'Pack size', value: quantity),
+            _compactMetric(label: 'Qty / size', value: quantity),
             _compactMetric(label: 'Location', value: location),
-            _compactMetric(label: 'Texture', value: chemical.texture),
             _compactMetric(label: 'Catalog no', value: chemical.catNumber),
-            _compactMetric(label: 'Ordered by', value: chemical.orderedBy),
             _compactMetric(
-              label: 'Availability',
-              value: availability,
-              valueColor: statusColor,
+              label: 'Ordered by',
+              value: _personLabel(chemical.orderedBy),
             ),
-            _compactMetric(label: 'Bottles', value: bottleCount.toString()),
-            _compactMetric(label: 'Last updated', value: chemical.arrivalDate),
-            _compactMetric(label: 'Sheet tab', value: chemical.sheetTab),
+            _compactMetric(label: 'Vendor', value: chemical.vendor),
           ], columns: 3),
         ],
       ),
@@ -2768,7 +3131,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
 
   Widget _buildDesktopDetail(ChemicalModel c, List<ChemicalModel> bottles) {
     final brand = _summarizeBottles(bottles, (bottle) => bottle.brand);
-    final quantity = _summarizeBottles(bottles, (bottle) => bottle.quantity);
+    final quantity = _summarizeBottles(bottles, _bottleQuantityLabel);
     final location = _summarizeBottles(bottles, (bottle) => bottle.location);
     final availability = _overallBottleStatus(bottles);
     final statusColor = availabilityColor(availability);
@@ -2796,9 +3159,6 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
                       brand: brand,
                       quantity: quantity,
                       location: location,
-                      availability: availability,
-                      statusColor: statusColor,
-                      bottleCount: bottles.length,
                     ),
                     const SizedBox(height: 10),
                     _desktopBottlePanel(bottles),

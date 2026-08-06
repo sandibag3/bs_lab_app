@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 
 import '../app_state.dart';
 import '../services/activity_service.dart';
+import '../services/person_display_resolver.dart';
 import '../services/requirement_service.dart';
 import '../models/requirement_model.dart';
 import '../theme/labmate_theme.dart';
@@ -1012,7 +1013,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
           ? consumableTypeValue
           : '',
       status: 'pending',
-      userName: AppState.instance.authenticatedUserName,
+      userName: PersonDisplayResolver.currentUserDisplayName(),
       createdAt: Timestamp.now(),
       approvedBy: '',
       approvedAt: null,
@@ -1031,7 +1032,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
           type: 'requirement_created',
           message:
               'Requirement submitted for ${req.mainType == 'consumable' ? req.consumableType : req.chemicalName}',
-          actorName: AppState.instance.authenticatedUserName,
+          actorName: PersonDisplayResolver.currentUserDisplayName(),
           createdBy: AppState.instance.authenticatedUserId,
           relatedId: requirementId,
         );

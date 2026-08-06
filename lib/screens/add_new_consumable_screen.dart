@@ -8,6 +8,7 @@ import '../services/activity_service.dart';
 import '../services/consumables_inventory_service.dart';
 import '../services/lab_membership_service.dart';
 import '../services/order_service.dart';
+import '../services/person_display_resolver.dart';
 import '../services/user_profile_service.dart';
 import '../theme/labmate_theme.dart';
 
@@ -432,22 +433,13 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
     LabMembershipModel membership,
     UserProfile? profile,
   ) {
-    final profileName = profile?.name.trim() ?? '';
-    if (profileName.isNotEmpty && profileName != 'Your Name') {
-      return profileName;
-    }
-
-    final userName = membership.userName.trim();
-    if (userName.isNotEmpty) {
-      return userName;
-    }
-
-    final userEmail = membership.userEmail.trim();
-    if (userEmail.isNotEmpty) {
-      return userEmail;
-    }
-
-    return membership.userId.trim();
+    return PersonDisplayResolver.resolvePersonDisplayName(
+      profile: profile,
+      membership: membership,
+      email: membership.userEmail,
+      uid: membership.userId,
+      fallbackLabel: 'Member',
+    );
   }
 
   String? _matchingOrderedByUid(
@@ -931,7 +923,7 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
           labId: labId,
           type: 'consumable_inventory_added',
           message: 'Consumable entry confirmed for $consumableType',
-          actorName: AppState.instance.authenticatedUserName,
+          actorName: PersonDisplayResolver.currentUserDisplayName(),
           createdBy: AppState.instance.authenticatedUserId,
           relatedId: confirmation.inventoryId,
         );

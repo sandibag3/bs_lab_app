@@ -9,6 +9,7 @@ import '../services/activity_service.dart';
 import '../services/lab_membership_service.dart';
 import '../services/inventory_service.dart';
 import '../services/order_service.dart';
+import '../services/person_display_resolver.dart';
 import '../services/pubchem_service.dart';
 import '../services/chemical_label_service.dart';
 import '../services/user_profile_service.dart';
@@ -698,22 +699,13 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     LabMembershipModel membership,
     UserProfile? profile,
   ) {
-    final profileName = profile?.name.trim() ?? '';
-    if (profileName.isNotEmpty && profileName != 'Your Name') {
-      return profileName;
-    }
-
-    final userName = membership.userName.trim();
-    if (userName.isNotEmpty) {
-      return userName;
-    }
-
-    final userEmail = membership.userEmail.trim();
-    if (userEmail.isNotEmpty) {
-      return userEmail;
-    }
-
-    return membership.userId.trim();
+    return PersonDisplayResolver.resolvePersonDisplayName(
+      profile: profile,
+      membership: membership,
+      email: membership.userEmail,
+      uid: membership.userId,
+      fallbackLabel: 'Member',
+    );
   }
 
   String? _matchingOrderedByUid(
@@ -2611,7 +2603,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           message: isEditMode
               ? 'Chemical entry updated for ${chemical.chemicalName}'
               : 'Chemical entry confirmed for ${chemical.chemicalName}',
-          actorName: AppState.instance.authenticatedUserName,
+          actorName: PersonDisplayResolver.currentUserDisplayName(),
           createdBy: AppState.instance.authenticatedUserId,
           relatedId: isEditMode
               ? chemical.id

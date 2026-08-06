@@ -9,6 +9,8 @@ import '../app_state.dart';
 import '../services/activity_service.dart';
 import '../services/consumables_inventory_service.dart';
 import '../services/firestore_access_guard.dart';
+import '../services/inventory_audit_service.dart';
+import '../services/person_display_resolver.dart';
 import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
 
@@ -22,6 +24,10 @@ class ConsumablesInventoryScreen extends StatefulWidget {
 
 class _ConsumablesInventoryScreenState
     extends State<ConsumablesInventoryScreen> {
+  final PersonDisplayResolver _personDisplayResolver = PersonDisplayResolver();
+  final Map<String, String> _personDisplayNameCache = {};
+  final Set<String> _personDisplayNameRequests = {};
+
   Stream<List<QueryDocumentSnapshot<Map<String, dynamic>>>> _inventoryStream() {
     return ConsumablesInventoryService().getConsumablesInventoryDocs();
   }
@@ -119,6 +125,272 @@ class _ConsumablesInventoryScreenState
     final hour = date.hour.toString().padLeft(2, '0');
     final minute = date.minute.toString().padLeft(2, '0');
     return '$day/$month/$year $hour:$minute';
+  }
+
+  DateTime? _dateTimeFromValue(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+
+    if (value is DateTime) {
+      return value;
+    }
+
+    return null;
+  }
+
+  String _formatAuditDateTime(DateTime date) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final month = months[date.month - 1];
+    final day = date.day.toString().padLeft(2, '0');
+    final hour = date.hour.toString().padLeft(2, '0');
+    final minute = date.minute.toString().padLeft(2, '0');
+    return '$day $month ${date.year} $hour:$minute';
+  }
+
+  String _auditText(Map<String, dynamic> data, String key) {
+    return (data[key] ?? '').toString().trim();
+  }
+
+  void _scheduleAuditNameResolution(Iterable<Map<String, dynamic>> records) {
+    final userIds = <String>{};
+    final explicitNamesByUid = <String, String>{};
+    final emailByUid = <String, String>{};
+
+    void collect(
+      Map<String, dynamic> data, {
+      required String uidKey,
+      required String nameKey,
+    }) {
+      final cleanUid = _auditText(data, uidKey);
+      final storedName = _auditText(data, nameKey);
+      if (cleanUid.isEmpty ||
+          _personDisplayNameCache.containsKey(cleanUid) ||
+          _personDisplayNameRequests.contains(cleanUid) ||
+          PersonDisplayResolver.hasUsableDisplayName(storedName)) {
+        return;
+      }
+
+      userIds.add(cleanUid);
+      explicitNamesByUid[cleanUid] = storedName;
+      if (PersonDisplayResolver.isLikelyEmail(storedName)) {
+        emailByUid[cleanUid] = storedName;
+      }
+    }
+
+    for (final data in records) {
+      collect(data, uidKey: 'createdByUid', nameKey: 'createdByName');
+      collect(data, uidKey: 'lastModifiedByUid', nameKey: 'lastModifiedByName');
+    }
+
+    if (userIds.isEmpty) {
+      return;
+    }
+
+    final pendingUserIds = userIds.toList(growable: false);
+    _personDisplayNameRequests.addAll(pendingUserIds);
+
+    Future<void>(() async {
+      final resolvedNames = await _personDisplayResolver.resolvePeopleForLab(
+        labId: AppState.instance.selectedLabId,
+        userIds: pendingUserIds,
+        explicitDisplayNamesByUid: explicitNamesByUid,
+        emailByUid: emailByUid,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _personDisplayNameCache.addAll(resolvedNames);
+        _personDisplayNameRequests.removeAll(pendingUserIds);
+      });
+    }).catchError((_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _personDisplayNameRequests.removeAll(pendingUserIds);
+      });
+    });
+  }
+
+  String _auditActorLabel(
+    Map<String, dynamic> data, {
+    required String nameKey,
+    required String uidKey,
+  }) {
+    final name = _auditText(data, nameKey);
+    final uid = _auditText(data, uidKey);
+    final cachedName = _personDisplayNameCache[uid]?.trim() ?? '';
+    if (cachedName.isNotEmpty) {
+      return cachedName;
+    }
+
+    return PersonDisplayResolver.resolvePersonDisplayName(
+      explicitDisplayName: name,
+      email: name,
+      uid: uid,
+    );
+  }
+
+  bool _hasAuditInformation(Map<String, dynamic> data) {
+    return _auditActorLabel(
+          data,
+          nameKey: 'createdByName',
+          uidKey: 'createdByUid',
+        ).isNotEmpty ||
+        _dateTimeFromValue(data['createdAt']) != null ||
+        _auditActorLabel(
+          data,
+          nameKey: 'lastModifiedByName',
+          uidKey: 'lastModifiedByUid',
+        ).isNotEmpty ||
+        _dateTimeFromValue(data['lastModifiedAt']) != null;
+  }
+
+  String _personLabel(String value) {
+    return PersonDisplayResolver.resolvePersonDisplayName(
+      explicitDisplayName: value,
+      email: value,
+    );
+  }
+
+  Widget _auditInfoPill({
+    required BuildContext context,
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+      decoration: BoxDecoration(
+        color: palette.panel.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: palette.border.withValues(alpha: 0.72)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: palette.subtleText, size: 13),
+          const SizedBox(width: 5),
+          Flexible(
+            child: Text(
+              '$label: $value',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: colorScheme.onSurface.withValues(alpha: 0.82),
+                fontSize: 11.5,
+                height: 1.2,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuditInformationSection({
+    required BuildContext context,
+    required Map<String, dynamic> data,
+  }) {
+    if (!_hasAuditInformation(data)) {
+      return const SizedBox.shrink();
+    }
+
+    final palette = context.labmate;
+    final createdBy = _auditActorLabel(
+      data,
+      nameKey: 'createdByName',
+      uidKey: 'createdByUid',
+    );
+    final lastModifiedBy = _auditActorLabel(
+      data,
+      nameKey: 'lastModifiedByName',
+      uidKey: 'lastModifiedByUid',
+    );
+    final createdAt = _dateTimeFromValue(data['createdAt']);
+    final lastModifiedAt = _dateTimeFromValue(data['lastModifiedAt']);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: palette.panelAlt.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: palette.border.withValues(alpha: 0.72)),
+      ),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.history_rounded, color: palette.subtleText, size: 14),
+              const SizedBox(width: 5),
+              Text(
+                'Audit Information',
+                style: TextStyle(
+                  color: palette.mutedText,
+                  fontSize: 11.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          if (createdBy.isNotEmpty)
+            _auditInfoPill(
+              context: context,
+              icon: Icons.person_outline_rounded,
+              label: 'Created By',
+              value: createdBy,
+            ),
+          if (createdAt != null)
+            _auditInfoPill(
+              context: context,
+              icon: Icons.event_outlined,
+              label: 'Created On',
+              value: _formatAuditDateTime(createdAt),
+            ),
+          if (lastModifiedBy.isNotEmpty)
+            _auditInfoPill(
+              context: context,
+              icon: Icons.manage_accounts_outlined,
+              label: 'Last Modified By',
+              value: lastModifiedBy,
+            ),
+          if (lastModifiedAt != null)
+            _auditInfoPill(
+              context: context,
+              icon: Icons.update_rounded,
+              label: 'Last Modified',
+              value: _formatAuditDateTime(lastModifiedAt),
+            ),
+        ],
+      ),
+    );
   }
 
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _sortDocs(
@@ -575,10 +847,11 @@ class _ConsumablesInventoryScreenState
     final appState = AppState.instance;
     final labId = appState.selectedLabId.trim();
     final userId = appState.authenticatedUserId;
-    final actorName = appState.authenticatedUserName;
+    final actorName = PersonDisplayResolver.currentUserDisplayName();
     final firestore = FirebaseFirestore.instance;
     final logRef = firestore.collection('consumable_stock_logs').doc();
     final timestamp = Timestamp.now();
+    final serverTimestamp = FieldValue.serverTimestamp();
     late final String consumableType;
     late final double previousQuantity;
     late final double newQuantity;
@@ -614,7 +887,8 @@ class _ConsumablesInventoryScreenState
       transaction.update(doc.reference, {
         'quantity': _formatQuantityNumber(newQuantity),
         'isAggregate': true,
-        'updatedAt': timestamp,
+        ...InventoryAuditService.updateAuditFields(timestamp: serverTimestamp),
+        'updatedAt': serverTimestamp,
       });
 
       transaction.set(logRef, {
@@ -911,7 +1185,7 @@ class _ConsumablesInventoryScreenState
                               vertical: 5,
                             ),
                             decoration: BoxDecoration(
-                              color: stockBadgeColor.withOpacity(0.14),
+                              color: stockBadgeColor.withValues(alpha: 0.14),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Text(
@@ -983,7 +1257,7 @@ class _ConsumablesInventoryScreenState
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'Ordered by: ${orderedBy.isEmpty ? '-' : orderedBy}',
+                      'Ordered by: ${orderedBy.isEmpty ? '-' : _personLabel(orderedBy)}',
                       style: TextStyle(
                         color: palette.mutedText,
                         fontSize: 13,
@@ -992,7 +1266,7 @@ class _ConsumablesInventoryScreenState
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Received by: ${receivedBy.isEmpty ? '-' : receivedBy}',
+                      'Received by: ${receivedBy.isEmpty ? '-' : _personLabel(receivedBy)}',
                       style: TextStyle(
                         color: palette.mutedText,
                         fontSize: 13,
@@ -1008,6 +1282,13 @@ class _ConsumablesInventoryScreenState
                         fontWeight: FontWeight.w500,
                       ),
                     ),
+                    if (_hasAuditInformation(data)) ...[
+                      const SizedBox(height: 12),
+                      _buildAuditInformationSection(
+                        context: context,
+                        data: data,
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     Wrap(
                       spacing: 8,
@@ -1103,6 +1384,7 @@ class _ConsumablesInventoryScreenState
                   }
 
                   final docs = _sortDocs(snapshot.data!);
+                  _scheduleAuditNameResolution(docs.map((doc) => doc.data()));
                   final items = _groupDocs(docs);
                   final categoryGroups = _groupItemsByCategory(items);
 
@@ -1519,7 +1801,7 @@ class _ConsumableCategoryDetailScreenState
                     ),
                     const SizedBox(height: 14),
                     DropdownButtonFormField<String>(
-                      value: location,
+                      initialValue: location,
                       dropdownColor: palette.panel,
                       decoration: InputDecoration(
                         labelText: 'Location',
@@ -1713,7 +1995,7 @@ class _ConsumableCategoryDetailScreenState
         label: Text(label),
         style: OutlinedButton.styleFrom(
           foregroundColor: palette.mutedText,
-          disabledForegroundColor: palette.subtleText.withOpacity(0.55),
+          disabledForegroundColor: palette.subtleText.withValues(alpha: 0.55),
           side: BorderSide(color: palette.border),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
@@ -2469,7 +2751,10 @@ class _PurchaseHistoryCard extends StatelessWidget {
     final brand = _readText('brand');
     final vendor = _readText('vendor');
     final modeOfPurchase = _readText('modeOfPurchase');
-    final receivedBy = _readText('receivedBy');
+    final receivedBy = PersonDisplayResolver.resolvePersonDisplayName(
+      explicitDisplayName: _readText('receivedBy'),
+      email: _readText('receivedBy'),
+    );
 
     return _HistoryCardFrame(
       child: Column(
@@ -2540,7 +2825,10 @@ class _LegacyArrivalCard extends StatelessWidget {
     final brand = _readText('brand');
     final vendor = _readText('vendor');
     final modeOfPurchase = _readText('modeOfPurchase');
-    final receivedBy = _readText('receivedBy');
+    final receivedBy = PersonDisplayResolver.resolvePersonDisplayName(
+      explicitDisplayName: _readText('receivedBy'),
+      email: _readText('receivedBy'),
+    );
     final deliveredAt = data['deliveredAt'] is Timestamp
         ? data['deliveredAt'] as Timestamp
         : null;
@@ -2611,7 +2899,11 @@ class _StockHistoryCard extends StatelessWidget {
         (data['previousQuantity'] as num?)?.toDouble() ?? 0;
     final newQuantity = (data['newQuantity'] as num?)?.toDouble() ?? 0;
     final note = (data['note'] ?? '').toString().trim();
-    final actorName = (data['actorName'] ?? '').toString().trim();
+    final actorName = PersonDisplayResolver.resolvePersonDisplayName(
+      explicitDisplayName: (data['actorName'] ?? '').toString(),
+      email: (data['actorName'] ?? '').toString(),
+      uid: (data['createdBy'] ?? '').toString(),
+    );
     final createdAt = data['createdAt'] is Timestamp
         ? data['createdAt'] as Timestamp
         : null;

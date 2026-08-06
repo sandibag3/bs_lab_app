@@ -104,16 +104,25 @@ class UserProfileService {
   Future<Map<String, UserProfile>> getUserProfilesByIds(
     Iterable<String> userIds,
   ) async {
+    const chunkSize = 10;
     final cleanUserIds = userIds
         .map((userId) => userId.trim())
         .where((userId) => userId.isNotEmpty)
-        .toSet();
+        .toSet()
+        .toList();
     final profiles = <String, UserProfile>{};
 
-    for (final userId in cleanUserIds) {
-      final doc = await _usersRef.doc(userId).get();
-      if (doc.exists) {
-        profiles[userId] = UserProfile.fromFirestore(doc);
+    for (var index = 0; index < cleanUserIds.length; index += chunkSize) {
+      final end = index + chunkSize > cleanUserIds.length
+          ? cleanUserIds.length
+          : index + chunkSize;
+      final chunk = cleanUserIds.sublist(index, end);
+      final snapshot = await _usersRef
+          .where(FieldPath.documentId, whereIn: chunk)
+          .get();
+
+      for (final doc in snapshot.docs) {
+        profiles[doc.id] = UserProfile.fromFirestore(doc);
       }
     }
 

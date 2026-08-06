@@ -3,6 +3,7 @@ import '../app_state.dart';
 import '../models/lab_membership_model.dart';
 import '../models/user_profile.dart';
 import '../services/lab_membership_service.dart';
+import '../services/person_display_resolver.dart';
 import '../services/user_profile_service.dart';
 import '../theme/labmate_theme.dart';
 
@@ -71,29 +72,19 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
   }
 
   String _memberName(_LabMemberDetails member) {
-    final profileName = member.profile?.name.trim() ?? '';
-    if (profileName.isNotEmpty && profileName != 'Your Name') {
-      return profileName;
-    }
+    final isCurrentUser =
+        member.membership.userId.trim() == widget.appState.authenticatedUserId;
 
-    final userName = member.membership.userName.trim();
-    if (userName.isNotEmpty) {
-      return userName;
-    }
-
-    final userEmail = member.membership.userEmail.trim();
-    if (userEmail.isNotEmpty) {
-      return userEmail;
-    }
-
-    if (member.membership.userId.trim() ==
-        widget.appState.authenticatedUserId) {
-      return widget.appState.authenticatedUserName;
-    }
-
-    return member.membership.userId.trim().isEmpty
-        ? 'Member'
-        : member.membership.userId.trim();
+    return PersonDisplayResolver.resolvePersonDisplayName(
+      profile: isCurrentUser ? widget.appState.profile : member.profile,
+      membership: member.membership,
+      firebaseDisplayName: isCurrentUser
+          ? widget.appState.authenticatedUserName
+          : null,
+      email: member.membership.userEmail,
+      uid: member.membership.userId,
+      fallbackLabel: 'Member',
+    );
   }
 
   String _memberEmail(_LabMemberDetails member) {

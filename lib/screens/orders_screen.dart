@@ -5,6 +5,7 @@ import '../services/activity_service.dart';
 import '../services/firestore_access_guard.dart';
 import '../services/fund_reconciliation_service.dart';
 import '../services/order_service.dart';
+import '../services/person_display_resolver.dart';
 import '../services/purchase_order_service.dart';
 import '../theme/labmate_theme.dart';
 import '../widgets/responsive_page_container.dart';
@@ -43,7 +44,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
   String? _selectedFundId;
   String _lastSeenLabId = '';
 
-  String get _currentUserName => AppState.instance.authenticatedUserName;
+  String get _currentUserName => PersonDisplayResolver.currentUserDisplayName();
 
   String get _activeLabId => AppState.instance.selectedLabId.trim();
 
@@ -341,15 +342,25 @@ class _OrdersScreenState extends State<OrdersScreen> {
     return '$day/$month/$year';
   }
 
+  String _personLabel(String value) {
+    return PersonDisplayResolver.resolvePersonDisplayName(
+      explicitDisplayName: value,
+      email: value,
+      fallbackLabel: '-',
+    );
+  }
+
   String _formatOrderedNote(OrderModel order) {
     final date = order.orderedAt.toDate();
-    return 'Ordered on ${_formatShortDate(date)} by ${order.orderedBy}';
+    final orderedBy = _personLabel(order.orderedBy);
+    return 'Ordered on ${_formatShortDate(date)} by $orderedBy';
   }
 
   String _formatDeliveredNote(OrderModel order) {
     if (order.deliveredAt == null) return '';
     final date = order.deliveredAt!.toDate();
-    return 'Delivered on ${_formatShortDate(date)} received by ${order.receivedBy}';
+    final receivedBy = _personLabel(order.receivedBy);
+    return 'Delivered on ${_formatShortDate(date)} received by $receivedBy';
   }
 
   List<OrderModel> _sortOrders(List<OrderModel> input) {
