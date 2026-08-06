@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../app_state.dart';
 import '../models/chemical_model.dart';
+import '../models/lab_membership_model.dart';
 import '../models/order_model.dart';
+import '../models/user_profile.dart';
 import '../services/activity_service.dart';
+import '../services/lab_membership_service.dart';
 import '../services/inventory_service.dart';
 import '../services/order_service.dart';
 import '../services/pubchem_service.dart';
 import '../services/chemical_label_service.dart';
+import '../services/user_profile_service.dart';
 import '../theme/labmate_theme.dart';
 
 enum _ChemicalLookupSource { none, inventory, pubChem, manual }
@@ -35,6 +39,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   final InventoryService inventoryService = InventoryService();
   final PubChemService pubChemService = PubChemService();
   final ChemicalLabelService chemicalLabelService = ChemicalLabelService();
+  final LabMembershipService _labMembershipService = LabMembershipService();
+  final UserProfileService _userProfileService = UserProfileService();
 
   late final TextEditingController chemicalNameController;
   late final TextEditingController casController;
@@ -46,7 +52,6 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   late final TextEditingController vendorController;
   late final TextEditingController catNumberController;
   late final TextEditingController arrivalDateController;
-  late final TextEditingController orderedByController;
   late final TextEditingController labelController;
   late final TextEditingController sheetTabController;
   late final TextEditingController carbonCountController;
@@ -68,14 +73,22 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
   String? selectedLocation;
   String? selectedTexture;
   String selectedBottleUnit = 'g';
+  String? _selectedOrderedByUid;
+  String _initialOrderedByName = '';
+  String _legacyOrderedByName = '';
+  String _orderedByMembersLabId = '';
   List<String> selectedFunctionalGroups = [];
+  List<_OrderedByMemberOption> _orderedByMembers = const [];
 
   int existingBottleCount = 0;
   int _casLookupRequestId = 0;
+  int _orderedByMembersRequestId = 0;
   String _lastObservedCas = '';
   String? _chemicalLookupMessage;
+  String? _orderedByMembersError;
   _ChemicalLookupSource _chemicalLookupSource = _ChemicalLookupSource.none;
   bool _isApplyingChemicalLookupResult = false;
+  bool _isLoadingOrderedByMembers = false;
 
   final List<String> brandOptions = const [
     'Merck',
@@ -191,6 +204,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     final order = widget.order;
     final manualPrefill = widget.editChemical ?? widget.manualPrefill;
     final deliveredDate = order?.deliveredAt?.toDate();
+    _initialOrderedByName = (manualPrefill?.orderedBy ?? order?.orderedBy ?? '')
+        .trim();
+    _legacyOrderedByName = _initialOrderedByName;
 
     chemicalNameController = TextEditingController(
       text: manualPrefill?.chemicalName ?? order?.chemicalName ?? '',
@@ -221,9 +237,6 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           (deliveredDate == null
               ? ''
               : '${deliveredDate.day.toString().padLeft(2, '0')}/${deliveredDate.month.toString().padLeft(2, '0')}/${deliveredDate.year}'),
-    );
-    orderedByController = TextEditingController(
-      text: manualPrefill?.orderedBy ?? order?.orderedBy ?? '',
     );
     labelController = TextEditingController(text: manualPrefill?.label ?? '');
     sheetTabController = TextEditingController(
@@ -287,6 +300,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
     _loadHiddenDropdownOptionPreferences();
     _loadExistingDropdownOptions();
+    AppState.instance.addListener(_handleAppStateChanged);
+    _loadOrderedByMembers();
     if (widget.editChemical != null) {
       selectedEntryType = 'Edit Chemical';
       isLoadingMetadata = false;
@@ -648,6 +663,221 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     bool creationOnly = true,
   }) {
     return _validateRequiredText(value, errorText, creationOnly: creationOnly);
+  }
+
+  String _orderedByLabIdForCurrentEntry() {
+    final editLabId = widget.editChemical?.labId.trim() ?? '';
+    if (editLabId.isNotEmpty) {
+      return editLabId;
+    }
+
+    return AppState.instance.resolveWriteLabId(widget.order?.labId).trim();
+  }
+
+  bool _isEligibleOrderedByMembership(LabMembershipModel membership) {
+    final userId = membership.userId.trim();
+    if (userId.isEmpty) {
+      return false;
+    }
+
+    final status = membership.status.trim().toLowerCase();
+    if (status.isNotEmpty && status != 'active') {
+      return false;
+    }
+
+    final role = LabMembershipService.normalizeAccessRole(
+      membership.role,
+      isPi: userId == AppState.instance.selectedLabPiUid.trim(),
+    );
+    return role == LabAccessRole.pi.name ||
+        role == LabAccessRole.admin.name ||
+        role == LabAccessRole.member.name;
+  }
+
+  String _displayNameForOrderedByMember(
+    LabMembershipModel membership,
+    UserProfile? profile,
+  ) {
+    final profileName = profile?.name.trim() ?? '';
+    if (profileName.isNotEmpty && profileName != 'Your Name') {
+      return profileName;
+    }
+
+    final userName = membership.userName.trim();
+    if (userName.isNotEmpty) {
+      return userName;
+    }
+
+    final userEmail = membership.userEmail.trim();
+    if (userEmail.isNotEmpty) {
+      return userEmail;
+    }
+
+    return membership.userId.trim();
+  }
+
+  String? _matchingOrderedByUid(
+    String value,
+    List<_OrderedByMemberOption> members,
+  ) {
+    final cleanValue = value.trim();
+    if (cleanValue.isEmpty) {
+      return null;
+    }
+
+    for (final member in members) {
+      if (member.matchesStoredValue(cleanValue)) {
+        return member.uid;
+      }
+    }
+
+    return null;
+  }
+
+  _OrderedByMemberOption? get _selectedOrderedByMember {
+    final selectedUid = _selectedOrderedByUid?.trim() ?? '';
+    if (selectedUid.isEmpty) {
+      return null;
+    }
+
+    for (final member in _orderedByMembers) {
+      if (member.uid == selectedUid) {
+        return member;
+      }
+    }
+
+    return null;
+  }
+
+  String? _validateOrderedBySelection(String? value) {
+    if (_isLoadingOrderedByMembers ||
+        _orderedByMembersError != null ||
+        _orderedByMembers.isEmpty ||
+        (value?.trim().isEmpty ?? true) ||
+        _selectedOrderedByMember == null) {
+      return 'Please select who ordered this item.';
+    }
+
+    return null;
+  }
+
+  void _handleAppStateChanged() {
+    final labId = _orderedByLabIdForCurrentEntry();
+    if (labId == _orderedByMembersLabId) {
+      return;
+    }
+
+    _loadOrderedByMembers();
+  }
+
+  Future<void> _loadOrderedByMembers() async {
+    final labId = _orderedByLabIdForCurrentEntry();
+    final requestId = ++_orderedByMembersRequestId;
+    final labChanged = labId != _orderedByMembersLabId;
+
+    if (mounted) {
+      setState(() {
+        _orderedByMembersLabId = labId;
+        _isLoadingOrderedByMembers = true;
+        _orderedByMembersError = null;
+        if (labChanged) {
+          _orderedByMembers = const [];
+          _selectedOrderedByUid = null;
+          _legacyOrderedByName = _initialOrderedByName;
+        }
+      });
+    }
+
+    if (labId.isEmpty) {
+      if (!mounted || requestId != _orderedByMembersRequestId) {
+        return;
+      }
+      setState(() {
+        _orderedByMembers = const [];
+        _selectedOrderedByUid = null;
+        _isLoadingOrderedByMembers = false;
+      });
+      return;
+    }
+
+    try {
+      final memberships = await _labMembershipService.getMembershipsForLab(
+        labId: labId,
+      );
+      final eligibleMemberships = <String, LabMembershipModel>{};
+      for (final membership in memberships) {
+        if (!_isEligibleOrderedByMembership(membership)) {
+          continue;
+        }
+
+        final userId = membership.userId.trim();
+        eligibleMemberships.putIfAbsent(userId, () => membership);
+      }
+
+      final profiles = await _userProfileService.getUserProfilesByIds(
+        eligibleMemberships.keys,
+      );
+      final members = eligibleMemberships.values.map((membership) {
+        final userId = membership.userId.trim();
+        return _OrderedByMemberOption(
+          uid: userId,
+          displayName: _displayNameForOrderedByMember(
+            membership,
+            profiles[userId],
+          ),
+          userName: membership.userName.trim(),
+          email: membership.userEmail.trim(),
+        );
+      }).toList();
+
+      members.sort((a, b) {
+        final nameComparison = a.displayName.trim().toLowerCase().compareTo(
+          b.displayName.trim().toLowerCase(),
+        );
+        if (nameComparison != 0) {
+          return nameComparison;
+        }
+        return a.uid.compareTo(b.uid);
+      });
+
+      if (!mounted || requestId != _orderedByMembersRequestId) {
+        return;
+      }
+
+      setState(() {
+        _orderedByMembers = members;
+        _isLoadingOrderedByMembers = false;
+        _orderedByMembersError = null;
+
+        final currentSelection = _selectedOrderedByUid;
+        final currentSelectionIsValid =
+            currentSelection != null &&
+            members.any((member) => member.uid == currentSelection);
+        final matchedInitialUid = _matchingOrderedByUid(
+          _initialOrderedByName,
+          members,
+        );
+        _selectedOrderedByUid = currentSelectionIsValid
+            ? currentSelection
+            : matchedInitialUid;
+        _legacyOrderedByName = _selectedOrderedByUid == null
+            ? _initialOrderedByName
+            : '';
+      });
+    } catch (_) {
+      if (!mounted || requestId != _orderedByMembersRequestId) {
+        return;
+      }
+
+      setState(() {
+        _isLoadingOrderedByMembers = false;
+        _orderedByMembersError = 'Could not load lab members.';
+        if (labChanged) {
+          _orderedByMembers = const [];
+          _selectedOrderedByUid = null;
+        }
+      });
+    }
   }
 
   String? _validateRequiredCas(String? value) {
@@ -1316,6 +1546,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
   @override
   void dispose() {
+    AppState.instance.removeListener(_handleAppStateChanged);
     casController.removeListener(_handleCasChanged);
     chemicalNameController.removeListener(_handleChemicalNameChanged);
     chemicalNameController.dispose();
@@ -1328,7 +1559,6 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     vendorController.dispose();
     catNumberController.dispose();
     arrivalDateController.dispose();
-    orderedByController.dispose();
     labelController.dispose();
     sheetTabController.dispose();
     carbonCountController.dispose();
@@ -2106,7 +2336,6 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       vendorController.clear();
       catNumberController.clear();
       arrivalDateController.clear();
-      orderedByController.clear();
       labelController.clear();
       sheetTabController.clear();
       carbonCountController.clear();
@@ -2125,6 +2354,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       selectedLocation = null;
       selectedTexture = null;
       selectedBottleUnit = 'g';
+      _selectedOrderedByUid = null;
+      _legacyOrderedByName = '';
       selectedFunctionalGroups = [];
       existingBottleCount = 0;
     });
@@ -2209,6 +2440,24 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       final labId =
           editChemical?.labId ??
           AppState.instance.resolveWriteLabId(widget.order?.labId);
+      if (_isLoadingOrderedByMembers ||
+          _orderedByMembersError != null ||
+          _orderedByMembers.isEmpty ||
+          _orderedByMembersLabId.trim() != labId.trim()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select who ordered this item.')),
+        );
+        return;
+      }
+
+      final orderedByMember = _selectedOrderedByMember;
+      if (orderedByMember == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please select who ordered this item.')),
+        );
+        return;
+      }
+
       final cas = _normalizeCasForLookup(casController.text);
       var label = labelController.text.trim();
       var sheetTab = sheetTabController.text.trim();
@@ -2332,7 +2581,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         vendor: _resolvedVendor,
         catNumber: catNumberController.text.trim(),
         arrivalDate: arrivalDateController.text.trim(),
-        orderedBy: orderedByController.text.trim(),
+        orderedBy: orderedByMember.displayName,
         functionalGroups: _functionalGroupsForSave(
           isExistingCasBottle: isExistingCasBottle,
         ),
@@ -2889,14 +3138,118 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     );
   }
 
-  Widget _buildOrderedByField() {
-    final colorScheme = context.colorScheme;
+  Widget _buildOrderedByStatusRow({
+    required IconData icon,
+    required String message,
+    required Color color,
+    Widget? trailing,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: TextStyle(
+                color: color,
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ?trailing,
+        ],
+      ),
+    );
+  }
 
-    return TextFormField(
-      controller: orderedByController,
-      style: TextStyle(color: colorScheme.onSurface),
-      decoration: inputDecoration('Ordered By'),
-      validator: (value) => _validateRequiredText(value, 'Enter ordered by'),
+  Widget _buildOrderedByField() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final safeSelectedUid =
+        _orderedByMembers.any((member) => member.uid == _selectedOrderedByUid)
+        ? _selectedOrderedByUid
+        : null;
+    final isDisabled =
+        _isLoadingOrderedByMembers ||
+        _orderedByMembersError != null ||
+        _orderedByMembers.isEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        DropdownButtonFormField<String>(
+          key: ValueKey(
+            'ordered_by_${_orderedByMembersLabId}_${safeSelectedUid ?? ''}_${_orderedByMembers.length}',
+          ),
+          initialValue: safeSelectedUid,
+          dropdownColor: palette.panel,
+          style: TextStyle(color: colorScheme.onSurface),
+          decoration: inputDecoration('Ordered By'),
+          hint: Text(
+            'Select lab member',
+            style: TextStyle(color: palette.mutedText),
+          ),
+          items: _orderedByMembers
+              .map(
+                (member) => DropdownMenuItem<String>(
+                  value: member.uid,
+                  child: Text(
+                    member.displayName,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: colorScheme.onSurface),
+                  ),
+                ),
+              )
+              .toList(),
+          onChanged: isDisabled
+              ? null
+              : (value) {
+                  setState(() {
+                    _selectedOrderedByUid = value;
+                    if (value != null) {
+                      _legacyOrderedByName = '';
+                    }
+                  });
+                },
+          validator: _validateOrderedBySelection,
+        ),
+        if (_isLoadingOrderedByMembers) ...[
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(999),
+            child: const LinearProgressIndicator(minHeight: 3),
+          ),
+        ] else if (_orderedByMembersError != null)
+          _buildOrderedByStatusRow(
+            icon: Icons.error_outline,
+            message: _orderedByMembersError!,
+            color: colorScheme.error,
+            trailing: TextButton(
+              onPressed: _loadOrderedByMembers,
+              child: const Text('Retry'),
+            ),
+          )
+        else if (_orderedByMembers.isEmpty)
+          _buildOrderedByStatusRow(
+            icon: Icons.group_off_outlined,
+            message: 'No active lab members are available.',
+            color: palette.mutedText,
+          ),
+        if (_legacyOrderedByName.trim().isNotEmpty &&
+            safeSelectedUid == null) ...[
+          _buildOrderedByStatusRow(
+            icon: Icons.history_outlined,
+            message:
+                'Previously recorded: $_legacyOrderedByName. Select an active lab member to continue.',
+            color: palette.mutedText,
+          ),
+        ],
+      ],
     );
   }
 
@@ -3361,6 +3714,32 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
               ),
       ),
     );
+  }
+}
+
+class _OrderedByMemberOption {
+  final String uid;
+  final String displayName;
+  final String userName;
+  final String email;
+
+  const _OrderedByMemberOption({
+    required this.uid,
+    required this.displayName,
+    required this.userName,
+    required this.email,
+  });
+
+  bool matchesStoredValue(String value) {
+    final normalizedValue = value.trim().toLowerCase();
+    if (normalizedValue.isEmpty) {
+      return false;
+    }
+
+    return normalizedValue == displayName.trim().toLowerCase() ||
+        normalizedValue == userName.trim().toLowerCase() ||
+        normalizedValue == email.trim().toLowerCase() ||
+        normalizedValue == uid.trim().toLowerCase();
   }
 }
 
