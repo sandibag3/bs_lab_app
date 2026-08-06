@@ -367,6 +367,36 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
   bool get _isCustomVendorSelected => selectedVendor == _customOption;
   bool get _isCustomLocationSelected => selectedLocation == _customOption;
 
+  void _showConfirmEntryValidationSnackBar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Please complete all required fields before confirming entry.',
+        ),
+      ),
+    );
+  }
+
+  String? _validateRequiredText(String? value, String errorText) {
+    if (value == null || value.trim().isEmpty) {
+      return errorText;
+    }
+    return null;
+  }
+
+  String? _validateRequiredDropdown(String? value, String errorText) {
+    return _validateRequiredText(value, errorText);
+  }
+
+  String? _validatePositiveQuantity(String? value) {
+    final cleanValue = value?.trim() ?? '';
+    final parsedValue = _readQuantityNumber(cleanValue);
+    if (cleanValue.isEmpty || parsedValue == null || parsedValue <= 0) {
+      return 'Enter valid quantity';
+    }
+    return null;
+  }
+
   Future<void> _loadExistingDropdownOptions() async {
     try {
       final docs = await _consumablesInventoryService
@@ -488,7 +518,13 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
 
   Future<void> submitConsumableEntry() async {
     if (isSaving) return;
-    if (!_formKey.currentState!.validate()) return;
+
+    FocusScope.of(context).unfocus();
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid) {
+      _showConfirmEntryValidationSnackBar();
+      return;
+    }
 
     final order = widget.order;
     final labId = AppState.instance.resolveWriteLabId(order.labId);
@@ -502,18 +538,12 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
     final orderedBy = orderedByController.text.trim();
 
     if (consumableType.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Consumable type is required.')),
-      );
+      _showConfirmEntryValidationSnackBar();
       return;
     }
 
     if (quantityAdded == null || quantityAdded <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Quantity must be numeric and greater than 0.'),
-        ),
-      );
+      _showConfirmEntryValidationSnackBar();
       return;
     }
 
@@ -644,18 +674,18 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
                 controller: consumableTypeController,
                 style: TextStyle(color: colorScheme.onSurface),
                 decoration: inputDecoration('Specification / Size'),
+                validator: (value) =>
+                    _validateRequiredText(value, 'Enter specification / size'),
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: quantityController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 style: TextStyle(color: colorScheme.onSurface),
                 decoration: inputDecoration('Quantity'),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Enter quantity';
-                  }
-                  return null;
-                },
+                validator: _validatePositiveQuantity,
               ),
               const SizedBox(height: 14),
               _buildCustomizableDropdown(
@@ -668,6 +698,8 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
                     selectedBrand = value;
                   });
                 },
+                validator: (value) =>
+                    _validateRequiredDropdown(value, 'Select brand'),
               ),
               const SizedBox(height: 14),
               if (_isCustomBrandSelected) ...[
@@ -688,6 +720,8 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
                     selectedVendor = value;
                   });
                 },
+                validator: (value) =>
+                    _validateRequiredDropdown(value, 'Select vendor'),
               ),
               const SizedBox(height: 14),
               if (_isCustomVendorSelected) ...[
@@ -708,6 +742,8 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
                     selectedLocation = value;
                   });
                 },
+                validator: (value) =>
+                    _validateRequiredDropdown(value, 'Select storage location'),
               ),
               const SizedBox(height: 14),
               if (_isCustomLocationSelected) ...[
@@ -722,12 +758,16 @@ class _AddNewConsumableScreenState extends State<AddNewConsumableScreen> {
                 controller: modeOfPurchaseController,
                 style: TextStyle(color: colorScheme.onSurface),
                 decoration: inputDecoration('Mode of Purchase'),
+                validator: (value) =>
+                    _validateRequiredText(value, 'Enter mode of purchase'),
               ),
               const SizedBox(height: 14),
               TextFormField(
                 controller: orderedByController,
                 style: TextStyle(color: colorScheme.onSurface),
                 decoration: inputDecoration('Ordered By'),
+                validator: (value) =>
+                    _validateRequiredText(value, 'Enter ordered by'),
               ),
               const SizedBox(height: 18),
               Container(

@@ -344,6 +344,45 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     manualConsumableNameController.clear();
   }
 
+  void _showRequiredFieldsSnackBar() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Please complete all required fields before submitting.'),
+      ),
+    );
+  }
+
+  String? _validateRequiredCas(String? value) {
+    final cleanValue = value?.trim() ?? '';
+    if (cleanValue.isEmpty) {
+      return 'Enter CAS number';
+    }
+    if (RegExp(r'[A-Za-z]').hasMatch(cleanValue) ||
+        !RegExp(r'^[0-9-]+$').hasMatch(cleanValue) ||
+        !cleanValue.contains('-')) {
+      return 'Enter a valid CAS number';
+    }
+    return null;
+  }
+
+  String? _validatePositiveNumber(
+    String? value, {
+    required String emptyMessage,
+    required String invalidMessage,
+  }) {
+    final cleanValue = value?.trim() ?? '';
+    if (cleanValue.isEmpty) {
+      return emptyMessage;
+    }
+
+    final parsedValue = double.tryParse(cleanValue);
+    if (parsedValue == null || parsedValue <= 0) {
+      return invalidMessage;
+    }
+
+    return null;
+  }
+
   InputDecoration inputDecoration(String label, {Widget? suffixIcon}) {
     final palette = context.labmate;
 
@@ -501,6 +540,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
     required String errorText,
     TextInputType? keyboardType,
     TextCapitalization textCapitalization = TextCapitalization.words,
+    String? Function(String?)? validator,
   }) {
     final colorScheme = context.colorScheme;
     return TextFormField(
@@ -509,12 +549,14 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
       decoration: inputDecoration(label),
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
-      validator: (value) {
-        if (value == null || value.trim().isEmpty) {
-          return errorText;
-        }
-        return null;
-      },
+      validator:
+          validator ??
+          (value) {
+            if (value == null || value.trim().isEmpty) {
+              return errorText;
+            }
+            return null;
+          },
       onChanged: (_) {
         if (controller == customConsumableCategoryController) {
           setState(() {
@@ -805,19 +847,21 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
   }
 
   Future<void> submitRequirement() async {
-    if (!_formKey.currentState!.validate()) return;
     if (_isSubmitting) return;
+
+    FocusScope.of(context).unfocus();
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid) {
+      _showRequiredFieldsSnackBar();
+      return;
+    }
 
     final consumableTypeValue = selectedMainType == 'consumable'
         ? _buildConsumableTypeValue()
         : '';
 
     if (selectedMainType == 'consumable' && consumableTypeValue.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Select a valid consumable category and variant'),
-        ),
-      );
+      _showRequiredFieldsSnackBar();
       return;
     }
 
@@ -994,10 +1038,7 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
           ),
         ),
         validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return 'Enter CAS No or NA';
-          }
-          return null;
+          return _validateRequiredCas(value);
         },
       ),
       const SizedBox(height: 14),
@@ -1019,12 +1060,6 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
         controller: catalogNoController,
         style: TextStyle(color: colorScheme.onSurface),
         decoration: inputDecoration('Catalog No'),
-        validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return 'Enter catalog number';
-          }
-          return null;
-        },
       ),
       const SizedBox(height: 14),
       buildCustomizableDropdown(
@@ -1259,6 +1294,11 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
           errorText: 'Enter quantity',
           keyboardType: TextInputType.number,
           textCapitalization: TextCapitalization.none,
+          validator: (value) => _validatePositiveNumber(
+            value,
+            emptyMessage: 'Enter quantity',
+            invalidMessage: 'Enter a valid quantity',
+          ),
         ),
         const SizedBox(height: 14),
       ],
@@ -1269,13 +1309,11 @@ class _AddRequirementScreenState extends State<AddRequirementScreen> {
         decoration: inputDecoration('Estimated Cost'),
         onChanged: (_) => setState(() {}),
         validator: (value) {
-          if (value == null || value.trim().isEmpty) {
-            return 'Enter estimated cost';
-          }
-          if (double.tryParse(value.trim()) == null) {
-            return 'Enter a valid number';
-          }
-          return null;
+          return _validatePositiveNumber(
+            value,
+            emptyMessage: 'Enter estimated cost',
+            invalidMessage: 'Enter a valid estimated cost',
+          );
         },
       ),
       const SizedBox(height: 14),

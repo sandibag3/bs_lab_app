@@ -487,10 +487,117 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     return selectedCategory.trim();
   }
 
+  bool get _isCreatingChemicalEntry => widget.editChemical == null;
+
   bool get _isCustomBrandSelected => selectedBrand == _customOption;
   bool get _isCustomVendorSelected => selectedVendor == _customOption;
   bool get _isCustomLocationSelected => selectedLocation == _customOption;
   bool get _isCustomCategorySelected => selectedCategory == _customOption;
+
+  void _showEntryValidationSnackBar({required bool isEditMode}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          isEditMode
+              ? 'Please complete all required fields before saving changes.'
+              : 'Please complete all required fields before confirming entry.',
+        ),
+      ),
+    );
+  }
+
+  String? _validateRequiredText(
+    String? value,
+    String errorText, {
+    bool creationOnly = true,
+  }) {
+    if (creationOnly && !_isCreatingChemicalEntry) {
+      return null;
+    }
+    if (value == null || value.trim().isEmpty) {
+      return errorText;
+    }
+    return null;
+  }
+
+  String? _validateRequiredDropdown(
+    String? value,
+    String errorText, {
+    bool creationOnly = true,
+  }) {
+    return _validateRequiredText(value, errorText, creationOnly: creationOnly);
+  }
+
+  String? _validateRequiredCas(String? value) {
+    if (!_isCreatingChemicalEntry) {
+      return null;
+    }
+
+    final cleanValue = value?.trim() ?? '';
+    if (cleanValue.isEmpty) {
+      return 'Enter CAS number';
+    }
+    if (RegExp(r'[A-Za-z]').hasMatch(cleanValue) ||
+        !RegExp(r'^[0-9-]+$').hasMatch(cleanValue) ||
+        !cleanValue.contains('-')) {
+      return 'Enter a valid CAS number';
+    }
+    return null;
+  }
+
+  String? _validatePositiveInteger(String? value, String errorText) {
+    if (!_isCreatingChemicalEntry) {
+      return null;
+    }
+
+    final cleanValue = value?.trim() ?? '';
+    final parsedValue = int.tryParse(cleanValue);
+    if (cleanValue.isEmpty || parsedValue == null || parsedValue <= 0) {
+      return errorText;
+    }
+    return null;
+  }
+
+  String? _validatePositiveDecimal(String? value, String errorText) {
+    if (!_isCreatingChemicalEntry) {
+      return null;
+    }
+
+    final cleanValue = value?.trim() ?? '';
+    final parsedValue = double.tryParse(cleanValue);
+    if (cleanValue.isEmpty || parsedValue == null || parsedValue <= 0) {
+      return errorText;
+    }
+    return null;
+  }
+
+  String? _validateGeneratedLabel(String? value) {
+    if (!_isCreatingChemicalEntry) {
+      return null;
+    }
+
+    final cleanValue = value?.trim() ?? '';
+    if (cleanValue.isEmpty ||
+        cleanValue.toLowerCase() == 'could not auto-generate') {
+      return 'Generate chemical label';
+    }
+    return null;
+  }
+
+  String? _validateArrivalDate(String? value) {
+    if (!_isCreatingChemicalEntry) {
+      return null;
+    }
+
+    final cleanValue = value?.trim() ?? '';
+    if (cleanValue.isEmpty) {
+      return 'Select arrival date';
+    }
+    if (_parseArrivalDate(cleanValue) == null) {
+      return 'Select a valid arrival date';
+    }
+    return null;
+  }
 
   void _setInitialCategoryFromPrefill(String sheetTab) {
     final category = _categoryFromSheetTab(sheetTab);
@@ -1743,7 +1850,12 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       sheetTabController.text = _getSheetTabFromSelection();
     }
 
-    if (!_formKey.currentState!.validate()) return;
+    FocusScope.of(context).unfocus();
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid) {
+      _showEntryValidationSnackBar(isEditMode: isEditMode);
+      return;
+    }
 
     setState(() {
       isSaving = true;
@@ -1976,6 +2088,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       controller: casController,
       style: TextStyle(color: colorScheme.onSurface),
       decoration: inputDecoration('CAS No'),
+      validator: _validateRequiredCas,
     );
   }
 
@@ -2015,6 +2128,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
         await _generateLabelForNewChemical();
       },
+      validator: (value) =>
+          _validateRequiredDropdown(value, 'Select chemical type'),
     );
   }
 
@@ -2146,6 +2261,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           selectedBrand = value;
         });
       },
+      validator: (value) => _validateRequiredDropdown(value, 'Select brand'),
     );
   }
 
@@ -2170,6 +2286,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           selectedVendor = value;
         });
       },
+      validator: (value) => _validateRequiredDropdown(value, 'Select vendor'),
     );
   }
 
@@ -2178,8 +2295,11 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
 
     return TextFormField(
       controller: quantityController,
+      keyboardType: TextInputType.number,
       style: TextStyle(color: colorScheme.onSurface),
       decoration: inputDecoration('Number of bottles'),
+      validator: (value) =>
+          _validatePositiveInteger(value, 'Enter valid bottle count'),
     );
   }
 
@@ -2197,6 +2317,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: TextStyle(color: colorScheme.onSurface),
             decoration: inputDecoration('Bottle size/amount'),
+            validator: (value) =>
+                _validatePositiveDecimal(value, 'Enter valid bottle size'),
           ),
         ),
         const SizedBox(width: 12),
@@ -2225,6 +2347,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
                 selectedBottleUnit = value;
               });
             },
+            validator: (value) =>
+                _validateRequiredDropdown(value, 'Select bottle size unit'),
           ),
         ),
       ],
@@ -2239,6 +2363,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       readOnly: true,
       style: TextStyle(color: colorScheme.onSurface),
       decoration: inputDecoration('Generated Label'),
+      validator: _validateGeneratedLabel,
     );
   }
 
@@ -2286,6 +2411,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           selectedTexture = value;
         });
       },
+      validator: (value) =>
+          _validateRequiredDropdown(value, 'Select texture / physical state'),
     );
   }
 
@@ -2305,6 +2432,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
           size: 20,
         ),
       ),
+      validator: _validateArrivalDate,
     );
   }
 
@@ -2315,6 +2443,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       controller: orderedByController,
       style: TextStyle(color: colorScheme.onSurface),
       decoration: inputDecoration('Ordered By'),
+      validator: (value) => _validateRequiredText(value, 'Enter ordered by'),
     );
   }
 
