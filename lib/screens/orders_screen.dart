@@ -47,6 +47,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   String get _activeLabId => AppState.instance.selectedLabId.trim();
 
+  bool get _canAccessFundsAndExpenditure =>
+      AppState.instance.canAccessFundsAndExpenditure;
+
   String _resolvePurchaseOrderCreatorIdentity() {
     final appState = AppState.instance;
     final userId = appState.authenticatedUserId.trim();
@@ -549,7 +552,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
 
   bool _canRecordActualCost(OrderModel order) {
     final cleanTransactionId = order.fundAdjustmentTransactionId?.trim() ?? '';
-    return AppState.instance.isPiAdmin &&
+    return _canAccessFundsAndExpenditure &&
         order.status.trim().toLowerCase() == 'delivered' &&
         !order.costReconciled &&
         cleanTransactionId.isEmpty &&
@@ -572,6 +575,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Future<void> _openRecordActualCostFlow(OrderModel order) async {
+    if (!_canAccessFundsAndExpenditure) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(FirestoreAccessGuard.fundsAndExpenditureMessage),
+        ),
+      );
+      return;
+    }
+
     if (order.isCostManagedThroughPurchaseOrder) {
       final purchaseOrderLabel = order.purchaseOrderDisplayLabel.trim();
       final message = purchaseOrderLabel.isEmpty
@@ -707,6 +719,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
       selectedOrders: selectedOrders,
       userIdentity: userIdentity,
       summary: summary,
+      canViewFinancialDetails: _canAccessFundsAndExpenditure,
       purchaseOrderService: _purchaseOrderService,
     );
 
@@ -757,6 +770,15 @@ class _OrdersScreenState extends State<OrdersScreen> {
   }
 
   Future<void> _openLegacyOrderRepairFlow() async {
+    if (!_canAccessFundsAndExpenditure) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(FirestoreAccessGuard.fundsAndExpenditureMessage),
+        ),
+      );
+      return;
+    }
+
     final result = await showDialog<OrderFinancialBackfillResult>(
       context: context,
       barrierDismissible: false,
@@ -1146,6 +1168,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     final colorScheme = context.colorScheme;
     final summary = _buildPurchaseOrderSelectionSummary(selectedOrders);
     final hasSelection = selectedOrders.isNotEmpty;
+    final canViewFinancialDetails = _canAccessFundsAndExpenditure;
 
     final actionRow = isDesktop
         ? Row(
@@ -1212,27 +1235,39 @@ class _OrdersScreenState extends State<OrdersScreen> {
                         ),
                       ),
                       const SizedBox(height: 6),
-                      Text(
-                        hasSelection
-                            ? 'Selected fund: ${summary.fundName}'
-                            : 'Selected fund: Choose an eligible order to lock a fund',
-                        style: TextStyle(
-                          color: palette.mutedText,
-                          fontSize: 12.8,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      if ((summary.fundCode ?? '').isNotEmpty) ...[
-                        const SizedBox(height: 3),
+                      if (canViewFinancialDetails) ...[
                         Text(
-                          'Fund code: ${summary.fundCode}',
+                          hasSelection
+                              ? 'Selected fund: ${summary.fundName}'
+                              : 'Selected fund: Choose an eligible order to lock a fund',
                           style: TextStyle(
                             color: palette.mutedText,
-                            fontSize: 12.4,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 12.8,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ],
+                        if ((summary.fundCode ?? '').isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            'Fund code: ${summary.fundCode}',
+                            style: TextStyle(
+                              color: palette.mutedText,
+                              fontSize: 12.4,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ] else
+                        Text(
+                          hasSelection
+                              ? 'Selected orders will be grouped using their existing PO eligibility.'
+                              : 'Choose eligible orders to create a Purchase Order folder.',
+                          style: TextStyle(
+                            color: palette.mutedText,
+                            fontSize: 12.8,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -1250,27 +1285,39 @@ class _OrdersScreenState extends State<OrdersScreen> {
               ),
             ),
             const SizedBox(height: 6),
-            Text(
-              hasSelection
-                  ? 'Selected fund: ${summary.fundName}'
-                  : 'Selected fund: Choose an eligible order to lock a fund',
-              style: TextStyle(
-                color: palette.mutedText,
-                fontSize: 12.8,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            if ((summary.fundCode ?? '').isNotEmpty) ...[
-              const SizedBox(height: 3),
+            if (canViewFinancialDetails) ...[
               Text(
-                'Fund code: ${summary.fundCode}',
+                hasSelection
+                    ? 'Selected fund: ${summary.fundName}'
+                    : 'Selected fund: Choose an eligible order to lock a fund',
                 style: TextStyle(
                   color: palette.mutedText,
-                  fontSize: 12.4,
-                  fontWeight: FontWeight.w600,
+                  fontSize: 12.8,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-            ],
+              if ((summary.fundCode ?? '').isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(
+                  'Fund code: ${summary.fundCode}',
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 12.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ] else
+              Text(
+                hasSelection
+                    ? 'Selected orders will be grouped using their existing PO eligibility.'
+                    : 'Choose eligible orders to create a Purchase Order folder.',
+                style: TextStyle(
+                  color: palette.mutedText,
+                  fontSize: 12.8,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             const SizedBox(height: 12),
             actionRow,
           ],
@@ -1447,7 +1494,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                     SizedBox(width: 188, child: _buildViewToggle()),
                     SizedBox(width: 180, child: _buildSortDropdown()),
                     _buildFilterToggleButton(isExpanded: showFilters),
-                    if (AppState.instance.isPiAdmin)
+                    if (_canAccessFundsAndExpenditure)
                       _buildLegacyOrderRepairButton(),
                     if (!_purchaseOrderSelectionMode)
                       _buildPurchaseOrderSelectionEntryButton(),
@@ -1473,7 +1520,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
                 SizedBox(width: 188, child: _buildViewToggle()),
                 SizedBox(width: 180, child: _buildSortDropdown()),
                 _buildFilterToggleButton(isExpanded: showFilters),
-                if (AppState.instance.isPiAdmin)
+                if (_canAccessFundsAndExpenditure)
                   _buildLegacyOrderRepairButton(),
                 if (!_purchaseOrderSelectionMode)
                   _buildPurchaseOrderSelectionEntryButton(),
@@ -1642,6 +1689,10 @@ class _OrdersScreenState extends State<OrdersScreen> {
     required OrderModel order,
     bool isCompact = false,
   }) {
+    if (!_canAccessFundsAndExpenditure) {
+      return null;
+    }
+
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
     final fundName = order.fundNameSnapshot?.trim() ?? '';
@@ -2918,6 +2969,7 @@ class _CreatePurchaseOrderSheet extends StatefulWidget {
     required this.selectedOrders,
     required this.userIdentity,
     required this.summary,
+    required this.canViewFinancialDetails,
     required this.purchaseOrderService,
   });
 
@@ -2925,6 +2977,7 @@ class _CreatePurchaseOrderSheet extends StatefulWidget {
   final List<OrderModel> selectedOrders;
   final String userIdentity;
   final _PurchaseOrderSelectionSummary summary;
+  final bool canViewFinancialDetails;
   final PurchaseOrderService purchaseOrderService;
 
   @override
@@ -3156,27 +3209,40 @@ class _CreatePurchaseOrderSheetState extends State<_CreatePurchaseOrderSheet> {
                                   label: 'Selected orders',
                                   value: '${summary.orderCount}',
                                 ),
-                                _OrderInfoLine(
-                                  label: 'Selected fund',
-                                  value: summary.fundName,
-                                ),
-                                if ((summary.fundCode ?? '').isNotEmpty)
+                                if (widget.canViewFinancialDetails) ...[
                                   _OrderInfoLine(
-                                    label: 'Fund code',
-                                    value: summary.fundCode!,
+                                    label: 'Selected fund',
+                                    value: summary.fundName,
                                   ),
-                                _OrderInfoLine(
-                                  label: 'Estimated total',
-                                  value: _formatIndianCurrency(
-                                    summary.estimatedTotal,
+                                  if ((summary.fundCode ?? '').isNotEmpty)
+                                    _OrderInfoLine(
+                                      label: 'Fund code',
+                                      value: summary.fundCode!,
+                                    ),
+                                  _OrderInfoLine(
+                                    label: 'Estimated total',
+                                    value: _formatIndianCurrency(
+                                      summary.estimatedTotal,
+                                    ),
                                   ),
-                                ),
-                                _OrderInfoLine(
-                                  label: 'Allocated total',
-                                  value: _formatIndianCurrency(
-                                    summary.allocatedTotal,
+                                  _OrderInfoLine(
+                                    label: 'Allocated total',
+                                    value: _formatIndianCurrency(
+                                      summary.allocatedTotal,
+                                    ),
                                   ),
-                                ),
+                                ] else ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Financial fund and allocation details are visible only to the Principal Investigator.',
+                                    style: TextStyle(
+                                      color: palette.mutedText,
+                                      fontSize: 12.9,
+                                      height: 1.35,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),

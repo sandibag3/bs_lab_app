@@ -87,6 +87,9 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
     });
   }
 
+  bool get _canViewFinancialDetails =>
+      AppState.instance.canAccessFundsAndExpenditure;
+
   bool _matchesStatusFilter(PurchaseOrderModel purchaseOrder) {
     if (_statusFilter == _PurchaseOrderStatusFilter.all) {
       return true;
@@ -120,10 +123,14 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
       purchaseOrder.institutePoNumber ?? '',
       purchaseOrder.indentNumber ?? '',
       purchaseOrder.title ?? '',
-      purchaseOrder.fundNameSnapshot,
-      purchaseOrder.fundCodeSnapshot ?? '',
       purchaseOrder.vendor ?? '',
     ];
+    if (_canViewFinancialDetails) {
+      haystacks.addAll([
+        purchaseOrder.fundNameSnapshot,
+        purchaseOrder.fundCodeSnapshot ?? '',
+      ]);
+    }
 
     return haystacks.any((value) => value.toLowerCase().contains(cleanQuery));
   }
@@ -199,109 +206,130 @@ class _PurchaseOrdersScreenState extends State<PurchaseOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Purchase Orders')),
-      body: SafeArea(
-        child: ResponsivePageContainer(
-          maxWidth: 1120,
-          child: StreamBuilder<List<PurchaseOrderModel>>(
-            stream: _purchaseOrdersStream,
-            builder: (context, snapshot) {
-              if (snapshot.hasError) {
-                return _PurchaseOrdersErrorState(
-                  detail: _errorDetail(snapshot.error),
-                  onRetry: _refreshStream,
-                );
-              }
+    return AnimatedBuilder(
+      animation: AppState.instance,
+      builder: (context, _) {
+        final canViewFinancialDetails = _canViewFinancialDetails;
 
-              if (snapshot.connectionState == ConnectionState.waiting &&
-                  !snapshot.hasData) {
-                return const _PurchaseOrdersLoadingState();
-              }
+        return Scaffold(
+          appBar: AppBar(title: const Text('Purchase Orders')),
+          body: SafeArea(
+            child: ResponsivePageContainer(
+              maxWidth: 1120,
+              child: StreamBuilder<List<PurchaseOrderModel>>(
+                stream: _purchaseOrdersStream,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return _PurchaseOrdersErrorState(
+                      detail: _errorDetail(snapshot.error),
+                      onRetry: _refreshStream,
+                    );
+                  }
 
-              final purchaseOrders =
-                  snapshot.data ?? const <PurchaseOrderModel>[];
-              final filteredPurchaseOrders = _applyFilters(purchaseOrders);
-              final summary = _PurchaseOrdersSummary.fromPurchaseOrders(
-                purchaseOrders,
-              );
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData) {
+                    return const _PurchaseOrdersLoadingState();
+                  }
 
-              if (purchaseOrders.isEmpty) {
-                return const _PurchaseOrdersEmptyState();
-              }
-
-              return LayoutBuilder(
-                builder: (context, constraints) {
-                  final isDesktop = constraints.maxWidth >= 900;
-                  final pagePadding = isDesktop ? 12.0 : 16.0;
-                  final sectionGap = isDesktop ? 12.0 : 16.0;
-                  final analyticsExpanded =
-                      _analyticsExpandedPreference ?? isDesktop;
-                  final analytics = _PurchaseOrderAnalytics.fromPurchaseOrders(
+                  final purchaseOrders =
+                      snapshot.data ?? const <PurchaseOrderModel>[];
+                  final filteredPurchaseOrders = _applyFilters(purchaseOrders);
+                  final summary = _PurchaseOrdersSummary.fromPurchaseOrders(
                     purchaseOrders,
                   );
 
-                  return ListView(
-                    padding: EdgeInsets.all(pagePadding),
-                    children: [
-                      _PurchaseOrdersSummarySection(summary: summary),
-                      SizedBox(height: sectionGap),
-                      _PurchaseOrdersAnalyticsSection(
-                        analytics: analytics,
-                        isExpanded: analyticsExpanded,
-                        onToggleExpanded: () =>
-                            _toggleAnalyticsExpanded(analyticsExpanded),
-                      ),
-                      SizedBox(height: sectionGap),
-                      _PurchaseOrdersFilterSection(
-                        searchController: _searchController,
-                        searchQuery: _searchQuery,
-                        selectedFilter: _statusFilter,
-                        allCount: purchaseOrders.length,
-                        visibleCount: filteredPurchaseOrders.length,
-                        onSearchChanged: (value) {
-                          setState(() {
-                            _searchQuery = value;
-                          });
-                        },
-                        onClearSearch: () {
-                          setState(() {
-                            _searchQuery = '';
-                            _searchController.clear();
-                          });
-                        },
-                        onFilterSelected: _selectStatusFilter,
-                      ),
-                      SizedBox(height: sectionGap),
-                      if (filteredPurchaseOrders.isEmpty)
-                        const _PurchaseOrdersFilteredEmptyState()
-                      else
-                        ...filteredPurchaseOrders.map(
-                          (purchaseOrder) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _PurchaseOrderCard(
-                              purchaseOrder: purchaseOrder,
-                              onTap: () =>
-                                  _openPurchaseOrderDetails(purchaseOrder),
-                            ),
+                  if (purchaseOrders.isEmpty) {
+                    return const _PurchaseOrdersEmptyState();
+                  }
+
+                  return LayoutBuilder(
+                    builder: (context, constraints) {
+                      final isDesktop = constraints.maxWidth >= 900;
+                      final pagePadding = isDesktop ? 12.0 : 16.0;
+                      final sectionGap = isDesktop ? 12.0 : 16.0;
+                      final analyticsExpanded =
+                          _analyticsExpandedPreference ?? isDesktop;
+                      final analytics = canViewFinancialDetails
+                          ? _PurchaseOrderAnalytics.fromPurchaseOrders(
+                              purchaseOrders,
+                            )
+                          : null;
+
+                      return ListView(
+                        padding: EdgeInsets.all(pagePadding),
+                        children: [
+                          _PurchaseOrdersSummarySection(
+                            summary: summary,
+                            canViewFinancialDetails: canViewFinancialDetails,
                           ),
-                        ),
-                    ],
+                          if (analytics != null) ...[
+                            SizedBox(height: sectionGap),
+                            _PurchaseOrdersAnalyticsSection(
+                              analytics: analytics,
+                              isExpanded: analyticsExpanded,
+                              onToggleExpanded: () =>
+                                  _toggleAnalyticsExpanded(analyticsExpanded),
+                            ),
+                          ],
+                          SizedBox(height: sectionGap),
+                          _PurchaseOrdersFilterSection(
+                            searchController: _searchController,
+                            searchQuery: _searchQuery,
+                            selectedFilter: _statusFilter,
+                            allCount: purchaseOrders.length,
+                            visibleCount: filteredPurchaseOrders.length,
+                            canViewFinancialDetails: canViewFinancialDetails,
+                            onSearchChanged: (value) {
+                              setState(() {
+                                _searchQuery = value;
+                              });
+                            },
+                            onClearSearch: () {
+                              setState(() {
+                                _searchQuery = '';
+                                _searchController.clear();
+                              });
+                            },
+                            onFilterSelected: _selectStatusFilter,
+                          ),
+                          SizedBox(height: sectionGap),
+                          if (filteredPurchaseOrders.isEmpty)
+                            const _PurchaseOrdersFilteredEmptyState()
+                          else
+                            ...filteredPurchaseOrders.map(
+                              (purchaseOrder) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: _PurchaseOrderCard(
+                                  purchaseOrder: purchaseOrder,
+                                  canViewFinancialDetails:
+                                      canViewFinancialDetails,
+                                  onTap: () =>
+                                      _openPurchaseOrderDetails(purchaseOrder),
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   );
                 },
-              );
-            },
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 }
 
 class _PurchaseOrdersSummarySection extends StatelessWidget {
-  const _PurchaseOrdersSummarySection({required this.summary});
+  const _PurchaseOrdersSummarySection({
+    required this.summary,
+    required this.canViewFinancialDetails,
+  });
 
   final _PurchaseOrdersSummary summary;
+  final bool canViewFinancialDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -346,37 +374,41 @@ class _PurchaseOrdersSummarySection extends StatelessWidget {
             value: '${summary.completedCount}',
             accentColor: const Color(0xFF10B981),
           ),
-          _SummaryCardData(
-            icon: Icons.calculate_outlined,
-            label: 'Estimated Value',
-            value: _formatIndianCurrency(summary.estimatedValue),
-            accentColor: const Color(0xFF14B8A6),
-          ),
-          _SummaryCardData(
-            icon: Icons.account_balance_wallet_outlined,
-            label: 'Allocated Value',
-            value: _formatIndianCurrency(summary.allocatedValue),
-            accentColor: const Color(0xFFF97316),
-          ),
-          _SummaryCardData(
-            icon: Icons.payments_outlined,
-            label: 'Actual Expenditure',
-            value: _formatIndianCurrency(summary.actualExpenditure),
-            accentColor: const Color(0xFFEF4444),
-          ),
-          _SummaryCardData(
-            icon: Icons.south_west_rounded,
-            label: 'Total Savings',
-            value: _formatIndianCurrency(summary.totalSavings),
-            accentColor: const Color(0xFF10B981),
-          ),
-          _SummaryCardData(
-            icon: Icons.north_east_rounded,
-            label: 'Additional Expenditure',
-            value: _formatIndianCurrency(summary.additionalExpenditure),
-            accentColor: const Color(0xFFF97316),
-          ),
         ];
+        if (canViewFinancialDetails) {
+          cards.addAll([
+            _SummaryCardData(
+              icon: Icons.calculate_outlined,
+              label: 'Estimated Value',
+              value: _formatIndianCurrency(summary.estimatedValue),
+              accentColor: const Color(0xFF14B8A6),
+            ),
+            _SummaryCardData(
+              icon: Icons.account_balance_wallet_outlined,
+              label: 'Allocated Value',
+              value: _formatIndianCurrency(summary.allocatedValue),
+              accentColor: const Color(0xFFF97316),
+            ),
+            _SummaryCardData(
+              icon: Icons.payments_outlined,
+              label: 'Actual Expenditure',
+              value: _formatIndianCurrency(summary.actualExpenditure),
+              accentColor: const Color(0xFFEF4444),
+            ),
+            _SummaryCardData(
+              icon: Icons.south_west_rounded,
+              label: 'Total Savings',
+              value: _formatIndianCurrency(summary.totalSavings),
+              accentColor: const Color(0xFF10B981),
+            ),
+            _SummaryCardData(
+              icon: Icons.north_east_rounded,
+              label: 'Additional Expenditure',
+              value: _formatIndianCurrency(summary.additionalExpenditure),
+              accentColor: const Color(0xFFF97316),
+            ),
+          ]);
+        }
 
         return Wrap(
           spacing: spacing,
@@ -402,6 +434,7 @@ class _PurchaseOrdersFilterSection extends StatelessWidget {
     required this.selectedFilter,
     required this.allCount,
     required this.visibleCount,
+    required this.canViewFinancialDetails,
     required this.onSearchChanged,
     required this.onClearSearch,
     required this.onFilterSelected,
@@ -412,6 +445,7 @@ class _PurchaseOrdersFilterSection extends StatelessWidget {
   final _PurchaseOrderStatusFilter selectedFilter;
   final int allCount;
   final int visibleCount;
+  final bool canViewFinancialDetails;
   final ValueChanged<String> onSearchChanged;
   final VoidCallback onClearSearch;
   final ValueChanged<_PurchaseOrderStatusFilter> onFilterSelected;
@@ -446,8 +480,9 @@ class _PurchaseOrdersFilterSection extends StatelessWidget {
             onChanged: onSearchChanged,
             style: TextStyle(color: colorScheme.onSurface),
             decoration: InputDecoration(
-              hintText:
-                  'Search folder number, institute PO, indent, title, fund, fund code, or vendor',
+              hintText: canViewFinancialDetails
+                  ? 'Search folder number, institute PO, indent, title, fund, fund code, or vendor'
+                  : 'Search folder number, institute PO, indent, title, or vendor',
               prefixIcon: const Icon(Icons.search_rounded),
               suffixIcon: searchQuery.trim().isEmpty
                   ? null
@@ -510,9 +545,14 @@ class _PurchaseOrdersFilterSection extends StatelessWidget {
 }
 
 class _PurchaseOrderCard extends StatelessWidget {
-  const _PurchaseOrderCard({required this.purchaseOrder, required this.onTap});
+  const _PurchaseOrderCard({
+    required this.purchaseOrder,
+    required this.canViewFinancialDetails,
+    required this.onTap,
+  });
 
   final PurchaseOrderModel purchaseOrder;
+  final bool canViewFinancialDetails;
   final VoidCallback onTap;
 
   @override
@@ -602,11 +642,12 @@ class _PurchaseOrderCard extends StatelessWidget {
                 spacing: 12,
                 runSpacing: 8,
                 children: [
-                  _InfoChip(
-                    label: 'Fund',
-                    value: purchaseOrder.fundNameSnapshot,
-                  ),
-                  if (fundCode.isNotEmpty)
+                  if (canViewFinancialDetails)
+                    _InfoChip(
+                      label: 'Fund',
+                      value: purchaseOrder.fundNameSnapshot,
+                    ),
+                  if (canViewFinancialDetails && fundCode.isNotEmpty)
                     _InfoChip(label: 'Fund code', value: fundCode),
                   _InfoChip(
                     label: 'Orders',
@@ -622,49 +663,57 @@ class _PurchaseOrderCard extends StatelessWidget {
                     _InfoChip(label: 'Vendor', value: vendor),
                 ],
               ),
-              const SizedBox(height: 12),
-              Wrap(
-                spacing: 14,
-                runSpacing: 8,
-                children: [
-                  _MetricLine(
-                    label: 'Estimated total',
-                    value: _formatIndianCurrency(purchaseOrder.estimatedTotal),
-                  ),
-                  _MetricLine(
-                    label: 'Allocated total',
-                    value: _formatIndianCurrency(purchaseOrder.allocatedTotal),
-                  ),
-                  if (purchaseOrder.hasActualCost)
+              if (canViewFinancialDetails) ...[
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 14,
+                  runSpacing: 8,
+                  children: [
                     _MetricLine(
-                      label: 'Actual total',
+                      label: 'Estimated total',
                       value: _formatIndianCurrency(
-                        purchaseOrder.actualTotal ?? 0.0,
+                        purchaseOrder.estimatedTotal,
                       ),
                     ),
-                  if (purchaseOrder.hasActualCost &&
-                      purchaseOrder.savingsAmount > 0)
                     _MetricLine(
-                      label: 'Savings',
-                      value: _formatIndianCurrency(purchaseOrder.savingsAmount),
-                    ),
-                  if (purchaseOrder.hasActualCost &&
-                      purchaseOrder.additionalExpenditure > 0)
-                    _MetricLine(
-                      label: 'Additional expenditure',
+                      label: 'Allocated total',
                       value: _formatIndianCurrency(
-                        purchaseOrder.additionalExpenditure,
+                        purchaseOrder.allocatedTotal,
                       ),
                     ),
-                  if (purchaseOrder.hasActualCost &&
-                      purchaseOrder.savingsAmount == 0 &&
-                      purchaseOrder.additionalExpenditure == 0)
-                    const _MetricLine(
-                      label: 'Reconciliation',
-                      value: 'Matched allocation',
-                    ),
-                ],
-              ),
+                    if (purchaseOrder.hasActualCost)
+                      _MetricLine(
+                        label: 'Actual total',
+                        value: _formatIndianCurrency(
+                          purchaseOrder.actualTotal ?? 0.0,
+                        ),
+                      ),
+                    if (purchaseOrder.hasActualCost &&
+                        purchaseOrder.savingsAmount > 0)
+                      _MetricLine(
+                        label: 'Savings',
+                        value: _formatIndianCurrency(
+                          purchaseOrder.savingsAmount,
+                        ),
+                      ),
+                    if (purchaseOrder.hasActualCost &&
+                        purchaseOrder.additionalExpenditure > 0)
+                      _MetricLine(
+                        label: 'Additional expenditure',
+                        value: _formatIndianCurrency(
+                          purchaseOrder.additionalExpenditure,
+                        ),
+                      ),
+                    if (purchaseOrder.hasActualCost &&
+                        purchaseOrder.savingsAmount == 0 &&
+                        purchaseOrder.additionalExpenditure == 0)
+                      const _MetricLine(
+                        label: 'Reconciliation',
+                        value: 'Matched allocation',
+                      ),
+                  ],
+                ),
+              ],
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerRight,
@@ -753,7 +802,7 @@ class _PurchaseOrderDetailsSheetState
   }
 
   bool _canRecordActualPurchaseOrderCost(PurchaseOrderModel purchaseOrder) {
-    if (!AppState.instance.isPiAdmin) {
+    if (!AppState.instance.canAccessFundsAndExpenditure) {
       return false;
     }
 
@@ -800,6 +849,15 @@ class _PurchaseOrderDetailsSheetState
   Future<void> _openRecordActualPurchaseOrderCostFlow(
     PurchaseOrderModel purchaseOrder,
   ) async {
+    if (!AppState.instance.canAccessFundsAndExpenditure) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(FirestoreAccessGuard.fundsAndExpenditureMessage),
+        ),
+      );
+      return;
+    }
+
     if (!_canRecordActualPurchaseOrderCost(purchaseOrder)) {
       return;
     }
@@ -887,6 +945,8 @@ class _PurchaseOrderDetailsSheetState
                 context,
                 purchaseOrder.status,
               );
+              final canViewFinancialDetails =
+                  AppState.instance.canAccessFundsAndExpenditure;
 
               return Padding(
                 padding: const EdgeInsets.fromLTRB(18, 18, 18, 16),
@@ -957,14 +1017,16 @@ class _PurchaseOrderDetailsSheetState
                                       purchaseOrder.status,
                                     ),
                                   ),
-                                  _DetailLine(
-                                    label: 'Fund',
-                                    value: purchaseOrder.fundNameSnapshot,
-                                  ),
-                                  _DetailLine(
-                                    label: 'Fund code',
-                                    value: purchaseOrder.fundCodeSnapshot,
-                                  ),
+                                  if (canViewFinancialDetails) ...[
+                                    _DetailLine(
+                                      label: 'Fund',
+                                      value: purchaseOrder.fundNameSnapshot,
+                                    ),
+                                    _DetailLine(
+                                      label: 'Fund code',
+                                      value: purchaseOrder.fundCodeSnapshot,
+                                    ),
+                                  ],
                                   _DetailLine(
                                     label: 'Created by',
                                     value: purchaseOrder.createdBy,
@@ -1002,56 +1064,58 @@ class _PurchaseOrderDetailsSheetState
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 14),
-                            _SectionCard(
-                              title: 'Financial summary',
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _DetailLine(
-                                    label: 'Estimated total',
-                                    value: _formatIndianCurrency(
-                                      purchaseOrder.estimatedTotal,
+                            if (canViewFinancialDetails) ...[
+                              const SizedBox(height: 14),
+                              _SectionCard(
+                                title: 'Financial summary',
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _DetailLine(
+                                      label: 'Estimated total',
+                                      value: _formatIndianCurrency(
+                                        purchaseOrder.estimatedTotal,
+                                      ),
                                     ),
-                                  ),
-                                  _DetailLine(
-                                    label: 'Allocated total',
-                                    value: _formatIndianCurrency(
-                                      purchaseOrder.allocatedTotal,
+                                    _DetailLine(
+                                      label: 'Allocated total',
+                                      value: _formatIndianCurrency(
+                                        purchaseOrder.allocatedTotal,
+                                      ),
                                     ),
-                                  ),
-                                  if (purchaseOrder.costReconciled) ...[
-                                    const SizedBox(height: 12),
-                                    _PurchaseOrderReconciliationSummary(
-                                      purchaseOrder: purchaseOrder,
-                                    ),
-                                  ] else if (_canRecordActualPurchaseOrderCost(
-                                    purchaseOrder,
-                                  )) ...[
-                                    const SizedBox(height: 12),
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: OutlinedButton.icon(
-                                        onPressed: () =>
-                                            _openRecordActualPurchaseOrderCostFlow(
-                                              purchaseOrder,
+                                    if (purchaseOrder.costReconciled) ...[
+                                      const SizedBox(height: 12),
+                                      _PurchaseOrderReconciliationSummary(
+                                        purchaseOrder: purchaseOrder,
+                                      ),
+                                    ] else if (_canRecordActualPurchaseOrderCost(
+                                      purchaseOrder,
+                                    )) ...[
+                                      const SizedBox(height: 12),
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: OutlinedButton.icon(
+                                          onPressed: () =>
+                                              _openRecordActualPurchaseOrderCostFlow(
+                                                purchaseOrder,
+                                              ),
+                                          icon: const Icon(
+                                            Icons.receipt_long_outlined,
+                                            size: 18,
+                                          ),
+                                          label: const Text(
+                                            'Record Actual PO Cost',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
                                             ),
-                                        icon: const Icon(
-                                          Icons.receipt_long_outlined,
-                                          size: 18,
-                                        ),
-                                        label: const Text(
-                                          'Record Actual PO Cost',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
                                           ),
                                         ),
                                       ),
-                                    ),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
-                            ),
+                            ],
                             const SizedBox(height: 14),
                             _SectionCard(
                               title: 'Linked orders',
@@ -1157,7 +1221,11 @@ class _PurchaseOrderDetailsSheetState
                                           padding: const EdgeInsets.only(
                                             bottom: 10,
                                           ),
-                                          child: _LinkedOrderCard(order: order),
+                                          child: _LinkedOrderCard(
+                                            order: order,
+                                            canViewFinancialDetails:
+                                                canViewFinancialDetails,
+                                          ),
                                         ),
                                       ),
                                     ],
@@ -1181,9 +1249,13 @@ class _PurchaseOrderDetailsSheetState
 }
 
 class _LinkedOrderCard extends StatelessWidget {
-  const _LinkedOrderCard({required this.order});
+  const _LinkedOrderCard({
+    required this.order,
+    required this.canViewFinancialDetails,
+  });
 
   final OrderModel order;
+  final bool canViewFinancialDetails;
 
   @override
   Widget build(BuildContext context) {
@@ -1231,12 +1303,12 @@ class _LinkedOrderCard extends StatelessWidget {
               ),
               if (order.vendor.trim().isNotEmpty)
                 _InfoChip(label: 'Vendor', value: order.vendor.trim()),
-              if (order.estimatedTotal != null)
+              if (canViewFinancialDetails && order.estimatedTotal != null)
                 _InfoChip(
                   label: 'Estimated',
                   value: _formatIndianCurrency(order.estimatedTotal ?? 0.0),
                 ),
-              if (order.allocatedAmount != null)
+              if (canViewFinancialDetails && order.allocatedAmount != null)
                 _InfoChip(
                   label: 'Allocated',
                   value: _formatIndianCurrency(order.allocatedAmount ?? 0.0),

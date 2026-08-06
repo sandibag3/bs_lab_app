@@ -232,7 +232,7 @@ class _MoreScreenState extends State<MoreScreen> {
     const knownMessages = [
       'Membership no longer exists.',
       'You have already left this lab.',
-      'You cannot leave this lab because you are the only PI/Admin. Assign another PI/Admin first.',
+      'Transfer PI ownership before leaving this lab.',
     ];
 
     for (final knownMessage in knownMessages) {
@@ -300,10 +300,10 @@ class _MoreScreenState extends State<MoreScreen> {
                     'You will lose access to this lab, but your previous requirements, orders, notebooks, inventory actions, and activity history will remain for audit purposes.',
                     style: TextStyle(height: 1.4),
                   ),
-                  if (appState.isPiAdmin) ...[
+                  if (appState.isPi) ...[
                     const SizedBox(height: 12),
                     const Text(
-                      'If you are the only PI/Admin, you must assign another PI/Admin before leaving.',
+                      'Transfer PI ownership to another member before leaving this lab.',
                       style: TextStyle(
                         height: 1.4,
                         fontWeight: FontWeight.w600,
@@ -417,14 +417,16 @@ class _MoreScreenState extends State<MoreScreen> {
                   );
                 },
               ),
-              buildOptionCard(
-                context: context,
-                icon: Icons.account_balance_wallet_outlined,
-                title: 'Funds / Expenditure',
-                subtitle: 'View fund balances, utilization, and availability.',
-                accentColor: const Color(0xFFF59E0B),
-                onTap: () => _openFundsDashboard(context),
-              ),
+              if (appState.canAccessFundsAndExpenditure)
+                buildOptionCard(
+                  context: context,
+                  icon: Icons.account_balance_wallet_outlined,
+                  title: 'Funds / Expenditure',
+                  subtitle:
+                      'View fund balances, utilization, and availability.',
+                  accentColor: const Color(0xFFF59E0B),
+                  onTap: () => _openFundsDashboard(context),
+                ),
               buildSectionTitle(context, 'Import'),
               buildOptionCard(
                 context: context,

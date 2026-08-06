@@ -127,7 +127,7 @@ class HomeDashboardTab extends StatefulWidget {
   }
 
   int _pendingApprovalCount(List<RequirementModel> requirements) {
-    if (!appState.isPiAdmin) {
+    if (!appState.isPiOrAdmin) {
       return 0;
     }
 

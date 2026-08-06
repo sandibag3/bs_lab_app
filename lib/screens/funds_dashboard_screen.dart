@@ -22,14 +22,13 @@ enum _FundStatusFilter { all, active, expired, closed }
 
 class _FundsDashboardScreenState extends State<FundsDashboardScreen> {
   late final FundService _fundService;
-  late Stream<List<FundModel>> _fundsStream;
+  Stream<List<FundModel>>? _fundsStream;
   _FundStatusFilter _statusFilter = _FundStatusFilter.all;
 
   @override
   void initState() {
     super.initState();
     _fundService = FundService();
-    _fundsStream = _createFundsStream();
   }
 
   @override
@@ -38,7 +37,7 @@ class _FundsDashboardScreenState extends State<FundsDashboardScreen> {
     if (oldWidget.labId != widget.labId) {
       setState(() {
         _statusFilter = _FundStatusFilter.all;
-        _fundsStream = _createFundsStream();
+        _fundsStream = null;
       });
     }
   }
@@ -63,7 +62,7 @@ class _FundsDashboardScreenState extends State<FundsDashboardScreen> {
     });
   }
 
-  bool get _canManageFunds => AppState.instance.isPiAdmin;
+  bool get _canManageFunds => AppState.instance.canAccessFundsAndExpenditure;
 
   String get _currentUserIdentity {
     final userId = AppState.instance.authenticatedUserId.trim();
@@ -199,6 +198,10 @@ class _FundsDashboardScreenState extends State<FundsDashboardScreen> {
   }
 
   Future<void> _openFundHistoryFlow(FundModel fund) async {
+    if (!_canManageFunds) {
+      return;
+    }
+
     final isDesktopModal = MediaQuery.sizeOf(context).width >= 720;
 
     if (isDesktopModal) {
@@ -247,6 +250,10 @@ class _FundsDashboardScreenState extends State<FundsDashboardScreen> {
   }
 
   Future<void> _openPurchaseOrdersFlow() async {
+    if (!_canManageFunds) {
+      return;
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (context) => PurchaseOrdersScreen(labId: widget.labId),
@@ -270,13 +277,37 @@ class _FundsDashboardScreenState extends State<FundsDashboardScreen> {
     return AnimatedBuilder(
       animation: AppState.instance,
       builder: (context, _) {
+        final appState = AppState.instance;
+
+        if (appState.isFundsAndExpenditureAccessResolving) {
+          _fundsStream = null;
+          return Scaffold(
+            appBar: AppBar(title: const Text('Funds & Expenditure')),
+            body: const SafeArea(child: _LoadingFundsState()),
+          );
+        }
+
+        if (!appState.canAccessFundsAndExpenditure) {
+          _fundsStream = null;
+          return Scaffold(
+            appBar: AppBar(title: const Text('Funds & Expenditure')),
+            body: SafeArea(
+              child: _FundsAccessDeniedState(
+                message: appState.fundsAndExpenditureAccessMessage,
+              ),
+            ),
+          );
+        }
+
+        final fundsStream = _fundsStream ??= _createFundsStream();
+
         return Scaffold(
           appBar: AppBar(title: const Text('Funds & Expenditure')),
           body: SafeArea(
             child: ResponsivePageContainer(
               maxWidth: 1120,
               child: StreamBuilder<List<FundModel>>(
-                stream: _fundsStream,
+                stream: fundsStream,
                 builder: (context, snapshot) {
                   if (snapshot.hasError) {
                     return _ErrorFundsState(
@@ -2234,6 +2265,54 @@ class _LoadingFundsState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(child: CircularProgressIndicator());
+  }
+}
+
+class _FundsAccessDeniedState extends StatelessWidget {
+  final String message;
+
+  const _FundsAccessDeniedState({required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 520),
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: palette.panel,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: palette.border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.lock_outline_rounded,
+                color: colorScheme.primary,
+                size: 34,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: colorScheme.onSurface,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  height: 1.35,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

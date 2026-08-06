@@ -107,11 +107,11 @@ class _LabSettingsScreenState extends State<LabSettingsScreen> {
         resolvedLabCode = selectedLabId;
       }
 
-      isEditable = loadedRemoteDetails && appState.isPiAdmin;
+      isEditable = loadedRemoteDetails && appState.isPiOrAdmin;
       helperText = loadedRemoteDetails
           ? (isEditable
                 ? 'Update the basic details for this lab and share the join code with collaborators.'
-                : 'You can view the current lab settings here. Only PI/Admin can edit them.')
+                : 'You can view the current lab settings here. Only PI or Admin can edit them.')
           : 'This lab could not be loaded right now. You can still view the current lab context and join code.';
     }
 

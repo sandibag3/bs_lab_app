@@ -7,7 +7,9 @@ import '../app_state.dart';
 class LabDataAccessException implements Exception {
   final String message;
 
-  const LabDataAccessException([this.message = FirestoreAccessGuard.userMessage]);
+  const LabDataAccessException([
+    this.message = FirestoreAccessGuard.userMessage,
+  ]);
 
   @override
   String toString() => message;
@@ -16,6 +18,8 @@ class LabDataAccessException implements Exception {
 class FirestoreAccessGuard {
   static const String userMessage =
       "You don't have access to this lab data yet. Please create or join a lab.";
+  static const String fundsAndExpenditureMessage =
+      'Funds and expenditure information is available only to the Principal Investigator.';
 
   static bool isPermissionDenied(Object error) {
     if (error is FirebaseException) {
@@ -50,10 +54,13 @@ class FirestoreAccessGuard {
     return true;
   }
 
-  static String messageFor(
-    Object? error, {
-    String fallback = userMessage,
-  }) {
+  static bool shouldQueryFundsAndExpenditure({AppState? appState}) {
+    final state = appState ?? AppState.instance;
+    return shouldQueryLabScopedData(appState: state) &&
+        state.canAccessFundsAndExpenditure;
+  }
+
+  static String messageFor(Object? error, {String fallback = userMessage}) {
     if (error == null) {
       return fallback;
     }

@@ -88,7 +88,7 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
                 ? membership.labId
                 : resolvedLabName,
             roleName: membership.role.trim().isEmpty
-                ? DemoUserRole.researcher.name
+                ? LabAccessRole.member.name
                 : membership.role.trim(),
             sourceLabel: 'Member',
             localRoleName: '',

@@ -73,8 +73,8 @@ class LabNotebookScreen extends StatelessWidget {
     return currentUserId != ownerUid;
   }
 
-  bool _isPiAdminNotebookHome() {
-    return appState.isPiAdmin &&
+  bool _isPiOrAdminNotebookHome() {
+    return appState.isPiOrAdmin &&
         !_isReadOnlyView() &&
         !showMemberNotebookBrowser;
   }
@@ -148,7 +148,7 @@ class LabNotebookScreen extends StatelessWidget {
       icon: Icons.lock_outline_rounded,
       title: 'Sign in to access private notebooks',
       message:
-          'Lab Notebook is now private per member. Sign in with your lab account to open your notebook or browse member notebooks as PI/Admin.',
+          'Lab Notebook is now private per member. Sign in with your lab account to open your notebook or browse member notebooks as PI or Admin.',
       accent: Color(0xFFFBBF24),
     );
   }
@@ -204,7 +204,7 @@ class LabNotebookScreen extends StatelessWidget {
     final colorScheme = context.colorScheme;
     final isReadOnly = _isReadOnlyView();
     final isMemberBrowser = showMemberNotebookBrowser;
-    final isPiAdminHome = _isPiAdminNotebookHome();
+    final isPiOrAdminHome = _isPiOrAdminNotebookHome();
 
     return Container(
       width: double.infinity,
@@ -275,7 +275,7 @@ class LabNotebookScreen extends StatelessWidget {
                 ? Icons.visibility_outlined
                 : Icons.lock_outline_rounded,
             label: isMemberBrowser
-                ? 'PI/Admin viewer'
+                ? 'PI or Admin viewer'
                 : isReadOnly
                 ? visibleOwnerLabel
                 : 'My Notebook',
@@ -284,10 +284,10 @@ class LabNotebookScreen extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             isMemberBrowser
-                ? 'Open any lab member notebook in read-only mode. PI/Admin can inspect records but cannot edit another member\'s work.'
+                ? 'Open any lab member notebook in read-only mode. PI or Admin can inspect records but cannot edit another member\'s work.'
                 : isReadOnly
                 ? 'You can review this notebook, but editing actions stay locked because this notebook belongs to another lab member.'
-                : 'Your notebook is private to you. PI/Admin can review it in read-only mode when needed.',
+                : 'Your notebook is private to you. PI or Admin can review it in read-only mode when needed.',
             style: TextStyle(
               color: palette.mutedText,
               fontSize: 12.2,
@@ -356,7 +356,7 @@ class LabNotebookScreen extends StatelessWidget {
               ),
             ),
           ],
-          if (isPiAdminHome) ...[
+          if (isPiOrAdminHome) ...[
             const SizedBox(height: 10),
             SizedBox(
               width: double.infinity,
@@ -398,11 +398,11 @@ class LabNotebookScreen extends StatelessWidget {
   }
 
   Widget _buildMemberNotebookBrowser(BuildContext context, String labId) {
-    if (!appState.isPiAdmin) {
+    if (!appState.isPiOrAdmin) {
       return const _NotebookNotice(
         icon: Icons.lock_outline_rounded,
         title: 'Notebook viewer unavailable',
-        message: 'Only PI/Admin can browse other member notebooks.',
+        message: 'Only PI or Admin can browse other member notebooks.',
         accent: Color(0xFFFB7185),
       );
     }
@@ -441,7 +441,7 @@ class LabNotebookScreen extends StatelessWidget {
               canCreate: false,
               isWide: isWide,
               projectCount: members.length,
-              visibleOwnerLabel: 'PI/Admin viewer',
+              visibleOwnerLabel: 'PI or Admin viewer',
             );
             final panel = _buildMemberListPanel(context, members);
 

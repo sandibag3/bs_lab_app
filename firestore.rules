@@ -20,28 +20,133 @@ service cloud.firestore {
       ).data;
     }
 
-    function hasActiveMembership(labId) {
+    function membershipData(labId, userId) {
+      return get(
+        /databases/$(database)/documents/memberships/$(membershipDocId(labId, userId))
+      ).data;
+    }
+
+    function hasActiveMembershipFor(labId, userId) {
       return isSignedIn() &&
           exists(
-            /databases/$(database)/documents/memberships/$(membershipDocId(labId, request.auth.uid))
+            /databases/$(database)/documents/memberships/$(membershipDocId(labId, userId))
           ) &&
           (
-            currentMembership(labId).status == null ||
-            currentMembership(labId).status == '' ||
-            currentMembership(labId).status == 'active'
+            membershipData(labId, userId).status == null ||
+            membershipData(labId, userId).status == '' ||
+            membershipData(labId, userId).status == 'active'
           );
     }
 
-    function isPiAdminMember(labId) {
+    function hasActiveMembership(labId) {
+      return hasActiveMembershipFor(labId, request.auth.uid);
+    }
+
+    function labData(labId) {
+      return get(/databases/$(database)/documents/labs/$(labId)).data;
+    }
+
+    function labDataAfter(labId) {
+      return getAfter(/databases/$(database)/documents/labs/$(labId)).data;
+    }
+
+    function isPi(labId) {
       return hasActiveMembership(labId) &&
-          currentMembership(labId).role == 'piAdmin';
+          exists(/databases/$(database)/documents/labs/$(labId)) &&
+          (
+            labData(labId).piUid == request.auth.uid ||
+            labData(labId).principalInvestigatorUid == request.auth.uid ||
+            labData(labId).principalInvestigatorId == request.auth.uid ||
+            labData(labId).ownerUid == request.auth.uid ||
+            labData(labId).ownerId == request.auth.uid ||
+            labData(labId).createdByUid == request.auth.uid
+          );
+    }
+
+    function isPiAfter(labId) {
+      return hasActiveMembership(labId) &&
+          labDataAfter(labId).piUid == request.auth.uid;
+    }
+
+    function isAdmin(labId) {
+      return hasActiveMembership(labId) &&
+          (
+            currentMembership(labId).role == 'admin' ||
+            (currentMembership(labId).role == 'piAdmin' && !isPi(labId))
+          );
+    }
+
+    function isPiOrAdmin(labId) {
+      return isPi(labId) || isAdmin(labId);
+    }
+
+    function hasMissingPiUid() {
+      return !('piUid' in resource.data) ||
+          resource.data.piUid == null ||
+          resource.data.piUid == '';
+    }
+
+    function hasTrustedLegacyPiUid() {
+      return resource.data.principalInvestigatorUid == request.auth.uid ||
+          resource.data.principalInvestigatorId == request.auth.uid ||
+          resource.data.ownerUid == request.auth.uid ||
+          resource.data.ownerId == request.auth.uid ||
+          resource.data.createdByUid == request.auth.uid;
+    }
+
+    function hasLegacyProfilePiClaim(labId) {
+      return currentMembership(labId).role == 'piAdmin' &&
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.joinAs == 'PI';
+    }
+
+    function isPiUidSelfMigration(labId) {
+      return hasActiveMembership(labId) &&
+          hasMissingPiUid() &&
+          (hasTrustedLegacyPiUid() || hasLegacyProfilePiClaim(labId)) &&
+          request.resource.data.piUid == request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['piUid']);
+    }
+
+    function isPiUidTransfer(labId) {
+      return isPi(labId) &&
+          request.resource.data.piUid is string &&
+          request.resource.data.piUid != '' &&
+          hasActiveMembershipFor(labId, request.resource.data.piUid) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['piUid']);
+    }
+
+    function keepsMembershipIdentity() {
+      return request.resource.data.labId == resource.data.labId &&
+          request.resource.data.userId == resource.data.userId;
+    }
+
+    function isPiMembershipRoleWrite(labId) {
+      return request.resource.data.role == 'pi' &&
+          request.resource.data.userId == labDataAfter(labId).piUid &&
+          (isPi(labId) || isPiAfter(labId));
+    }
+
+    function isNonPiMembershipRoleWrite(labId) {
+      return request.resource.data.role in ['admin', 'member'] &&
+          (
+            isPi(labId) ||
+            isPiAfter(labId) ||
+            (isAdmin(labId) &&
+                resource.data.role != 'pi' &&
+                labData(labId).piUid != resource.data.userId)
+          );
+    }
+
+    function isPrincipalInvestigator(labId) {
+      return isPi(labId);
     }
 
     function canReadNotebook(labId, ownerUid) {
       return hasActiveMembership(labId) &&
           (
             request.auth.uid == ownerUid ||
-            isPiAdminMember(labId)
+            isPiOrAdmin(labId)
           );
     }
 
@@ -124,6 +229,39 @@ service cloud.firestore {
 
           allow delete: if canWriteNotebook(labId, ownerUid);
         }
+      }
+    }
+
+    match /labs/{labId} {
+      allow get: if hasActiveMembership(labId);
+      allow update: if isPiUidSelfMigration(labId) || isPiUidTransfer(labId);
+    }
+
+    match /memberships/{membershipId} {
+      allow read: if hasActiveMembership(resource.data.labId);
+
+      allow create: if isSignedIn() &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.role in ['pi', 'member'] &&
+          (
+            request.resource.data.role == 'member' ||
+            labData(request.resource.data.labId).piUid == request.auth.uid
+          );
+
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'updatedAt']) &&
+          keepsMembershipIdentity() &&
+          request.resource.data.role in ['pi', 'admin', 'member'] &&
+          (
+            isPiMembershipRoleWrite(resource.data.labId) ||
+            isNonPiMembershipRoleWrite(resource.data.labId)
+          );
+    }
+
+    match /labs/{labId}/funds/{fundId} {
+      allow read, write: if isPrincipalInvestigator(labId);
+
+      match /transactions/{transactionId} {
+        allow read, write: if isPrincipalInvestigator(labId);
       }
     }
   }

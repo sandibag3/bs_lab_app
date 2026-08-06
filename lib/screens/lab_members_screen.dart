@@ -17,12 +17,9 @@ class LabMembersScreen extends StatefulWidget {
 
 class _LabMembersScreenState extends State<LabMembersScreen> {
   static const Map<String, String> _editableRoles = {
-    'piAdmin': 'PI/Admin',
-    'phdScholar': 'PhD Scholar',
-    'undergradStudent': 'Undergrad Student',
-    'projectStudent': 'Project Student',
-    'postdocFellow': 'Postdoc Fellow',
-    'labManager': 'Lab Manager',
+    'pi': 'PI',
+    'admin': 'Admin',
+    'member': 'Member',
   };
 
   final LabMembershipService _labMembershipService = LabMembershipService();
@@ -109,20 +106,21 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
   }
 
   Future<void> _showRoleEditor(_LabMemberDetails member) async {
-    if (!widget.appState.isPiAdmin || _updatingMemberUserId.isNotEmpty) {
+    if (!widget.appState.isPiOrAdmin || _updatingMemberUserId.isNotEmpty) {
       return;
     }
 
     final membership = member.membership;
     final memberUserId = membership.userId.trim();
     final labId = membership.labId.trim();
-    final currentRole = membership.role.trim();
-    final isCurrentUser = memberUserId == widget.appState.authenticatedUserId;
+    final currentRole = _accessRoleName(membership);
+    final currentUserId = widget.appState.authenticatedUserId;
+    final isCurrentUser = memberUserId == currentUserId;
     final messenger = ScaffoldMessenger.of(context);
 
     var selectedRole = _editableRoles.containsKey(currentRole)
         ? currentRole
-        : 'phdScholar';
+        : LabAccessRole.member.name;
 
     final newRole = await showDialog<String>(
       context: context,
@@ -134,7 +132,7 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
             return AlertDialog(
               backgroundColor: palette.panel,
               title: Text(
-                'Edit Member Role',
+                'Edit Lab Access',
                 style: TextStyle(color: colorScheme.onSurface),
               ),
               content: Column(
@@ -144,7 +142,7 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                     initialValue: selectedRole,
                     dropdownColor: palette.panel,
                     decoration: InputDecoration(
-                      labelText: 'Role',
+                      labelText: 'Lab Access',
                       labelStyle: TextStyle(
                         color: palette.mutedText,
                         fontSize: 13,
@@ -199,52 +197,29 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
       return;
     }
 
-    final assigningPiAdmin = newRole == 'piAdmin';
-    final demotingPiAdmin = currentRole == 'piAdmin' && newRole != 'piAdmin';
+    final transferringPi = newRole == LabAccessRole.pi.name;
+    final demotingCurrentPi =
+        currentRole == LabAccessRole.pi.name &&
+        newRole != LabAccessRole.pi.name;
 
-    if (isCurrentUser) {
-      final hasAnotherPiAdmin = await _labMembershipService.labHasActivePiAdmin(
-        labId: labId,
-        excludingUserId: memberUserId,
+    if (transferringPi && !widget.appState.isPi) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Only the current PI can transfer PI ownership.'),
+        ),
       );
-      if (!hasAnotherPiAdmin) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Another PI/Admin must exist before you can change your own role.',
-            ),
-          ),
-        );
-        return;
-      }
+      return;
     }
 
-    if (assigningPiAdmin) {
-      final hasAnotherPiAdmin = await _labMembershipService.labHasActivePiAdmin(
-        labId: labId,
-        excludingUserId: memberUserId,
-      );
-      if (hasAnotherPiAdmin) {
-        messenger.showSnackBar(
-          const SnackBar(content: Text('This lab already has a PI/Admin.')),
-        );
-        return;
-      }
-    }
-
-    if (demotingPiAdmin) {
-      final hasAnotherPiAdmin = await _labMembershipService.labHasActivePiAdmin(
-        labId: labId,
-        excludingUserId: memberUserId,
-      );
-      if (!hasAnotherPiAdmin) {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text('A lab must always have at least one PI/Admin.'),
+    if (demotingCurrentPi) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Transfer PI ownership to another member before changing the current PI role.',
           ),
-        );
-        return;
-      }
+        ),
+      );
+      return;
     }
 
     setState(() {
@@ -256,9 +231,10 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
         userId: memberUserId,
         labId: labId,
         role: newRole,
+        currentUserId: currentUserId,
       );
 
-      if (isCurrentUser) {
+      if (isCurrentUser || transferringPi) {
         await widget.appState.refreshSelectedLabRole();
       }
 
@@ -284,6 +260,138 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
         });
       }
     }
+  }
+
+  String _accessRoleName(LabMembershipModel membership) {
+    final isMembershipPi =
+        membership.userId.trim() == widget.appState.selectedLabPiUid.trim();
+    return LabMembershipService.normalizeAccessRole(
+      membership.role,
+      isPi: isMembershipPi,
+    );
+  }
+
+  String _accessRoleLabel(LabMembershipModel membership) {
+    return widget.appState.roleLabelFor(
+      membership.role.trim(),
+      isPi: membership.userId.trim() == widget.appState.selectedLabPiUid.trim(),
+    );
+  }
+
+  bool _canCurrentUserClaimPi(List<_LabMemberDetails> members) {
+    if (!widget.appState.selectedLabNeedsPrincipalInvestigatorAssignment) {
+      return false;
+    }
+
+    final currentUserId = widget.appState.authenticatedUserId.trim();
+    if (currentUserId.isEmpty) {
+      return false;
+    }
+
+    return members.any((member) {
+      final membership = member.membership;
+      final profileRole = member.profile?.joinAs.trim().toLowerCase() ?? '';
+      return membership.userId.trim() == currentUserId &&
+          LabMembershipService.isLegacyPiAdminRole(membership.role) &&
+          profileRole == 'pi';
+    });
+  }
+
+  Future<void> _confirmCurrentUserAsPi() async {
+    if (_updatingMemberUserId.isNotEmpty) {
+      return;
+    }
+
+    final labId = widget.appState.selectedLabId.trim();
+    final currentUserId = widget.appState.authenticatedUserId.trim();
+    final messenger = ScaffoldMessenger.of(context);
+    if (labId.isEmpty || currentUserId.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _updatingMemberUserId = currentUserId;
+    });
+
+    try {
+      await _labMembershipService.claimPrincipalInvestigatorFromLegacyProfile(
+        labId: labId,
+        currentUserId: currentUserId,
+      );
+      await widget.appState.refreshSelectedLabRole();
+      await _refreshMembers();
+
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Principal Investigator assigned.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not assign PI: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _updatingMemberUserId = '';
+        });
+      }
+    }
+  }
+
+  Widget _buildPiAssignmentCard() {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final isUpdating =
+        _updatingMemberUserId == widget.appState.authenticatedUserId.trim();
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Principal Investigator assignment needed',
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This legacy lab has no PI owner field yet. Because your Profile Role is PI and your legacy access record marks you as a lab administrator, you can confirm yourself as the lab PI.',
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 13,
+              height: 1.4,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ElevatedButton.icon(
+              onPressed: isUpdating ? null : _confirmCurrentUserAsPi,
+              icon: isUpdating
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.verified_user_outlined, size: 18),
+              label: Text(isUpdating ? 'Assigning...' : 'Confirm me as PI'),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildHeaderCard(String helperText) {
@@ -334,7 +442,7 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
     );
   }
 
-  Widget _buildLocalMemberCard({required String sourceLabel}) {
+  Widget _buildLocalMemberCard() {
     return Column(
       children: [
         _buildHeaderCard(
@@ -353,7 +461,6 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
           contactNumber: '',
           profileCompleted: false,
           isCurrentUser: true,
-          sourceLabel: sourceLabel,
           canEditRole: false,
           isUpdating: false,
           onEditRole: null,
@@ -399,7 +506,7 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                 )
               : widget.appState.isDemoLabSelected ||
                     widget.appState.isLocalFallbackLabSelected
-              ? _buildLocalMemberCard(sourceLabel: 'Local')
+              ? _buildLocalMemberCard()
               : FutureBuilder<_LabMembersData>(
                   future: _membersFuture,
                   builder: (context, snapshot) {
@@ -408,6 +515,9 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                     }
 
                     final members = snapshot.data?.members ?? [];
+                    final canCurrentUserClaimPi = _canCurrentUserClaimPi(
+                      members,
+                    );
 
                     if (members.isEmpty) {
                       return RefreshIndicator(
@@ -434,10 +544,18 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                             const SizedBox(height: 12),
                         itemBuilder: (context, index) {
                           if (index == 0) {
-                            return _buildHeaderCard(
-                              widget.appState.isPiAdmin
-                                  ? 'View member profiles and safely manage roles.'
-                                  : 'You can view members. Only PI/Admin can edit roles.',
+                            return Column(
+                              children: [
+                                _buildHeaderCard(
+                                  widget.appState.isPiOrAdmin
+                                      ? 'View member profiles and safely manage roles.'
+                                      : 'You can view members. Only PI or Admin can edit access roles.',
+                                ),
+                                if (canCurrentUserClaimPi) ...[
+                                  const SizedBox(height: 12),
+                                  _buildPiAssignmentCard(),
+                                ],
+                              ],
                             );
                           }
 
@@ -455,9 +573,7 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                           return _MemberTile(
                             name: _memberName(member),
                             email: showEmail ? _memberEmail(member) : 'Hidden',
-                            roleLabel: widget.appState.roleLabelFor(
-                              membership.role.trim(),
-                            ),
+                            roleLabel: _accessRoleLabel(membership),
                             profileRole: profile?.joinAs.trim() ?? '',
                             designation: profile?.designation?.trim() ?? '',
                             researchArea: profile?.researchArea?.trim() ?? '',
@@ -468,12 +584,11 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                                 profile?.profileCompleted == true ||
                                 profile?.isComplete == true,
                             isCurrentUser: isCurrentUser,
-                            sourceLabel: 'Member',
-                            canEditRole: widget.appState.isPiAdmin,
+                            canEditRole: widget.appState.isPiOrAdmin,
                             isUpdating:
                                 _updatingMemberUserId ==
                                 membership.userId.trim(),
-                            onEditRole: widget.appState.isPiAdmin
+                            onEditRole: widget.appState.isPiOrAdmin
                                 ? () => _showRoleEditor(member)
                                 : null,
                           );
@@ -511,7 +626,6 @@ class _MemberTile extends StatelessWidget {
   final String contactNumber;
   final bool profileCompleted;
   final bool isCurrentUser;
-  final String sourceLabel;
   final bool canEditRole;
   final bool isUpdating;
   final VoidCallback? onEditRole;
@@ -526,7 +640,6 @@ class _MemberTile extends StatelessWidget {
     required this.contactNumber,
     required this.profileCompleted,
     required this.isCurrentUser,
-    required this.sourceLabel,
     required this.canEditRole,
     required this.isUpdating,
     required this.onEditRole,
@@ -591,7 +704,12 @@ class _MemberTile extends StatelessWidget {
                   ),
                 ),
                 _buildDetail(context, 'Email', email),
-                _buildDetail(context, 'Profile role', profileRole),
+                _buildDetail(
+                  context,
+                  'Profile Role',
+                  profileRole.trim().isEmpty ? 'Not set' : profileRole,
+                ),
+                _buildDetail(context, 'Lab Access', roleLabel),
                 _buildDetail(context, 'Designation', designation),
                 _buildDetail(context, 'Research area', researchArea),
                 _buildDetail(context, 'Contact', contactNumber),
@@ -600,8 +718,6 @@ class _MemberTile extends StatelessWidget {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    _MemberBadge(label: roleLabel),
-                    _MemberBadge(label: sourceLabel),
                     _MemberBadge(
                       label: profileCompleted
                           ? 'Profile Complete'

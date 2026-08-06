@@ -163,6 +163,12 @@ class RequirementService {
     required String fundId,
     required String approvedBy,
   }) async {
+    if (!FirestoreAccessGuard.shouldQueryFundsAndExpenditure()) {
+      throw const LabDataAccessException(
+        FirestoreAccessGuard.fundsAndExpenditureMessage,
+      );
+    }
+
     final cleanRequirementId = requirementId.trim();
     final cleanLabId = labId.trim();
     final cleanFundId = fundId.trim();

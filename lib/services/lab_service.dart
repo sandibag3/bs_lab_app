@@ -6,8 +6,9 @@ class LabService {
   static const String _demoLabId = 'labmate-demo-lab';
   static const String _demoLabName = 'Labmate Demo Lab';
   static const String _demoLabCode = 'LAB-DEMO';
-  final CollectionReference<Map<String, dynamic>> _labsRef =
-      FirebaseFirestore.instance.collection('labs');
+  final CollectionReference<Map<String, dynamic>> _labsRef = FirebaseFirestore
+      .instance
+      .collection('labs');
 
   Future<T> _runGuarded<T>(Future<T> Function() action) async {
     try {
@@ -26,7 +27,9 @@ class LabService {
 
   String _buildLabCode(String docId) {
     final clean = docId.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
-    final suffix = clean.length >= 6 ? clean.substring(0, 6) : clean.padRight(6, 'X');
+    final suffix = clean.length >= 6
+        ? clean.substring(0, 6)
+        : clean.padRight(6, 'X');
     return 'LAB-$suffix';
   }
 
@@ -51,10 +54,7 @@ class LabService {
     return false;
   }
 
-  bool _isCleanupCandidate(
-    String labId,
-    Map<String, dynamic> data,
-  ) {
+  bool _isCleanupCandidate(String labId, Map<String, dynamic> data) {
     final cleanLabId = labId.trim();
     final labName = (data['name'] ?? '').toString().trim();
     final institute = (data['institute'] ?? '').toString().trim();
@@ -72,18 +72,19 @@ class LabService {
       return false;
     }
 
-    return _matchesCleanupMarker(labName) ||
-        _matchesCleanupMarker(institute);
+    return _matchesCleanupMarker(labName) || _matchesCleanupMarker(institute);
   }
 
   Future<Map<String, String>> createLab({
     required String labName,
     String institute = '',
     required String createdBy,
+    String piUid = '',
   }) async {
     return _runGuarded(() async {
       final trimmedName = labName.trim();
       final trimmedInstitute = institute.trim();
+      final cleanPiUid = piUid.trim();
       final docRef = _labsRef.doc();
       final labCode = _buildLabCode(docRef.id);
 
@@ -92,14 +93,11 @@ class LabService {
         'institute': trimmedInstitute,
         'code': labCode,
         'createdBy': createdBy.trim(),
+        'piUid': cleanPiUid.isEmpty ? null : cleanPiUid,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      return {
-        'labId': docRef.id,
-        'labName': trimmedName,
-        'labCode': labCode,
-      };
+      return {'labId': docRef.id, 'labName': trimmedName, 'labCode': labCode};
     });
   }
 
@@ -281,12 +279,15 @@ class LabService {
         .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
         .replaceAll(RegExp(r'^-|-$'), '');
 
-    final localId = normalizedIdentifier.isEmpty ? 'local-lab' : 'local-$normalizedIdentifier';
+    final localId = normalizedIdentifier.isEmpty
+        ? 'local-lab'
+        : 'local-$normalizedIdentifier';
 
     return LabContextModel(
       selectedLabId: localId,
-      selectedLabName:
-          trimmedIdentifier.isEmpty ? 'Local Lab' : trimmedIdentifier,
+      selectedLabName: trimmedIdentifier.isEmpty
+          ? 'Local Lab'
+          : trimmedIdentifier,
     );
   }
 }

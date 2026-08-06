@@ -163,6 +163,12 @@ class OrderService {
   Future<OrderFinancialBackfillResult> backfillOrderFinancialSnapshots({
     required String labId,
   }) async {
+    if (!FirestoreAccessGuard.shouldQueryFundsAndExpenditure()) {
+      throw const LabDataAccessException(
+        FirestoreAccessGuard.fundsAndExpenditureMessage,
+      );
+    }
+
     final cleanLabId = labId.trim();
     if (cleanLabId.isEmpty) {
       throw ArgumentError('Lab ID is required.');

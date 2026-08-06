@@ -56,7 +56,7 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
     try {
       final labName = _labNameController.text.trim();
       final currentUserId = widget.appState.authenticatedUserId;
-      final piAdminRole = DemoUserRole.piAdmin.name;
+      final piAccessRole = LabAccessRole.pi.name;
       Map<String, String>? createdLab;
       String dialogMessage;
 
@@ -65,6 +65,7 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
           labName: labName,
           institute: _instituteController.text.trim(),
           createdBy: widget.appState.authenticatedUserName,
+          piUid: currentUserId,
         );
 
         final remoteContext = LabContextModel(
@@ -79,16 +80,16 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
             await _labMembershipService.upsertMembership(
               userId: currentUserId,
               labId: remoteContext.selectedLabId,
-              role: piAdminRole,
+              role: piAccessRole,
               userName: widget.appState.authenticatedUserName,
               userEmail: widget.appState.authenticatedUserEmail,
               labName: remoteContext.selectedLabName,
             );
           } catch (_) {
-            localRoleName = piAdminRole;
+            localRoleName = piAccessRole;
           }
         } else {
-          localRoleName = piAdminRole;
+          localRoleName = piAccessRole;
         }
 
         await widget.appState.saveSelectedLabContextWithRole(
@@ -98,22 +99,22 @@ class _CreateLabScreenState extends State<CreateLabScreen> {
 
         if (localRoleName.isEmpty) {
           dialogMessage =
-              '${createdLab['labName'] ?? labName} is ready to use on this device, and you have been added as PI/Admin.';
+              '${createdLab['labName'] ?? labName} is ready to use on this device, and you have been added as PI.';
         } else {
           dialogMessage =
-              '${createdLab['labName'] ?? labName} is ready to use on this device. PI/Admin access is stored locally for now.';
+              '${createdLab['labName'] ?? labName} is ready to use on this device. PI access is stored locally for now.';
         }
       } catch (error) {
         final localContext = _labService.buildLocalLabContext(labName);
         await widget.appState.saveSelectedLabContextWithRole(
           localContext,
-          localRoleName: piAdminRole,
+          localRoleName: piAccessRole,
         );
         final prefix = FirestoreAccessGuard.isPermissionDenied(error)
             ? "${FirestoreAccessGuard.userMessage} "
             : '';
         dialogMessage =
-            '${prefix}$labName was saved as a local lab context on this device, and you can continue as PI/Admin right away.';
+            '${prefix}$labName was saved as a local lab context on this device, and you can continue as PI right away.';
       }
 
       if (!mounted) return;

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -7,13 +8,14 @@ import 'models/user_profile.dart';
 import 'services/lab_membership_service.dart';
 import 'services/user_profile_service.dart';
 
-enum DemoUserRole {
-  piAdmin('PI/Admin'),
-  researcher('Researcher');
+enum LabAccessRole {
+  pi('PI'),
+  admin('Admin'),
+  member('Member');
 
   final String label;
 
-  const DemoUserRole(this.label);
+  const LabAccessRole(this.label);
 }
 
 class AppState extends ChangeNotifier {
@@ -37,19 +39,25 @@ class AppState extends ChangeNotifier {
   static AppState? _instance;
   final LabMembershipService _labMembershipService = LabMembershipService();
   final UserProfileService _userProfileService = UserProfileService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   UserProfile _profile = UserProfile.empty();
   bool _isLoaded = false;
-  String _demoRole = DemoUserRole.researcher.name;
+  String _demoRole = LabAccessRole.member.name;
   String _selectedLabId = '';
   String _selectedLabName = '';
   String _selectedLabLocalRole = '';
   String _selectedLabUserId = '';
   String _selectedLabMembershipRole = '';
+  String _selectedLabPiUid = '';
+  String _selectedLabPiResolutionSource = '';
   ThemeMode _themeMode = ThemeMode.dark;
   bool _compactDesktopMode = false;
   bool _isRefreshingSelectedLabRole = false;
+  bool _isRefreshingSelectedLabPiIdentity = false;
   bool _hasAttemptedSelectedLabMembershipLoad = false;
+  bool _hasAttemptedSelectedLabPiIdentityLoad = false;
+  bool _selectedLabPiIdentityLoadFailed = false;
 
   AppState() {
     _instance = this;
@@ -72,25 +80,92 @@ class AppState extends ChangeNotifier {
   String get selectedLabLocalRole => _selectedLabLocalRole;
   String get selectedLabUserId => _selectedLabUserId;
   String get selectedLabMembershipRole => _selectedLabMembershipRole;
+  String get selectedLabPiUid => _selectedLabPiUid;
+  String get selectedLabPiResolutionSource => _selectedLabPiResolutionSource;
   ThemeMode get themeMode => _themeMode;
   bool get compactDesktopMode => _compactDesktopMode;
   bool get hasResolvedLabMembership =>
       _selectedLabMembershipRole.trim().isNotEmpty;
   bool get isRefreshingSelectedLabRole => _isRefreshingSelectedLabRole;
+  bool get isRefreshingSelectedLabPiIdentity =>
+      _isRefreshingSelectedLabPiIdentity;
   bool get hasAttemptedSelectedLabMembershipLoad =>
       _hasAttemptedSelectedLabMembershipLoad;
+  bool get hasAttemptedSelectedLabPiIdentityLoad =>
+      _hasAttemptedSelectedLabPiIdentityLoad;
+  bool get selectedLabNeedsPrincipalInvestigatorAssignment {
+    return hasSelectedLab &&
+        !isDemoLabSelected &&
+        !isLocalFallbackLabSelected &&
+        _hasAttemptedSelectedLabPiIdentityLoad &&
+        !_selectedLabPiIdentityLoadFailed &&
+        _selectedLabPiUid.trim().isEmpty;
+  }
+
+  String get fundsAndExpenditureAccessMessage {
+    if (selectedLabNeedsPrincipalInvestigatorAssignment) {
+      return 'This lab does not yet have a Principal Investigator assigned. Please update the lab ownership record.';
+    }
+
+    return 'Funds and expenditure information is available only to the Principal Investigator.';
+  }
+
+  bool get isFundsAndExpenditureAccessResolving {
+    if (!_isLoaded) {
+      return true;
+    }
+
+    if (!hasSelectedLab || isDemoLabSelected || isLocalFallbackLabSelected) {
+      return false;
+    }
+
+    if (authenticatedUserId.trim().isEmpty) {
+      return false;
+    }
+
+    if (_isRefreshingSelectedLabRole || _isRefreshingSelectedLabPiIdentity) {
+      return true;
+    }
+
+    return !_hasAttemptedSelectedLabMembershipLoad ||
+        !_hasAttemptedSelectedLabPiIdentityLoad;
+  }
+
+  bool get canAccessFundsAndExpenditure {
+    if (!hasSelectedLab || isFundsAndExpenditureAccessResolving) {
+      return false;
+    }
+
+    if (_selectedLabMembershipRole.trim().isEmpty) {
+      return false;
+    }
+
+    return isCurrentUserPrincipalInvestigator;
+  }
+
   LabContextModel get labContext => LabContextModel(
     selectedLabId: _selectedLabId,
     selectedLabName: _selectedLabName,
   );
-  DemoUserRole get demoUserRole {
-    return DemoUserRole.values.firstWhere(
+  LabAccessRole get demoUserRole {
+    return LabAccessRole.values.firstWhere(
       (role) => role.name == _demoRole,
-      orElse: () => DemoUserRole.researcher,
+      orElse: () => LabAccessRole.member,
     );
   }
 
-  bool get isPiAdmin => currentRoleName == DemoUserRole.piAdmin.name;
+  bool get isPi => currentRoleName == LabAccessRole.pi.name;
+  bool get isAdmin => currentRoleName == LabAccessRole.admin.name;
+  bool get isPiOrAdmin => isPi || isAdmin;
+  bool get isMember => currentRoleName == LabAccessRole.member.name;
+
+  bool get isCurrentUserPrincipalInvestigator {
+    final userId = authenticatedUserId.trim();
+    final piUid = _selectedLabPiUid.trim();
+
+    return userId.isNotEmpty && piUid.isNotEmpty && userId == piUid;
+  }
+
   bool get hasSelectedLab => labContext.hasSelection;
   bool get isDemoLabSelected => selectedLabId.trim() == demoLabId;
   bool get isLocalFallbackLabSelected =>
@@ -109,15 +184,15 @@ class AppState extends ChangeNotifier {
 
     final membershipRole = _selectedLabMembershipRole.trim();
     if (membershipRole.isNotEmpty) {
-      return membershipRole;
+      return _effectiveAccessRoleName(membershipRole);
     }
 
     final localRole = _selectedLabLocalRole.trim();
     if (localRole.isNotEmpty) {
-      return localRole;
+      return _effectiveAccessRoleName(localRole);
     }
 
-    return DemoUserRole.researcher.name;
+    return LabAccessRole.member.name;
   }
 
   String get currentRoleLabel => roleLabelFor(currentRoleName);
@@ -175,25 +250,23 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  String roleLabelFor(String roleName) {
-    const roleLabels = {
-      'piAdmin': 'PI/Admin',
-      'phdScholar': 'PhD Scholar',
-      'undergradStudent': 'Undergrad Student',
-      'projectStudent': 'Project Student',
-      'postdocFellow': 'Postdoc Fellow',
-      'labManager': 'Lab Manager',
-      'researcher': 'Researcher',
-    };
-    final directLabel = roleLabels[roleName.trim()];
-    if (directLabel != null) {
-      return directLabel;
-    }
+  String _effectiveAccessRoleName(String roleName) {
+    return LabMembershipService.normalizeAccessRole(
+      roleName,
+      isPi: isCurrentUserPrincipalInvestigator,
+    );
+  }
 
-    return DemoUserRole.values
+  String roleLabelFor(String roleName, {bool isPi = false}) {
+    final normalizedRole = LabMembershipService.normalizeAccessRole(
+      roleName,
+      isPi: isPi,
+    );
+
+    return LabAccessRole.values
         .firstWhere(
-          (role) => role.name == roleName,
-          orElse: () => DemoUserRole.researcher,
+          (role) => role.name == normalizedRole,
+          orElse: () => LabAccessRole.member,
         )
         .label;
   }
@@ -238,6 +311,145 @@ class AppState extends ChangeNotifier {
     _selectedLabMembershipRole = membership.role.trim();
   }
 
+  Future<void> _loadSelectedLabPiIdentity() async {
+    _selectedLabPiUid = '';
+    _selectedLabPiResolutionSource = '';
+    _selectedLabPiIdentityLoadFailed = false;
+
+    if (_selectedLabId.trim().isEmpty ||
+        isDemoLabSelected ||
+        isLocalFallbackLabSelected) {
+      _hasAttemptedSelectedLabPiIdentityLoad = false;
+      return;
+    }
+
+    final userId = authenticatedUserId;
+    if (userId.isEmpty) {
+      _hasAttemptedSelectedLabPiIdentityLoad = false;
+      return;
+    }
+
+    _hasAttemptedSelectedLabPiIdentityLoad = true;
+
+    var migrationAttempted = false;
+    var migrationSucceeded = false;
+    var piUidExists = false;
+    String? migrationError;
+
+    try {
+      final migrationResult = await _labMembershipService
+          .migrateLabAccessRolesIfNeeded(
+            labId: _selectedLabId,
+            currentUserId: userId,
+          );
+
+      migrationAttempted = migrationResult.migrationAttempted;
+      migrationSucceeded = migrationResult.migrationSucceeded;
+      _selectedLabPiUid = migrationResult.piUid;
+      _selectedLabPiResolutionSource = migrationResult.resolutionSource;
+      piUidExists = _selectedLabPiResolutionSource == 'piUid';
+
+      if (migrationSucceeded) {
+        await _loadSelectedLabRole();
+      }
+
+      if (_selectedLabPiUid.trim().isEmpty) {
+        final doc = await _firestore
+            .collection('labs')
+            .doc(_selectedLabId)
+            .get();
+        final data = doc.data() ?? {};
+        final fallbackIdentity = _trustedPiIdentityFromLabData(data);
+        _selectedLabPiUid = fallbackIdentity.uid;
+        _selectedLabPiResolutionSource = fallbackIdentity.sourceField;
+        piUidExists = _selectedLabPiUid.trim().isNotEmpty;
+      }
+    } catch (error) {
+      _selectedLabPiIdentityLoadFailed = true;
+      _selectedLabPiUid = '';
+      _selectedLabPiResolutionSource = '';
+      migrationError = error.toString();
+      try {
+        final doc = await _firestore
+            .collection('labs')
+            .doc(_selectedLabId)
+            .get();
+        final data = doc.data() ?? {};
+        final fallbackIdentity = _trustedPiIdentityFromLabData(data);
+        _selectedLabPiUid = fallbackIdentity.uid;
+        _selectedLabPiResolutionSource = fallbackIdentity.sourceField;
+        piUidExists = _selectedLabPiUid.trim().isNotEmpty;
+        _selectedLabPiIdentityLoadFailed = false;
+      } catch (_) {
+        _selectedLabPiUid = '';
+        _selectedLabPiResolutionSource = '';
+      }
+    } finally {
+      _debugLogPiResolution(
+        labId: _selectedLabId,
+        userId: userId,
+        piUidExists: piUidExists,
+        resolvedField: _selectedLabPiResolutionSource,
+        migrationAttempted: migrationAttempted,
+        migrationSucceeded: migrationSucceeded,
+        migrationError: migrationError,
+      );
+    }
+  }
+
+  _PiIdentityResolution _trustedPiIdentityFromLabData(
+    Map<String, dynamic> data,
+  ) {
+    const trustedUidFields = [
+      'piUid',
+      'principalInvestigatorUid',
+      'principalInvestigatorId',
+      'ownerUid',
+      'ownerId',
+      'createdByUid',
+    ];
+
+    for (final field in trustedUidFields) {
+      final uid = _normalizedUidField(data[field]);
+      if (uid != null) {
+        return _PiIdentityResolution(uid: uid, sourceField: field);
+      }
+    }
+
+    return const _PiIdentityResolution(uid: '', sourceField: '');
+  }
+
+  void _debugLogPiResolution({
+    required String labId,
+    required String userId,
+    required bool piUidExists,
+    required String resolvedField,
+    required bool migrationAttempted,
+    required bool migrationSucceeded,
+    String? migrationError,
+  }) {
+    assert(() {
+      debugPrint(
+        '[Labmate PI resolution] labId=${labId.trim()} '
+        'userUid=${userId.trim()} '
+        'piUidExists=$piUidExists '
+        'resolvedField=${resolvedField.trim().isEmpty ? 'none' : resolvedField.trim()} '
+        'migrationAttempted=$migrationAttempted '
+        'migrationSucceeded=$migrationSucceeded'
+        '${migrationError == null ? '' : ' migrationError=$migrationError'}',
+      );
+      return true;
+    }());
+  }
+
+  String? _normalizedUidField(Object? value) {
+    final normalized = value?.toString().trim();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+    return normalized;
+  }
+
   Future<void> loadProfile() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -262,7 +474,9 @@ class AppState extends ChangeNotifier {
       firstLoginAt: null,
       updatedAt: null,
     );
-    _demoRole = prefs.getString(_demoRoleKey) ?? DemoUserRole.researcher.name;
+    _demoRole = LabMembershipService.normalizeAccessRole(
+      prefs.getString(_demoRoleKey) ?? LabAccessRole.member.name,
+    );
     _selectedLabId = prefs.getString(_selectedLabIdKey) ?? '';
     _selectedLabName = prefs.getString(_selectedLabNameKey) ?? '';
     _selectedLabLocalRole = prefs.getString(_selectedLabLocalRoleKey) ?? '';
@@ -270,8 +484,10 @@ class AppState extends ChangeNotifier {
     _themeMode = _themeModeFromName(prefs.getString(_themeModeKey) ?? 'dark');
     _compactDesktopMode = prefs.getBool(_compactDesktopModeKey) ?? false;
     _hasAttemptedSelectedLabMembershipLoad = false;
+    _hasAttemptedSelectedLabPiIdentityLoad = false;
 
     await _loadSelectedLabRole();
+    await _loadSelectedLabPiIdentity();
 
     _isLoaded = true;
     notifyListeners();
@@ -320,7 +536,7 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> saveDemoRole(DemoUserRole role) async {
+  Future<void> saveDemoRole(LabAccessRole role) async {
     final prefs = await SharedPreferences.getInstance();
 
     await prefs.setString(_demoRoleKey, role.name);
@@ -353,10 +569,14 @@ class AppState extends ChangeNotifier {
         await _saveSelectedLabUserId(userId);
       }
 
-      if (!isLocalFallbackLabSelected &&
-          !hasResolvedLabMembership &&
+      final shouldRefreshSelectedLabAccess =
+          !isLocalFallbackLabSelected &&
           !isRefreshingSelectedLabRole &&
-          !hasAttemptedSelectedLabMembershipLoad) {
+          !isRefreshingSelectedLabPiIdentity &&
+          (!hasResolvedLabMembership ||
+              !hasAttemptedSelectedLabMembershipLoad ||
+              !hasAttemptedSelectedLabPiIdentityLoad);
+      if (shouldRefreshSelectedLabAccess) {
         await refreshSelectedLabRole();
       }
       return true;
@@ -445,8 +665,10 @@ class AppState extends ChangeNotifier {
     _selectedLabLocalRole = localRoleName;
     _selectedLabUserId = userId;
     _hasAttemptedSelectedLabMembershipLoad = false;
+    _hasAttemptedSelectedLabPiIdentityLoad = false;
 
     await _loadSelectedLabRole();
+    await _loadSelectedLabPiIdentity();
 
     notifyListeners();
   }
@@ -509,13 +731,18 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> refreshSelectedLabRole() async {
-    if (_isRefreshingSelectedLabRole) return;
+    if (_isRefreshingSelectedLabRole || _isRefreshingSelectedLabPiIdentity) {
+      return;
+    }
 
     _isRefreshingSelectedLabRole = true;
+    _isRefreshingSelectedLabPiIdentity = true;
     try {
       await _loadSelectedLabRole();
+      await _loadSelectedLabPiIdentity();
     } finally {
       _isRefreshingSelectedLabRole = false;
+      _isRefreshingSelectedLabPiIdentity = false;
       notifyListeners();
     }
   }
@@ -558,8 +785,13 @@ class AppState extends ChangeNotifier {
     _selectedLabLocalRole = '';
     _selectedLabUserId = '';
     _selectedLabMembershipRole = '';
+    _selectedLabPiUid = '';
+    _selectedLabPiResolutionSource = '';
     _hasAttemptedSelectedLabMembershipLoad = false;
+    _hasAttemptedSelectedLabPiIdentityLoad = false;
+    _selectedLabPiIdentityLoadFailed = false;
     _isRefreshingSelectedLabRole = false;
+    _isRefreshingSelectedLabPiIdentity = false;
 
     notifyListeners();
   }
@@ -587,4 +819,11 @@ class AppState extends ChangeNotifier {
 
     return selectedLabId.trim();
   }
+}
+
+class _PiIdentityResolution {
+  final String uid;
+  final String sourceField;
+
+  const _PiIdentityResolution({required this.uid, required this.sourceField});
 }

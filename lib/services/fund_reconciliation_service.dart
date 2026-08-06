@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/fund_model.dart';
 import '../models/order_model.dart';
 import '../models/requirement_model.dart';
+import 'firestore_access_guard.dart';
 
 class FundReconciliationService {
   static const double _amountTolerance = 0.000001;
@@ -22,6 +23,12 @@ class FundReconciliationService {
     required double actualTotal,
     required String reconciledBy,
   }) async {
+    if (!FirestoreAccessGuard.shouldQueryFundsAndExpenditure()) {
+      throw const LabDataAccessException(
+        FirestoreAccessGuard.fundsAndExpenditureMessage,
+      );
+    }
+
     final cleanOrderId = orderId.trim();
     final cleanLabId = labId.trim();
     final cleanReconciledBy = reconciledBy.trim();

@@ -33,6 +33,14 @@ class FundService {
     }
   }
 
+  void _requireFundsAndExpenditureAccess() {
+    if (!FirestoreAccessGuard.shouldQueryFundsAndExpenditure()) {
+      throw const LabDataAccessException(
+        FirestoreAccessGuard.fundsAndExpenditureMessage,
+      );
+    }
+  }
+
   Stream<List<FundModel>> _guardedFundsStream({
     required String labId,
     required Stream<QuerySnapshot<Map<String, dynamic>>> source,
@@ -43,6 +51,9 @@ class FundService {
   }) {
     final cleanLabId = labId.trim();
     if (cleanLabId.isEmpty) {
+      return Stream<List<FundModel>>.value(<FundModel>[]);
+    }
+    if (!FirestoreAccessGuard.shouldQueryFundsAndExpenditure()) {
       return Stream<List<FundModel>>.value(<FundModel>[]);
     }
 
@@ -70,6 +81,9 @@ class FundService {
     if (cleanLabId.isEmpty) {
       return Stream<List<FundModel>>.value(<FundModel>[]);
     }
+    if (!FirestoreAccessGuard.shouldQueryFundsAndExpenditure()) {
+      return Stream<List<FundModel>>.value(<FundModel>[]);
+    }
 
     return _guardedFundsStream(
       labId: cleanLabId,
@@ -89,6 +103,11 @@ class FundService {
     final cleanLabId = labId.trim();
     final cleanFundId = fundId.trim();
     if (cleanLabId.isEmpty || cleanFundId.isEmpty) {
+      return Stream<List<FundTransactionModel>>.value(
+        const <FundTransactionModel>[],
+      );
+    }
+    if (!FirestoreAccessGuard.shouldQueryFundsAndExpenditure()) {
       return Stream<List<FundTransactionModel>>.value(
         const <FundTransactionModel>[],
       );
@@ -122,6 +141,8 @@ class FundService {
 
   Future<void> addFund({required String labId, required FundModel fund}) async {
     await _runGuarded(() async {
+      _requireFundsAndExpenditureAccess();
+
       final cleanLabId = _validatedLabId(labId);
       final cleanFundName = _validatedFundName(fund.fundName);
       final cleanTotalAmount = _validatedPositiveAmount(
@@ -156,6 +177,8 @@ class FundService {
     required FundModel fund,
   }) async {
     await _runGuarded(() async {
+      _requireFundsAndExpenditureAccess();
+
       final cleanLabId = _validatedLabId(labId);
       final cleanFundId = fund.id.trim();
       if (cleanFundId.isEmpty) {
@@ -212,6 +235,8 @@ class FundService {
     required String fundId,
   }) async {
     await _runGuarded(() async {
+      _requireFundsAndExpenditureAccess();
+
       final cleanLabId = _validatedLabId(labId);
       final cleanFundId = fundId.trim();
       if (cleanFundId.isEmpty) {
@@ -267,10 +292,7 @@ class FundService {
     }
   }
 
-  int _compareTransactions(
-    FundTransactionModel a,
-    FundTransactionModel b,
-  ) {
+  int _compareTransactions(FundTransactionModel a, FundTransactionModel b) {
     final aCreatedAt = a.createdAt;
     final bCreatedAt = b.createdAt;
 

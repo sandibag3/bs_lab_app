@@ -218,7 +218,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
         final selectedLabName = appState.selectedLabName.trim();
         final currentUserId = currentUser?.uid.trim() ?? '';
         final currentUserName = appState.authenticatedUserName;
-        final isPiAdmin = appState.isPiAdmin;
+        final isPiOrAdmin = appState.isPiOrAdmin;
         final canQueryLabData = FirestoreAccessGuard.shouldQueryLabScopedData(
           appState: appState,
         );
@@ -652,7 +652,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                               : 'Check out',
                                         ),
                                       ),
-                                      if (isPiAdmin)
+                                      if (isPiOrAdmin)
                                         OutlinedButton.icon(
                                           onPressed: () =>
                                               _openAttendanceLogbook(context),
@@ -676,7 +676,7 @@ class _AttendanceScreenState extends State<AttendanceScreen> {
                                             'Attendance Logbook',
                                           ),
                                         ),
-                                      if (isPiAdmin)
+                                      if (isPiOrAdmin)
                                         OutlinedButton.icon(
                                           onPressed: () =>
                                               _openAttendanceAdmin(context),

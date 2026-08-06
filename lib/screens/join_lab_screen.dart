@@ -21,7 +21,7 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
   final LabService _labService = LabService();
   final LabMembershipService _labMembershipService = LabMembershipService();
   final TextEditingController _identifierController = TextEditingController();
-  String _selectedRoleName = DemoUserRole.researcher.name;
+  final String _selectedRoleName = LabAccessRole.member.name;
 
   bool isJoining = false;
 
@@ -79,25 +79,6 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
 
       if (foundLab != null) {
         selectedContext = foundLab;
-
-        if (selectedRoleName == DemoUserRole.piAdmin.name) {
-          final hasPiAdmin = await _labMembershipService.labHasActivePiAdmin(
-            labId: foundLab.selectedLabId,
-            excludingUserId: currentUserId,
-          );
-
-          if (hasPiAdmin) {
-            if (!mounted) return;
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'This lab already has a PI/Admin. Join with a non-PI role.',
-                ),
-              ),
-            );
-            return;
-          }
-        }
 
         String localRoleName = '';
         if (currentUserId.isNotEmpty) {
@@ -209,25 +190,23 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
                 },
               ),
               const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                initialValue: _selectedRoleName,
-                dropdownColor: palette.panel,
-                decoration: _inputDecoration('Join as'),
-                style: TextStyle(color: colorScheme.onSurface),
-                items: DemoUserRole.values.map((role) {
-                  return DropdownMenuItem<String>(
-                    value: role.name,
-                    child: Text(role.label),
-                  );
-                }).toList(),
-                onChanged: isJoining
-                    ? null
-                    : (value) {
-                        if (value == null) return;
-                        setState(() {
-                          _selectedRoleName = value;
-                        });
-                      },
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: palette.panel,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: palette.border),
+                ),
+                child: Text(
+                  'New join requests are added as Lab Access: Member. A PI or Admin can adjust access later from Lab Members.',
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 13.2,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
               const SizedBox(height: 22),
               SizedBox(

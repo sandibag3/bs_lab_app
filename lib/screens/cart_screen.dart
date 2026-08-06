@@ -398,6 +398,19 @@ class _CartScreenState extends State<CartScreen> {
     required RequirementModel req,
   }) async {
     final appState = AppState.instance;
+    if (!appState.canAccessFundsAndExpenditure) {
+      if (!context.mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(FirestoreAccessGuard.fundsAndExpenditureMessage),
+        ),
+      );
+      return;
+    }
+
     final selectedLabId = appState.selectedLabId.trim();
     final requirementLabId = req.labId.trim();
 
@@ -751,53 +764,104 @@ class _CartScreenState extends State<CartScreen> {
     );
   }
 
+  Widget _buildPiApprovalRequiredNotice({bool isCompact = false}) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.all(isCompact ? 10 : 12),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.25)),
+      ),
+      child: Text(
+        'Final approval requires fund allocation by the Principal Investigator.',
+        style: TextStyle(
+          color: palette.mutedText,
+          fontSize: isCompact ? 12.3 : 12.8,
+          height: 1.35,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
   Widget _buildCompactActionArea({
     required BuildContext context,
     required RequirementModel req,
-    required bool isPiAdmin,
+    required bool canReviewRequirements,
+    required bool canApproveWithFund,
   }) {
     final status = req.status.toLowerCase();
     final actions = <Widget>[];
 
-    if (isPiAdmin && status == 'pending') {
-      actions.add(
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () async {
-                  await _handleApproveRequirement(context: context, req: req);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+    if (canReviewRequirements && status == 'pending') {
+      if (canApproveWithFund) {
+        actions.add(
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await _handleApproveRequirement(context: context, req: req);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  child: const Text('Approve'),
                 ),
-                child: const Text('Approve'),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () async {
-                  await _updateStatus(req: req, status: 'rejected');
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () async {
+                    await _updateStatus(req: req, status: 'rejected');
 
-                  if (!context.mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Requirement rejected')),
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                    if (!context.mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Requirement rejected')),
+                    );
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                  child: const Text('Reject'),
                 ),
-                child: const Text('Reject'),
               ),
+            ],
+          ),
+        );
+      } else {
+        actions.add(_buildPiApprovalRequiredNotice(isCompact: true));
+        actions.add(const SizedBox(height: 8));
+        actions.add(
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                await _updateStatus(req: req, status: 'rejected');
+
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Requirement rejected')),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              child: const Text('Reject'),
             ),
-          ],
-        ),
-      );
+          ),
+        );
+      }
     }
 
     if (status == 'approved') {
@@ -842,7 +906,36 @@ class _CartScreenState extends State<CartScreen> {
   Widget _buildDetailedApproveRejectActions({
     required BuildContext context,
     required RequirementModel req,
+    required bool canApproveWithFund,
   }) {
+    if (!canApproveWithFund) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildPiApprovalRequiredNotice(),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () async {
+                await _updateStatus(req: req, status: 'rejected');
+
+                if (!context.mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Requirement rejected')),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Reject'),
+            ),
+          ),
+        ],
+      );
+    }
+
     return Row(
       children: [
         Expanded(
@@ -919,7 +1012,8 @@ class _CartScreenState extends State<CartScreen> {
   Widget _buildDetailedCard({
     required BuildContext context,
     required RequirementModel req,
-    required bool isPiAdmin,
+    required bool canReviewRequirements,
+    required bool canApproveWithFund,
   }) {
     final isConsumable = _isConsumableRequirement(req);
     final palette = context.labmate;
@@ -997,7 +1091,7 @@ class _CartScreenState extends State<CartScreen> {
           ),
           const SizedBox(height: 10),
           _buildStatusBadge(req),
-          if (req.hasFundAllocation) ...[
+          if (canApproveWithFund && req.hasFundAllocation) ...[
             const SizedBox(height: 8),
             _buildAllocationSummary(req: req),
           ],
@@ -1008,9 +1102,14 @@ class _CartScreenState extends State<CartScreen> {
               style: TextStyle(color: palette.subtleText, fontSize: 12.5),
             ),
           ],
-          if (isPiAdmin && req.status.toLowerCase() == 'pending') ...[
+          if (canReviewRequirements &&
+              req.status.toLowerCase() == 'pending') ...[
             const SizedBox(height: 12),
-            _buildDetailedApproveRejectActions(context: context, req: req),
+            _buildDetailedApproveRejectActions(
+              context: context,
+              req: req,
+              canApproveWithFund: canApproveWithFund,
+            ),
           ],
           if (_canRequesterDeleteRequirement(req))
             _buildDetailedRequesterDeleteAction(context: context, req: req),
@@ -1026,12 +1125,14 @@ class _CartScreenState extends State<CartScreen> {
   Widget _buildCompactCard({
     required BuildContext context,
     required RequirementModel req,
-    required bool isPiAdmin,
+    required bool canReviewRequirements,
+    required bool canApproveWithFund,
   }) {
     final actionArea = _buildCompactActionArea(
       context: context,
       req: req,
-      isPiAdmin: isPiAdmin,
+      canReviewRequirements: canReviewRequirements,
+      canApproveWithFund: canApproveWithFund,
     );
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
@@ -1093,7 +1194,7 @@ class _CartScreenState extends State<CartScreen> {
               _buildStatusBadge(req),
             ],
           ),
-          if (req.hasFundAllocation) ...[
+          if (canApproveWithFund && req.hasFundAllocation) ...[
             const SizedBox(height: 10),
             _buildAllocationSummary(req: req, isCompact: true),
           ],
@@ -1204,7 +1305,8 @@ class _CartScreenState extends State<CartScreen> {
   @override
   Widget build(BuildContext context) {
     final appState = AppState.instance;
-    final bool isPiAdmin = appState.isPiAdmin;
+    final bool canReviewRequirements = appState.isPiOrAdmin;
+    final bool canApproveWithFund = appState.canAccessFundsAndExpenditure;
     final palette = context.labmate;
 
     return Scaffold(
@@ -1266,14 +1368,16 @@ class _CartScreenState extends State<CartScreen> {
                         return _buildCompactCard(
                           context: context,
                           req: req,
-                          isPiAdmin: isPiAdmin,
+                          canReviewRequirements: canReviewRequirements,
+                          canApproveWithFund: canApproveWithFund,
                         );
                       }
 
                       return _buildDetailedCard(
                         context: context,
                         req: req,
-                        isPiAdmin: isPiAdmin,
+                        canReviewRequirements: canReviewRequirements,
+                        canApproveWithFund: canApproveWithFund,
                       );
                     },
                   ),
@@ -1326,11 +1430,23 @@ class _RequirementFundApprovalPanelState
   }
 
   void _refreshFunds() {
+    if (!AppState.instance.canAccessFundsAndExpenditure) {
+      _fundsStream = Stream<List<FundModel>>.value(const <FundModel>[]);
+      return;
+    }
+
     _fundsStream = widget.fundService.streamFunds(widget.requirement.labId);
   }
 
   Future<void> _submitApproval(FundModel selectedFund) async {
     if (_isSubmitting) {
+      return;
+    }
+
+    if (!AppState.instance.canAccessFundsAndExpenditure) {
+      setState(() {
+        _submissionError = FirestoreAccessGuard.fundsAndExpenditureMessage;
+      });
       return;
     }
 

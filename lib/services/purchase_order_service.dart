@@ -320,6 +320,12 @@ class PurchaseOrderService {
     required double actualTotal,
     required String reconciledBy,
   }) async {
+    if (!FirestoreAccessGuard.shouldQueryFundsAndExpenditure()) {
+      throw const LabDataAccessException(
+        FirestoreAccessGuard.fundsAndExpenditureMessage,
+      );
+    }
+
     return _runGuarded(() async {
       final cleanPurchaseOrderId = _validatedPurchaseOrderId(purchaseOrderId);
       final cleanLabId = _validatedLabId(labId);
