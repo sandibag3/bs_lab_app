@@ -12,7 +12,20 @@
           "package_name": "com.example.bs_lab_app"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "474972096952-l7io4gd2h1oebvrugcncrle2s7f2pvb2.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.bs_lab_app",
+            "certificate_hash": "29d904c90df91b81652be74570fa11b2123d581d"
+          }
+        },
+        {
+          "client_id": "474972096952-qag1iivoha3708g7ekqtdm129pooless.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyBXtf2TYAGtLbp0Gl3yMrrWPO1te_oHQYk"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "474972096952-qag1iivoha3708g7ekqtdm129pooless.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "474972096952-m9mnit30uib01h5lkre7a0cvgv3j4ehp.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.bsLabApp"
+              }
+            }
+          ]
         }
       }
     }

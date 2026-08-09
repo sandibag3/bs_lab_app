@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../app_state.dart';
+import '../services/google_auth_service.dart';
 import '../theme/labmate_theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -26,11 +27,15 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final FocusNode passwordFocusNode = FocusNode();
+  final GoogleAuthService _googleAuthService = GoogleAuthService();
 
   bool isLoading = false;
+  bool isGoogleLoading = false;
+
+  bool get _isAuthLoading => isLoading || isGoogleLoading;
 
   Future<void> login() async {
-    if (isLoading) {
+    if (_isAuthLoading) {
       return;
     }
 
@@ -44,6 +49,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (!mounted) return;
       Navigator.popUntil(context, (route) => route.isFirst);
+    } on FirebaseAuthException catch (e) {
+      final message = _firebaseAuthMessage(e);
+      if (message.isEmpty || !mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -54,6 +65,74 @@ class _LoginScreenState extends State<LoginScreen> {
         setState(() => isLoading = false);
       }
     }
+  }
+
+  Future<void> continueWithGoogle() async {
+    if (_isAuthLoading) {
+      return;
+    }
+
+    setState(() => isGoogleLoading = true);
+
+    try {
+      await _googleAuthService.continueWithGoogle();
+
+      if (!mounted) return;
+      Navigator.popUntil(context, (route) => route.isFirst);
+    } on FirebaseAuthException catch (e) {
+      final message = _firebaseAuthMessage(e);
+      if (message.isEmpty || !mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Google Sign-In failed: ${_cleanError(e)}')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => isGoogleLoading = false);
+      }
+    }
+  }
+
+  String _firebaseAuthMessage(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'popup-closed-by-user':
+      case 'cancelled-popup-request':
+      case 'web-context-cancelled':
+      case 'canceled':
+      case 'user-cancelled':
+        return '';
+      case 'account-exists-with-different-credential':
+      case 'credential-already-in-use':
+      case 'email-already-in-use':
+        return 'A Labmate account already exists for this email. Sign in with the original method first, then link Google without moving lab data.';
+      case 'operation-not-allowed':
+        return 'Google Sign-In is not enabled for this Firebase project yet.';
+      case 'operation-not-supported-in-this-environment':
+        return error.message ??
+            'Google Sign-In is not supported on this platform yet.';
+      case 'network-request-failed':
+        return 'Network error. Please check your connection and try again.';
+      case 'user-disabled':
+        return 'This account has been disabled.';
+      case 'wrong-password':
+      case 'invalid-credential':
+      case 'user-not-found':
+        return 'Invalid email or password.';
+      default:
+        final message = _cleanError(error.message ?? error.code);
+        return message.isEmpty ? 'Authentication failed.' : message;
+    }
+  }
+
+  String _cleanError(Object error) {
+    return error
+        .toString()
+        .replaceFirst(RegExp(r'^\[firebase_auth/[^\]]+\]\s*'), '')
+        .trim();
   }
 
   Future<void> enterDevWebDemo() async {
@@ -406,7 +485,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 SizedBox(
                                   height: 52,
                                   child: ElevatedButton(
-                                    onPressed: isLoading ? null : login,
+                                    onPressed: _isAuthLoading ? null : login,
                                     style: ElevatedButton.styleFrom(
                                       elevation: 0,
                                       shape: RoundedRectangleBorder(
@@ -430,13 +509,44 @@ class _LoginScreenState extends State<LoginScreen> {
                                 ),
                                 const SizedBox(height: 18),
                                 _buildAuthDivider(context),
+                                const SizedBox(height: 18),
+                                SizedBox(
+                                  height: 50,
+                                  child: OutlinedButton.icon(
+                                    onPressed: _isAuthLoading
+                                        ? null
+                                        : continueWithGoogle,
+                                    icon: isGoogleLoading
+                                        ? const SizedBox(
+                                            height: 18,
+                                            width: 18,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2.2,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.g_mobiledata_rounded,
+                                            size: 24,
+                                          ),
+                                    style: OutlinedButton.styleFrom(
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    label: Text(
+                                      isGoogleLoading
+                                          ? 'Connecting to Google...'
+                                          : 'Continue with Google',
+                                    ),
+                                  ),
+                                ),
                                 if (widget.showDevWebDemo &&
                                     widget.onDevWebDemo != null) ...[
                                   const SizedBox(height: 18),
                                   SizedBox(
                                     height: 50,
                                     child: OutlinedButton.icon(
-                                      onPressed: isLoading
+                                      onPressed: _isAuthLoading
                                           ? null
                                           : () => enterDevWebDemo(),
                                       icon: const Icon(
