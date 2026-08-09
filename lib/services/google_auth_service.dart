@@ -2,6 +2,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
+import 'google_windows_oauth_stub.dart'
+    if (dart.library.io) 'google_windows_oauth_io.dart';
+
 class GoogleAuthService {
   static Future<void>? _googleSignInInitialization;
 
@@ -30,11 +33,7 @@ class GoogleAuthService {
     }
 
     if (defaultTargetPlatform == TargetPlatform.windows) {
-      throw FirebaseAuthException(
-        code: 'operation-not-supported-in-this-environment',
-        message:
-            'Google Sign-In on Windows needs a configured desktop OAuth flow. Use Email/Password on Windows for now.',
-      );
+      return signInWithGoogleOnWindows(_auth);
     }
 
     await _ensureGoogleSignInInitialized();

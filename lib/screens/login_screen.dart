@@ -114,6 +114,14 @@ class _LoginScreenState extends State<LoginScreen> {
       case 'operation-not-supported-in-this-environment':
         return error.message ??
             'Google Sign-In is not supported on this platform yet.';
+      case 'missing-google-windows-client-id':
+        return 'Windows Google Sign-In needs a Google Desktop OAuth client ID configured.';
+      case 'missing-google-windows-client-secret':
+        return 'Windows Google Sign-In needs the Google Desktop OAuth client secret configured.';
+      case 'browser-launch-failed':
+        return 'Could not open your browser for Google Sign-In.';
+      case 'windows-google-timeout':
+        return 'Google Sign-In timed out. Please try again.';
       case 'network-request-failed':
         return 'Network error. Please check your connection and try again.';
       case 'user-disabled':
