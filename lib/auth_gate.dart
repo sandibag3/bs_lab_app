@@ -5,6 +5,7 @@ import 'app_state.dart';
 import 'screens/home_screen.dart';
 import 'screens/lab_access_screen.dart';
 import 'screens/welcome_screen.dart';
+import 'widgets/update_check_listener.dart';
 
 class AuthGate extends StatefulWidget {
   final AppState appState;
@@ -66,7 +67,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (_shouldUseDevWebDemo) {
-      return HomeScreen(appState: widget.appState);
+      return UpdateCheckListener(child: HomeScreen(appState: widget.appState));
     }
 
     return StreamBuilder<User?>(
@@ -91,15 +92,21 @@ class _AuthGateState extends State<AuthGate> {
               }
 
               if (labSnapshot.hasError) {
-                return LabAccessScreen(appState: widget.appState);
+                return UpdateCheckListener(
+                  child: LabAccessScreen(appState: widget.appState),
+                );
               }
 
               final hasLabContext = labSnapshot.data ?? false;
               if (hasLabContext) {
-                return HomeScreen(appState: widget.appState);
+                return UpdateCheckListener(
+                  child: HomeScreen(appState: widget.appState),
+                );
               }
 
-              return LabAccessScreen(appState: widget.appState);
+              return UpdateCheckListener(
+                child: LabAccessScreen(appState: widget.appState),
+              );
             },
           );
         }
