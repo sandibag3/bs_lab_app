@@ -21,6 +21,7 @@ class ChemicalModel {
   final String orderedBy;
   final String functionalGroups;
   final String sheetTab;
+  final String canonicalSmiles;
   final bool isActiveBottle;
   final String? createdByUid;
   final String? createdByName;
@@ -50,6 +51,7 @@ class ChemicalModel {
     required this.orderedBy,
     required this.functionalGroups,
     required this.sheetTab,
+    this.canonicalSmiles = '',
     this.isActiveBottle = false,
     this.createdByUid,
     this.createdByName,
@@ -83,6 +85,13 @@ class ChemicalModel {
       orderedBy: data['orderedBy'] ?? '',
       functionalGroups: data['functionalGroups'] ?? '',
       sheetTab: data['sheetTab'] ?? '',
+      canonicalSmiles: _stringFromFirstValue(data, const [
+        'canonicalSmiles',
+        'canonicalSMILES',
+        'CanonicalSMILES',
+        'ConnectivitySMILES',
+        'SMILES',
+      ]),
       isActiveBottle: data['isActiveBottle'] == true,
       createdByUid: _nullableStringFromValue(data['createdByUid']),
       createdByName: _nullableStringFromValue(data['createdByName']),
@@ -114,6 +123,8 @@ class ChemicalModel {
       'orderedBy': orderedBy,
       'functionalGroups': functionalGroups,
       'sheetTab': sheetTab,
+      if (canonicalSmiles.trim().isNotEmpty)
+        'canonicalSmiles': canonicalSmiles.trim(),
       'isActiveBottle': isActiveBottle,
     };
   }
@@ -131,6 +142,19 @@ class ChemicalModel {
 
   String get normalizedCas => cas.trim().toLowerCase();
   String get normalizedName => chemicalName.trim().toLowerCase();
+
+  static String _stringFromFirstValue(
+    Map<String, dynamic> data,
+    Iterable<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = data[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+    return '';
+  }
 
   static DateTime? _dateTimeFromValue(dynamic value) {
     if (value is Timestamp) {

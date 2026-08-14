@@ -36,6 +36,27 @@ class PubChemService {
     return value;
   }
 
+  String _canonicalSmilesFromProperties(Map<String, dynamic> properties) {
+    final candidateKeys = [
+      'canonicalSmiles',
+      'canonicalSMILES',
+      'CanonicalSMILES',
+      'ConnectivitySMILES',
+      'SMILES',
+      // Last resort: prefer connectivity/canonical values when PubChem provides them.
+      'IsomericSMILES',
+    ];
+
+    for (final key in candidateKeys) {
+      final value = properties[key]?.toString().trim() ?? '';
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+
+    return '';
+  }
+
   Future<PubChemChemicalDetails?> fetchByCas(String cas) async {
     final cleanCas = _normalizeCas(cas);
     if (cleanCas.isEmpty) return null;
@@ -62,7 +83,7 @@ class PubChemService {
 
       // Step 2: CID -> properties
       final propUrl = Uri.parse(
-        'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/$cid/property/MolecularFormula,MolecularWeight,IUPACName,CanonicalSMILES,InChIKey/JSON',
+        'https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/cid/$cid/property/MolecularFormula,MolecularWeight,IUPACName,ConnectivitySMILES,CanonicalSMILES,SMILES,IsomericSMILES,InChIKey/JSON',
       );
 
       final propResponse = await http.get(propUrl);
@@ -86,7 +107,7 @@ class PubChemService {
         molecularFormula: (p['MolecularFormula'] ?? '').toString(),
         molecularWeight: (p['MolecularWeight'] ?? '').toString(),
         iupacName: (p['IUPACName'] ?? '').toString(),
-        canonicalSmiles: (p['CanonicalSMILES'] ?? '').toString(),
+        canonicalSmiles: _canonicalSmilesFromProperties(p),
         inchiKey: (p['InChIKey'] ?? '').toString(),
         cid: cid,
         imageUrl: imageUrl,

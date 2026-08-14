@@ -679,6 +679,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       orderedBy: chemical.orderedBy,
       functionalGroups: chemical.functionalGroups,
       sheetTab: chemical.sheetTab,
+      canonicalSmiles: chemical.canonicalSmiles,
       isActiveBottle: chemical.isActiveBottle,
       createdByUid: chemical.createdByUid,
       createdByName: chemical.createdByName,
@@ -714,6 +715,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
       orderedBy: chemical.orderedBy,
       functionalGroups: functionalGroups,
       sheetTab: chemical.sheetTab,
+      canonicalSmiles: chemical.canonicalSmiles,
       isActiveBottle: chemical.isActiveBottle,
       createdByUid: chemical.createdByUid,
       createdByName: chemical.createdByName,
@@ -2648,6 +2650,15 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
         36;
   }
 
+  String _resolvedCanonicalSmiles(PubChemChemicalDetails? pubChemDetails) {
+    final storedValue = _currentChemical.canonicalSmiles.trim();
+    if (storedValue.isNotEmpty) {
+      return storedValue;
+    }
+
+    return pubChemDetails?.canonicalSmiles.trim() ?? '';
+  }
+
   Widget _desktopPubChemPanel() {
     return FutureBuilder<PubChemChemicalDetails?>(
       future: pubChemFuture,
@@ -2686,6 +2697,23 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
 
         final p = snapshot.data;
         if (p == null) {
+          final canonicalSmiles = _resolvedCanonicalSmiles(null);
+          if (canonicalSmiles.isNotEmpty) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _topBlockTitle('PubChem Molecular Data'),
+                const SizedBox(height: 8),
+                _identifierBlock(
+                  label: 'Canonical SMILES',
+                  value: canonicalSmiles,
+                  copyable: true,
+                  emptyDisplay: 'Not available',
+                ),
+              ],
+            );
+          }
+
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -2701,6 +2729,8 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             ],
           );
         }
+
+        final canonicalSmiles = _resolvedCanonicalSmiles(p);
 
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2747,8 +2777,9 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             const SizedBox(height: 5),
             _identifierBlock(
               label: 'Canonical SMILES',
-              value: p.canonicalSmiles,
+              value: canonicalSmiles,
               copyable: true,
+              emptyDisplay: 'Not available',
             ),
           ],
         );
@@ -2760,6 +2791,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
     required String label,
     required String value,
     bool copyable = false,
+    String emptyDisplay = '-',
   }) {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
@@ -2787,7 +2819,7 @@ class _ChemicalDetailScreenState extends State<ChemicalDetailScreen>
             children: [
               Expanded(
                 child: Text(
-                  _display(value),
+                  value.trim().isEmpty ? emptyDisplay : value.trim(),
                   softWrap: true,
                   style: TextStyle(
                     color: colorScheme.onSurface,
