@@ -1079,6 +1079,55 @@ class LabMembershipService {
     });
   }
 
+  Future<void> syncBirthdayProjectionForUser({
+    required String userId,
+    required DateTime dateOfBirth,
+  }) async {
+    final cleanUserId = userId.trim();
+    if (cleanUserId.isEmpty) {
+      return;
+    }
+
+    final birthDay = dateOfBirth.day;
+    final birthMonth = dateOfBirth.month;
+    if (birthDay < 1 || birthDay > 31 || birthMonth < 1 || birthMonth > 12) {
+      return;
+    }
+
+    final snapshot = await _membershipsRef
+        .where('userId', isEqualTo: cleanUserId)
+        .get();
+    if (snapshot.docs.isEmpty) {
+      return;
+    }
+
+    final batch = FirebaseFirestore.instance.batch();
+    var writeCount = 0;
+
+    for (final doc in snapshot.docs) {
+      final membership = LabMembershipModel.fromFirestore(doc);
+      if (membership.userId.trim() != cleanUserId ||
+          !membership.grantsActiveAccess) {
+        continue;
+      }
+      if (membership.birthDay == birthDay &&
+          membership.birthMonth == birthMonth) {
+        continue;
+      }
+
+      batch.update(doc.reference, {
+        'birthDay': birthDay,
+        'birthMonth': birthMonth,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      writeCount += 1;
+    }
+
+    if (writeCount > 0) {
+      await batch.commit();
+    }
+  }
+
   Future<int> deleteMembershipsForLabs(List<String> labIds) async {
     final cleanedLabIds = labIds
         .map((labId) => labId.trim())

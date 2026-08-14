@@ -15,6 +15,8 @@ class LabMembershipModel {
   final DateTime? membershipEndAt;
   final DateTime? leftAt;
   final String? leftBy;
+  final int? birthDay;
+  final int? birthMonth;
 
   LabMembershipModel({
     required this.id,
@@ -31,6 +33,8 @@ class LabMembershipModel {
     this.membershipEndAt,
     this.leftAt,
     this.leftBy,
+    this.birthDay,
+    this.birthMonth,
   });
 
   factory LabMembershipModel.fromFirestore(DocumentSnapshot doc) {
@@ -54,6 +58,8 @@ class LabMembershipModel {
       membershipEndAt: _dateTimeFromValue(data['membershipEndAt']),
       leftAt: _dateTimeFromValue(data['leftAt']),
       leftBy: _normalizedOptionalString(data['leftBy']),
+      birthDay: _intInRange(data['birthDay'], min: 1, max: 31),
+      birthMonth: _intInRange(data['birthMonth'], min: 1, max: 12),
     );
   }
 
@@ -100,6 +106,8 @@ class LabMembershipModel {
         'membershipEndAt': Timestamp.fromDate(membershipEndAt!),
       'leftAt': leftAt,
       'leftBy': leftBy,
+      if (birthDay != null) 'birthDay': birthDay,
+      if (birthMonth != null) 'birthMonth': birthMonth,
     };
   }
 
@@ -124,6 +132,10 @@ class LabMembershipModel {
     bool clearLeftAt = false,
     String? leftBy,
     bool clearLeftBy = false,
+    int? birthDay,
+    bool clearBirthDay = false,
+    int? birthMonth,
+    bool clearBirthMonth = false,
   }) {
     return LabMembershipModel(
       id: id ?? this.id,
@@ -144,6 +156,8 @@ class LabMembershipModel {
           : (membershipEndAt ?? this.membershipEndAt),
       leftAt: clearLeftAt ? null : (leftAt ?? this.leftAt),
       leftBy: clearLeftBy ? null : (leftBy ?? this.leftBy),
+      birthDay: clearBirthDay ? null : (birthDay ?? this.birthDay),
+      birthMonth: clearBirthMonth ? null : (birthMonth ?? this.birthMonth),
     );
   }
 
@@ -163,5 +177,24 @@ class LabMembershipModel {
       return null;
     }
     return normalized;
+  }
+
+  static int? _intInRange(dynamic value, {required int min, required int max}) {
+    int? parsed;
+    if (value is int) {
+      parsed = value;
+    } else if (value is num) {
+      if (!value.isFinite || value != value.toInt()) {
+        return null;
+      }
+      parsed = value.toInt();
+    } else {
+      parsed = int.tryParse(value?.toString().trim() ?? '');
+    }
+
+    if (parsed == null || parsed < min || parsed > max) {
+      return null;
+    }
+    return parsed;
   }
 }

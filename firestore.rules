@@ -164,6 +164,20 @@ service cloud.firestore {
           request.resource.data.status == 'expired';
     }
 
+
+    function isOwnBirthdayProjectionWrite() {
+      return isSignedIn() &&
+          request.auth.uid == resource.data.userId &&
+          keepsMembershipIdentity() &&
+          hasActiveMembership(resource.data.labId) &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['birthDay', 'birthMonth', 'updatedAt']) &&
+          request.resource.data.birthDay is int &&
+          request.resource.data.birthDay >= 1 &&
+          request.resource.data.birthDay <= 31 &&
+          request.resource.data.birthMonth is int &&
+          request.resource.data.birthMonth >= 1 &&
+          request.resource.data.birthMonth <= 12;
+    }
     function isPiMembershipRoleWrite(labId) {
       return request.resource.data.role == 'pi' &&
           request.resource.data.userId == labDataAfter(labId).piUid &&
@@ -320,7 +334,8 @@ service cloud.firestore {
             ]) &&
             isPiApprovedMemberActivation(resource.data.labId, resource.data.userId)
           ) ||
-          isLazyExpiryWrite();
+          isLazyExpiryWrite() ||
+          isOwnBirthdayProjectionWrite();
     }
 
     match /users/{userId} {
@@ -364,6 +379,41 @@ service cloud.firestore {
           );
 
       allow delete: if false;
+    }
+
+    match /events/{eventId} {
+      allow read: if hasActiveMembership(resource.data.labId);
+
+      allow create: if isSignedIn() &&
+          request.resource.data.labId is string &&
+          request.resource.data.labId != '' &&
+          hasActiveMembership(request.resource.data.labId) &&
+          request.resource.data.title is string &&
+          request.resource.data.eventType is string &&
+          request.resource.data.dateTime is timestamp &&
+          request.resource.data.createdBy is string &&
+          request.resource.data.createdById is string &&
+          request.resource.data.isCompleted == false &&
+          (
+            request.resource.data.createdById == request.auth.uid ||
+            (
+              request.resource.data.createdBy == 'Labmate' &&
+              request.resource.data.createdById == 'labmate' &&
+              request.resource.data.eventType == 'Celebration' &&
+              request.resource.data.birthdayUserId is string &&
+              request.resource.data.birthdayUserId != '' &&
+              hasActiveMembershipFor(request.resource.data.labId, request.resource.data.birthdayUserId) &&
+              request.resource.data.birthdayYear is int
+            )
+          );
+
+      allow update: if hasActiveMembership(resource.data.labId) &&
+          resource.data.createdById == request.auth.uid &&
+          request.resource.data.labId == resource.data.labId &&
+          request.resource.data.createdById == resource.data.createdById;
+
+      allow delete: if hasActiveMembership(resource.data.labId) &&
+          resource.data.createdById == request.auth.uid;
     }
 
     match /labs/{labId}/funds/{fundId} {

@@ -530,10 +530,28 @@ class AppState extends ChangeNotifier {
         email: authenticatedUserEmail,
         profile: updatedProfile,
       );
+      await _syncCurrentUserBirthdayProjection(updatedProfile);
     }
 
     _profile = updatedProfile;
     notifyListeners();
+  }
+
+  Future<void> _syncCurrentUserBirthdayProjection(UserProfile profile) async {
+    final userId = authenticatedUserId;
+    final dateOfBirth = UserProfile.dateOfBirthFromString(profile.dob);
+    if (userId.isEmpty || dateOfBirth == null) {
+      return;
+    }
+
+    try {
+      await _labMembershipService.syncBirthdayProjectionForUser(
+        userId: userId,
+        dateOfBirth: dateOfBirth,
+      );
+    } catch (_) {
+      // Profile saves and lab entry should not fail if projection backfill is denied.
+    }
   }
 
   Future<void> saveDemoRole(LabAccessRole role) async {
@@ -636,6 +654,7 @@ class AppState extends ChangeNotifier {
       );
 
       _profile = loadedProfile;
+      await _syncCurrentUserBirthdayProjection(loadedProfile);
       notifyListeners();
     } catch (_) {
       if (_profile.firstLoginAt == null) {
@@ -673,6 +692,7 @@ class AppState extends ChangeNotifier {
 
     await _loadSelectedLabRole();
     await _loadSelectedLabPiIdentity();
+    await _syncCurrentUserBirthdayProjection(_profile);
 
     notifyListeners();
   }

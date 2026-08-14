@@ -344,21 +344,56 @@ class _HomeDashboardTabState extends State<HomeDashboardTab> {
   final FocusNode _dashboardKeyboardFocusNode = FocusNode(
     debugLabel: 'homeDashboardKeyboardScope',
   );
+  String _lastBirthdayCheckKey = '';
+  bool _birthdayCheckInFlight = false;
 
   @override
   void initState() {
     super.initState();
+    widget.appState.addListener(_runBirthdayCelebrationCheck);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_dashboardKeyboardFocusNode.hasFocus) {
         _dashboardKeyboardFocusNode.requestFocus();
       }
+      _runBirthdayCelebrationCheck();
     });
   }
 
   @override
   void dispose() {
+    widget.appState.removeListener(_runBirthdayCelebrationCheck);
     _dashboardKeyboardFocusNode.dispose();
     super.dispose();
+  }
+
+  void _runBirthdayCelebrationCheck() {
+    if (_birthdayCheckInFlight) {
+      return;
+    }
+
+    final labId = widget.appState.selectedLabId.trim();
+    if (labId.isEmpty ||
+        widget.appState.isDemoLabSelected ||
+        widget.appState.isLocalFallbackLabSelected) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final checkKey = '$labId|${now.year}-${now.month}-${now.day}';
+    if (_lastBirthdayCheckKey == checkKey) {
+      return;
+    }
+
+    _lastBirthdayCheckKey = checkKey;
+    _birthdayCheckInFlight = true;
+    unawaited(
+      EventService()
+          .ensureBirthdayCelebrationEventsForActiveLab(now: now)
+          .catchError((_) {})
+          .whenComplete(() {
+            _birthdayCheckInFlight = false;
+          }),
+    );
   }
 
   KeyEventResult _handleDashboardKeyEvent(FocusNode node, KeyEvent event) {
