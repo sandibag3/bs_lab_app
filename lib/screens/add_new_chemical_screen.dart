@@ -132,6 +132,7 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
     'Ligand',
     'Solvent',
     'D-Solvent',
+    'Organometallic Reagent',
   ];
 
   final List<String> locationOptions = const [
@@ -982,6 +983,9 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
       'd solvents': 'D-Solvent',
       'deuterated solvent': 'D-Solvent',
       'deuterated solvents': 'D-Solvent',
+      'organometallic reagent': 'Organometallic Reagent',
+      'organometallic reagents': 'Organometallic Reagent',
+      'organometallic': 'Organometallic Reagent',
     };
 
     if (builtInSheetTabs.containsKey(normalized)) {
@@ -1152,6 +1156,8 @@ class _AddNewChemicalScreenState extends State<AddNewChemicalScreen> {
         return 'Solvents';
       case 'D-Solvent':
         return 'D-Solvents';
+      case 'Organometallic Reagent':
+        return 'Organometallic Reagents';
       case 'General':
         final carbonCount = int.tryParse(carbonCountController.text.trim());
         if (carbonCount != null && carbonCount > 0) {

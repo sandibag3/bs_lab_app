@@ -50,6 +50,12 @@ class ChemicalLabelService {
       return 'DSOL';
     }
 
+    if (c == 'organometallic reagent' ||
+        c == 'organometallic reagents' ||
+        c == 'organometallic') {
+      return 'OM';
+    }
+
     if (c == 'general') {
       if (carbonCount != null && carbonCount > 0) {
         return 'C$carbonCount';
