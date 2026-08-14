@@ -147,7 +147,7 @@ class LabAccessScreen extends StatelessWidget {
                 icon: Icons.group_add_rounded,
                 title: 'Join Lab',
                 subtitle:
-                    'Enter a shared lab code or a mock identifier to continue with a lab context.',
+                    'Enter a shared lab code to request PI approval for access.',
                 onTap: () => _openJoinLab(context),
               ),
             ],

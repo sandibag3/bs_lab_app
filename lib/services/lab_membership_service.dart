@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../models/lab_join_request_model.dart';
 import '../models/lab_membership_model.dart';
 
 class LabMembershipException implements Exception {
@@ -8,6 +9,20 @@ class LabMembershipException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class LabJoinRequestResult {
+  final String requestId;
+  final String labId;
+  final String labName;
+  final bool alreadyPending;
+
+  const LabJoinRequestResult({
+    required this.requestId,
+    required this.labId,
+    required this.labName,
+    this.alreadyPending = false,
+  });
 }
 
 class LabRoleMigrationResult {
@@ -52,6 +67,8 @@ class LabMembershipService {
   final CollectionReference<Map<String, dynamic>> _usersRef = FirebaseFirestore
       .instance
       .collection('users');
+  final CollectionReference<Map<String, dynamic>> _joinRequestsRef =
+      FirebaseFirestore.instance.collection('labJoinRequests');
 
   static String membershipIdFor({
     required String userId,
@@ -64,6 +81,65 @@ class LabMembershipService {
 
   String _membershipDocId({required String userId, required String labId}) {
     return membershipIdFor(userId: userId, labId: labId);
+  }
+
+  static String joinRequestIdFor({
+    required String userId,
+    required String labId,
+  }) {
+    return membershipIdFor(userId: userId, labId: labId);
+  }
+
+  String _joinRequestDocId({required String userId, required String labId}) {
+    return joinRequestIdFor(userId: userId, labId: labId);
+  }
+
+  static DateTime dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  static DateTime endOfDay(DateTime value) {
+    return DateTime(value.year, value.month, value.day, 23, 59, 59, 999);
+  }
+
+  bool _isVisibleMembership(
+    LabMembershipModel membership, {
+    bool includeExpired = false,
+  }) {
+    final effectiveStatus = membership.effectiveStatus;
+    if (effectiveStatus == 'active') {
+      return true;
+    }
+    return includeExpired && effectiveStatus == 'expired';
+  }
+
+  bool _shouldMarkExpired(LabMembershipModel membership) {
+    final status = membership.status.trim().toLowerCase();
+    final storedStatus = status.isEmpty ? 'active' : status;
+    return storedStatus == 'active' && membership.isExpired;
+  }
+
+  Future<void> markMembershipExpiredIfNeeded(
+    LabMembershipModel membership,
+  ) async {
+    if (!_shouldMarkExpired(membership)) {
+      return;
+    }
+
+    try {
+      await _membershipsRef.doc(membership.id).update({
+        'status': 'expired',
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {
+      // Access checks use effectiveStatus, so the lazy status write is best-effort.
+    }
+  }
+
+  Future<void> _markExpiredMembershipsIfNeeded(
+    Iterable<LabMembershipModel> memberships,
+  ) async {
+    await Future.wait(memberships.map(markMembershipExpiredIfNeeded));
   }
 
   Future<void> upsertMembership({
@@ -119,6 +195,275 @@ class LabMembershipService {
     });
   }
 
+  Future<LabJoinRequestResult> createJoinRequest({
+    required String labId,
+    required String labName,
+    required String userId,
+    required String userName,
+    required String userEmail,
+  }) async {
+    final cleanLabId = labId.trim();
+    final cleanLabName = labName.trim();
+    final cleanUserId = userId.trim();
+    final cleanUserName = userName.trim();
+    final cleanUserEmail = userEmail.trim();
+
+    if (cleanLabId.isEmpty || cleanUserId.isEmpty) {
+      throw const LabMembershipException('Join request could not be created.');
+    }
+
+    final requestRef = _joinRequestsRef.doc(
+      _joinRequestDocId(userId: cleanUserId, labId: cleanLabId),
+    );
+    final membershipRef = _membershipsRef.doc(
+      _membershipDocId(userId: cleanUserId, labId: cleanLabId),
+    );
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final membershipSnapshot = await transaction.get(membershipRef);
+      final requestSnapshot = await transaction.get(requestRef);
+
+      if (membershipSnapshot.exists) {
+        final membership = LabMembershipModel.fromFirestore(membershipSnapshot);
+        if (membership.grantsActiveAccess) {
+          throw const LabMembershipException(
+            'You already have access to this lab.',
+          );
+        }
+
+        if (_shouldMarkExpired(membership)) {
+          transaction.update(membershipRef, {
+            'status': 'expired',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+      }
+
+      if (requestSnapshot.exists) {
+        final request = LabJoinRequestModel.fromFirestore(requestSnapshot);
+        if (request.isPending) {
+          throw const LabMembershipException(
+            'A join request for this lab is already pending.',
+          );
+        }
+      }
+
+      transaction.set(requestRef, {
+        'labId': cleanLabId,
+        'labName': cleanLabName,
+        'userId': cleanUserId,
+        'userName': cleanUserName,
+        'userEmail': cleanUserEmail,
+        'requestedAt': FieldValue.serverTimestamp(),
+        'status': LabJoinRequestModel.statusPending,
+        'reviewedByUid': null,
+        'reviewedByName': null,
+        'reviewedAt': null,
+        'membershipStartAt': null,
+        'membershipEndAt': null,
+      });
+    });
+
+    return LabJoinRequestResult(
+      requestId: requestRef.id,
+      labId: cleanLabId,
+      labName: cleanLabName,
+    );
+  }
+
+  Future<List<LabJoinRequestModel>> getPendingJoinRequestsForLab({
+    required String labId,
+  }) async {
+    final cleanLabId = labId.trim();
+    if (cleanLabId.isEmpty) {
+      return [];
+    }
+
+    final snapshot = await _joinRequestsRef
+        .where('labId', isEqualTo: cleanLabId)
+        .get();
+
+    final requests = snapshot.docs
+        .map(LabJoinRequestModel.fromFirestore)
+        .where((request) => request.status == LabJoinRequestModel.statusPending)
+        .toList();
+
+    requests.sort((a, b) {
+      final left = a.requestedAt;
+      final right = b.requestedAt;
+      if (left == null && right == null) {
+        return a.id.compareTo(b.id);
+      }
+      if (left == null) return 1;
+      if (right == null) return -1;
+      final createdCompare = left.compareTo(right);
+      return createdCompare == 0 ? a.id.compareTo(b.id) : createdCompare;
+    });
+
+    return requests;
+  }
+
+  Future<void> approveJoinRequest({
+    required String requestId,
+    required String labId,
+    required String reviewerUid,
+    required String reviewerName,
+    required DateTime membershipStartAt,
+    required DateTime membershipEndAt,
+  }) async {
+    final cleanRequestId = requestId.trim();
+    final cleanLabId = labId.trim();
+    final cleanReviewerUid = reviewerUid.trim();
+    final cleanReviewerName = reviewerName.trim();
+    final startAt = dateOnly(membershipStartAt);
+    final endAt = endOfDay(membershipEndAt);
+
+    if (cleanRequestId.isEmpty ||
+        cleanLabId.isEmpty ||
+        cleanReviewerUid.isEmpty) {
+      throw const LabMembershipException(
+        'Join request approval could not be verified.',
+      );
+    }
+
+    if (endAt.isBefore(startAt)) {
+      throw const LabMembershipException(
+        'Membership end date cannot be before the start date.',
+      );
+    }
+
+    final requestRef = _joinRequestsRef.doc(cleanRequestId);
+    final labRef = _labsRef.doc(cleanLabId);
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final requestSnapshot = await transaction.get(requestRef);
+      if (!requestSnapshot.exists) {
+        throw const LabMembershipException('Join request was not found.');
+      }
+
+      final request = LabJoinRequestModel.fromFirestore(requestSnapshot);
+      if (request.labId != cleanLabId ||
+          request.status != LabJoinRequestModel.statusPending) {
+        throw const LabMembershipException(
+          'Join request is no longer pending.',
+        );
+      }
+
+      final labSnapshot = await transaction.get(labRef);
+      if (!labSnapshot.exists) {
+        throw const LabMembershipException('Lab document was not found.');
+      }
+
+      final labData = labSnapshot.data() ?? {};
+      _verifyReviewerIsPi(labData, cleanReviewerUid);
+
+      final requestUserId = request.userId.trim();
+      if (requestUserId.isEmpty) {
+        throw const LabMembershipException(
+          'Join request is missing the requested user.',
+        );
+      }
+
+      final membershipRef = _membershipsRef.doc(
+        _membershipDocId(userId: requestUserId, labId: cleanLabId),
+      );
+      final membershipSnapshot = await transaction.get(membershipRef);
+
+      final labNameFromRequest = (requestSnapshot.data()?['labName'] ?? '')
+          .toString()
+          .trim();
+      final labNameFromLab = (labData['name'] ?? '').toString().trim();
+      final resolvedLabName = labNameFromRequest.isNotEmpty
+          ? labNameFromRequest
+          : labNameFromLab.isNotEmpty
+          ? labNameFromLab
+          : cleanLabId;
+
+      final membershipData = {
+        'userId': requestUserId,
+        'labId': cleanLabId,
+        'role': 'member',
+        'status': 'active',
+        'userName': request.userName.trim(),
+        'userEmail': request.userEmail.trim(),
+        'labName': resolvedLabName,
+        'membershipStartAt': Timestamp.fromDate(startAt),
+        'membershipEndAt': Timestamp.fromDate(endAt),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (membershipSnapshot.exists) {
+        transaction.update(membershipRef, membershipData);
+      } else {
+        transaction.set(membershipRef, {
+          ...membershipData,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      transaction.update(requestRef, {
+        'status': LabJoinRequestModel.statusApproved,
+        'reviewedByUid': cleanReviewerUid,
+        'reviewedByName': cleanReviewerName,
+        'reviewedAt': FieldValue.serverTimestamp(),
+        'membershipStartAt': Timestamp.fromDate(startAt),
+        'membershipEndAt': Timestamp.fromDate(endAt),
+      });
+    });
+  }
+
+  Future<void> rejectJoinRequest({
+    required String requestId,
+    required String labId,
+    required String reviewerUid,
+    required String reviewerName,
+  }) async {
+    final cleanRequestId = requestId.trim();
+    final cleanLabId = labId.trim();
+    final cleanReviewerUid = reviewerUid.trim();
+    final cleanReviewerName = reviewerName.trim();
+
+    if (cleanRequestId.isEmpty ||
+        cleanLabId.isEmpty ||
+        cleanReviewerUid.isEmpty) {
+      throw const LabMembershipException(
+        'Join request rejection could not be verified.',
+      );
+    }
+
+    final requestRef = _joinRequestsRef.doc(cleanRequestId);
+    final labRef = _labsRef.doc(cleanLabId);
+
+    await FirebaseFirestore.instance.runTransaction((transaction) async {
+      final requestSnapshot = await transaction.get(requestRef);
+      if (!requestSnapshot.exists) {
+        throw const LabMembershipException('Join request was not found.');
+      }
+
+      final request = LabJoinRequestModel.fromFirestore(requestSnapshot);
+      if (request.labId != cleanLabId ||
+          request.status != LabJoinRequestModel.statusPending) {
+        throw const LabMembershipException(
+          'Join request is no longer pending.',
+        );
+      }
+
+      final labSnapshot = await transaction.get(labRef);
+      if (!labSnapshot.exists) {
+        throw const LabMembershipException('Lab document was not found.');
+      }
+
+      _verifyReviewerIsPi(labSnapshot.data() ?? {}, cleanReviewerUid);
+
+      transaction.update(requestRef, {
+        'status': LabJoinRequestModel.statusRejected,
+        'reviewedByUid': cleanReviewerUid,
+        'reviewedByName': cleanReviewerName,
+        'reviewedAt': FieldValue.serverTimestamp(),
+      });
+    });
+  }
+
   Future<LabMembershipModel?> getMembership({
     required String userId,
     required String labId,
@@ -138,7 +483,9 @@ class LabMembershipService {
       return null;
     }
 
-    return LabMembershipModel.fromFirestore(doc);
+    final membership = LabMembershipModel.fromFirestore(doc);
+    await markMembershipExpiredIfNeeded(membership);
+    return membership;
   }
 
   Future<List<LabMembershipModel>> getMembershipsForUser({
@@ -153,12 +500,13 @@ class LabMembershipService {
         .where('userId', isEqualTo: cleanUserId)
         .get();
 
-    final memberships = snapshot.docs
+    final allMemberships = snapshot.docs
         .map(LabMembershipModel.fromFirestore)
-        .where((membership) {
-          final status = membership.status.trim().toLowerCase();
-          return status.isEmpty || status == 'active';
-        })
+        .toList();
+    await _markExpiredMembershipsIfNeeded(allMemberships);
+
+    final memberships = allMemberships
+        .where((membership) => _isVisibleMembership(membership))
         .toList();
 
     memberships.sort((a, b) {
@@ -172,6 +520,7 @@ class LabMembershipService {
 
   Future<List<LabMembershipModel>> getMembershipsForLab({
     required String labId,
+    bool includeExpired = false,
   }) async {
     final cleanLabId = labId.trim();
     if (cleanLabId.isEmpty) {
@@ -182,12 +531,16 @@ class LabMembershipService {
         .where('labId', isEqualTo: cleanLabId)
         .get();
 
-    final memberships = snapshot.docs
+    final allMemberships = snapshot.docs
         .map(LabMembershipModel.fromFirestore)
-        .where((membership) {
-          final status = membership.status.trim().toLowerCase();
-          return status.isEmpty || status == 'active';
-        })
+        .toList();
+    await _markExpiredMembershipsIfNeeded(allMemberships);
+
+    final memberships = allMemberships
+        .where(
+          (membership) =>
+              _isVisibleMembership(membership, includeExpired: includeExpired),
+        )
         .toList();
 
     memberships.sort((a, b) {
@@ -258,6 +611,15 @@ class LabMembershipService {
     }
 
     return const _PiCandidate(uid: '', source: '');
+  }
+
+  void _verifyReviewerIsPi(Map<String, dynamic> labData, String reviewerUid) {
+    final candidate = _trustedPiCandidateFrom(labData);
+    if (candidate.uid.isEmpty || candidate.uid != reviewerUid.trim()) {
+      throw const LabMembershipException(
+        'Only the Principal Investigator can review join requests.',
+      );
+    }
   }
 
   Future<_PiCandidate> _profilePiCandidateFromLegacyPiAdmins(
@@ -454,9 +816,8 @@ class LabMembershipService {
       }
 
       final newPiMembership = LabMembershipModel.fromFirestore(newPiSnapshot);
-      final newPiStatus = newPiMembership.status.trim().toLowerCase();
       if (newPiMembership.labId.trim() != cleanLabId ||
-          (newPiStatus.isNotEmpty && newPiStatus != 'active')) {
+          !newPiMembership.grantsActiveAccess) {
         throw const LabMembershipException(
           'Selected PI membership is not active.',
         );
@@ -475,8 +836,7 @@ class LabMembershipService {
           continue;
         }
 
-        final status = membership.status.trim().toLowerCase();
-        if (status.isNotEmpty && status != 'active') {
+        if (!membership.grantsActiveAccess) {
           continue;
         }
 
@@ -596,13 +956,11 @@ class LabMembershipService {
     return snapshot.docs.map(LabMembershipModel.fromFirestore).any((
       membership,
     ) {
-      final status = membership.status.trim().toLowerCase();
-      final isActive = status.isEmpty || status == 'active';
       final isDifferentUser =
           cleanExcludingUserId.isEmpty ||
           membership.userId.trim() != cleanExcludingUserId;
 
-      return isActive && isDifferentUser;
+      return membership.grantsActiveAccess && isDifferentUser;
     });
   }
 

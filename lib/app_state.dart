@@ -303,8 +303,8 @@ class AppState extends ChangeNotifier {
       return;
     }
 
-    final status = membership.status.trim().toLowerCase();
-    if (status.isNotEmpty && status != 'active') {
+    if (!membership.grantsActiveAccess) {
+      await _labMembershipService.markMembershipExpiredIfNeeded(membership);
       return;
     }
 
@@ -579,7 +579,11 @@ class AppState extends ChangeNotifier {
       if (shouldRefreshSelectedLabAccess) {
         await refreshSelectedLabRole();
       }
-      return true;
+      if (hasResolvedLabMembership) {
+        return true;
+      }
+
+      await clearSessionContext();
     }
 
     List<LabMembershipModel> memberships;

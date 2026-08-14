@@ -124,7 +124,15 @@ class LabService {
         );
       }
 
-      final directDoc = await _labsRef.doc(rawIdentifier).get();
+      final DocumentSnapshot<Map<String, dynamic>> directDoc;
+      try {
+        directDoc = await _labsRef.doc(rawIdentifier).get();
+      } on FirebaseException catch (error) {
+        if (FirestoreAccessGuard.isPermissionDenied(error)) {
+          return null;
+        }
+        rethrow;
+      }
       if (!directDoc.exists) {
         return null;
       }

@@ -35,6 +35,11 @@ service cloud.firestore {
             membershipData(labId, userId).status == null ||
             membershipData(labId, userId).status == '' ||
             membershipData(labId, userId).status == 'active'
+          ) &&
+          (
+            !('membershipEndAt' in membershipData(labId, userId)) ||
+            membershipData(labId, userId).membershipEndAt == null ||
+            request.time <= membershipData(labId, userId).membershipEndAt
           );
     }
 
@@ -119,6 +124,44 @@ service cloud.firestore {
     function keepsMembershipIdentity() {
       return request.resource.data.labId == resource.data.labId &&
           request.resource.data.userId == resource.data.userId;
+    }
+
+    function hasValidMembershipTenure() {
+      return request.resource.data.membershipStartAt is timestamp &&
+          request.resource.data.membershipEndAt is timestamp &&
+          request.resource.data.membershipEndAt >= request.resource.data.membershipStartAt;
+    }
+
+    function joinRequestPath(labId, userId) {
+      return /databases/$(database)/documents/labJoinRequests/$(membershipDocId(labId, userId));
+    }
+
+    function hasApprovedJoinRequestAfter(labId, userId) {
+      return existsAfter(joinRequestPath(labId, userId)) &&
+          getAfter(joinRequestPath(labId, userId)).data.status == 'approved' &&
+          getAfter(joinRequestPath(labId, userId)).data.labId == labId &&
+          getAfter(joinRequestPath(labId, userId)).data.userId == userId &&
+          getAfter(joinRequestPath(labId, userId)).data.reviewedByUid == request.auth.uid;
+    }
+
+    function isPiApprovedMemberActivation(labId, userId) {
+      return isPi(labId) &&
+          request.resource.data.labId == labId &&
+          request.resource.data.userId == userId &&
+          request.resource.data.role == 'member' &&
+          request.resource.data.status == 'active' &&
+          hasValidMembershipTenure() &&
+          hasApprovedJoinRequestAfter(labId, userId);
+    }
+
+    function isLazyExpiryWrite() {
+      return isSignedIn() &&
+          request.auth.uid == resource.data.userId &&
+          resource.data.status in [null, '', 'active'] &&
+          ('membershipEndAt' in resource.data) &&
+          resource.data.membershipEndAt < request.time &&
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+          request.resource.data.status == 'expired';
     }
 
     function isPiMembershipRoleWrite(labId) {
@@ -234,6 +277,7 @@ service cloud.firestore {
 
     match /labs/{labId} {
       allow get: if hasActiveMembership(labId);
+      allow list: if isSignedIn() && request.query.limit <= 1;
       allow update: if isPiUidSelfMigration(labId) || isPiUidTransfer(labId);
     }
 
@@ -241,20 +285,81 @@ service cloud.firestore {
       allow read: if hasActiveMembership(resource.data.labId);
 
       allow create: if isSignedIn() &&
-          request.resource.data.userId == request.auth.uid &&
-          request.resource.data.role in ['pi', 'member'] &&
           (
-            request.resource.data.role == 'member' ||
-            labData(request.resource.data.labId).piUid == request.auth.uid
+            (
+              request.resource.data.userId == request.auth.uid &&
+              request.resource.data.role == 'pi' &&
+              labData(request.resource.data.labId).piUid == request.auth.uid
+            ) ||
+            (
+              membershipId == membershipDocId(request.resource.data.labId, request.resource.data.userId) &&
+              isPiApprovedMemberActivation(request.resource.data.labId, request.resource.data.userId)
+            )
           );
 
-      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'updatedAt']) &&
-          keepsMembershipIdentity() &&
-          request.resource.data.role in ['pi', 'admin', 'member'] &&
+      allow update: if (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'updatedAt']) &&
+            keepsMembershipIdentity() &&
+            request.resource.data.role in ['pi', 'admin', 'member'] &&
+            (
+              isPiMembershipRoleWrite(resource.data.labId) ||
+              isNonPiMembershipRoleWrite(resource.data.labId)
+            )
+          ) ||
           (
-            isPiMembershipRoleWrite(resource.data.labId) ||
-            isNonPiMembershipRoleWrite(resource.data.labId)
+            keepsMembershipIdentity() &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'role',
+              'status',
+              'userName',
+              'userEmail',
+              'labName',
+              'membershipStartAt',
+              'membershipEndAt',
+              'updatedAt'
+            ]) &&
+            isPiApprovedMemberActivation(resource.data.labId, resource.data.userId)
+          ) ||
+          isLazyExpiryWrite();
+    }
+
+    match /labJoinRequests/{requestId} {
+      allow create: if isSignedIn() &&
+          requestId == membershipDocId(request.resource.data.labId, request.auth.uid) &&
+          request.resource.data.userId == request.auth.uid &&
+          request.resource.data.status == 'pending' &&
+          request.resource.data.labId is string &&
+          request.resource.data.labId != '' &&
+          !hasActiveMembership(request.resource.data.labId);
+
+      allow read: if isSignedIn() &&
+          (
+            resource.data.userId == request.auth.uid ||
+            isPi(resource.data.labId)
           );
+
+      allow update: if isSignedIn() &&
+          (
+            (
+              isPi(resource.data.labId) &&
+              resource.data.status == 'pending' &&
+              request.resource.data.labId == resource.data.labId &&
+              request.resource.data.userId == resource.data.userId &&
+              request.resource.data.status in ['approved', 'rejected'] &&
+              request.resource.data.reviewedByUid == request.auth.uid
+            ) ||
+            (
+              requestId == membershipDocId(resource.data.labId, request.auth.uid) &&
+              resource.data.userId == request.auth.uid &&
+              resource.data.status in ['approved', 'rejected'] &&
+              request.resource.data.labId == resource.data.labId &&
+              request.resource.data.userId == resource.data.userId &&
+              request.resource.data.status == 'pending' &&
+              !hasActiveMembership(resource.data.labId)
+            )
+          );
+
+      allow delete: if false;
     }
 
     match /labs/{labId}/funds/{fundId} {

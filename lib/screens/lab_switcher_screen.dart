@@ -99,7 +99,8 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
 
     if (appState.hasSelectedLab &&
         !appState.isDemoLabSelected &&
-        !appState.isLocalFallbackLabSelected) {
+        !appState.isLocalFallbackLabSelected &&
+        appState.hasResolvedLabMembership) {
       addOption(
         _LabOption(
           labId: appState.selectedLabId,
@@ -231,7 +232,7 @@ class _LabSwitcherScreenState extends State<LabSwitcherScreen> {
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16),
                 itemCount: options.length + 1,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                separatorBuilder: (_, _) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   if (index == 0) {
                     return _buildHeaderCard();

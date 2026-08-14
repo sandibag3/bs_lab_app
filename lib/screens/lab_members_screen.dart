@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../models/lab_join_request_model.dart';
 import '../models/lab_membership_model.dart';
 import '../models/user_profile.dart';
 import '../services/lab_membership_service.dart';
@@ -22,12 +23,27 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
     'admin': 'Admin',
     'member': 'Member',
   };
+  static const List<String> _monthLabels = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
 
   final LabMembershipService _labMembershipService = LabMembershipService();
   final UserProfileService _userProfileService = UserProfileService();
 
   late Future<_LabMembersData> _membersFuture;
   String _updatingMemberUserId = '';
+  String _reviewingRequestId = '';
 
   @override
   void initState() {
@@ -46,12 +62,19 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
     try {
       final memberships = await _labMembershipService.getMembershipsForLab(
         labId: labId,
+        includeExpired: widget.appState.isPi,
       );
+      final pendingRequests = widget.appState.isPi
+          ? await _labMembershipService.getPendingJoinRequestsForLab(
+              labId: labId,
+            )
+          : <LabJoinRequestModel>[];
       final profiles = await _userProfileService.getUserProfilesByIds(
         memberships.map((membership) => membership.userId),
       );
 
       return _LabMembersData(
+        pendingRequests: pendingRequests,
         members: memberships.map((membership) {
           return _LabMemberDetails(
             membership: membership,
@@ -94,6 +117,289 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
     }
 
     return member.membership.userId.trim();
+  }
+
+  String _formatDate(DateTime value) {
+    final day = value.day.toString().padLeft(2, '0');
+    final month = _monthLabels[value.month - 1];
+    return '$day $month ${value.year}';
+  }
+
+  String _formatDateTime(DateTime? value) {
+    if (value == null) {
+      return 'Unknown date';
+    }
+
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '${_formatDate(value)} $hour:$minute';
+  }
+
+  String _membershipTenureLabel(LabMembershipModel membership) {
+    final startAt = membership.membershipStartAt;
+    final endAt = membership.membershipEndAt;
+    if (startAt == null && endAt == null) {
+      return '';
+    }
+
+    final startLabel = startAt == null ? 'Start not set' : _formatDate(startAt);
+    final endLabel = endAt == null ? 'End not set' : _formatDate(endAt);
+    return '$startLabel -> $endLabel';
+  }
+
+  Future<_TenureSelection?> _showApprovalDialog(
+    LabJoinRequestModel request,
+  ) async {
+    var startDate = LabMembershipService.dateOnly(DateTime.now());
+    DateTime? endDate;
+    String errorText = '';
+
+    return showDialog<_TenureSelection>(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final palette = context.labmate;
+            final colorScheme = context.colorScheme;
+
+            Future<void> pickStartDate() async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: startDate,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(DateTime.now().year + 15),
+              );
+              if (picked == null) {
+                return;
+              }
+              setDialogState(() {
+                startDate = LabMembershipService.dateOnly(picked);
+                if (endDate != null && endDate!.isBefore(startDate)) {
+                  endDate = null;
+                }
+                errorText = '';
+              });
+            }
+
+            Future<void> pickEndDate() async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: endDate ?? startDate,
+                firstDate: startDate,
+                lastDate: DateTime(DateTime.now().year + 15),
+              );
+              if (picked == null) {
+                return;
+              }
+              setDialogState(() {
+                endDate = LabMembershipService.dateOnly(picked);
+                errorText = '';
+              });
+            }
+
+            return AlertDialog(
+              backgroundColor: palette.panel,
+              title: Text(
+                'Approve Join Request',
+                style: TextStyle(color: colorScheme.onSurface),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    request.userName.trim().isEmpty
+                        ? request.userEmail
+                        : request.userName,
+                    style: TextStyle(
+                      color: colorScheme.onSurface,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    request.userEmail.trim().isEmpty
+                        ? request.userId
+                        : request.userEmail,
+                    style: TextStyle(color: palette.mutedText, fontSize: 13),
+                  ),
+                  const SizedBox(height: 16),
+                  _TenureDateButton(
+                    label: 'Start date',
+                    value: _formatDate(startDate),
+                    onPressed: pickStartDate,
+                  ),
+                  const SizedBox(height: 10),
+                  _TenureDateButton(
+                    label: 'End date',
+                    value: endDate == null
+                        ? 'Select end date'
+                        : _formatDate(endDate!),
+                    onPressed: pickEndDate,
+                  ),
+                  if (errorText.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      errorText,
+                      style: TextStyle(
+                        color: colorScheme.error,
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text(
+                    'Cancel',
+                    style: TextStyle(color: palette.mutedText),
+                  ),
+                ),
+                FilledButton(
+                  onPressed: () {
+                    if (endDate == null) {
+                      setDialogState(() {
+                        errorText = 'Select a membership end date.';
+                      });
+                      return;
+                    }
+
+                    Navigator.pop(
+                      context,
+                      _TenureSelection(startAt: startDate, endAt: endDate!),
+                    );
+                  },
+                  child: const Text('Approve'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _approveJoinRequest(LabJoinRequestModel request) async {
+    if (!widget.appState.isPi || _reviewingRequestId.isNotEmpty) {
+      return;
+    }
+
+    final selection = await _showApprovalDialog(request);
+    if (selection == null) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _reviewingRequestId = request.id;
+    });
+
+    try {
+      await _labMembershipService.approveJoinRequest(
+        requestId: request.id,
+        labId: widget.appState.selectedLabId,
+        reviewerUid: widget.appState.authenticatedUserId,
+        reviewerName: widget.appState.authenticatedUserName,
+        membershipStartAt: selection.startAt,
+        membershipEndAt: selection.endAt,
+      );
+      await _refreshMembers();
+
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Join request approved.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not approve request: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _reviewingRequestId = '';
+        });
+      }
+    }
+  }
+
+  Future<void> _rejectJoinRequest(LabJoinRequestModel request) async {
+    if (!widget.appState.isPi || _reviewingRequestId.isNotEmpty) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        final palette = context.labmate;
+        final colorScheme = context.colorScheme;
+        return AlertDialog(
+          backgroundColor: palette.panel,
+          title: Text(
+            'Reject Join Request?',
+            style: TextStyle(color: colorScheme.onSurface),
+          ),
+          content: Text(
+            'This will reject the request without creating a membership.',
+            style: TextStyle(color: palette.mutedText, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: Text('Cancel', style: TextStyle(color: palette.mutedText)),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: Text('Reject', style: TextStyle(color: colorScheme.error)),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
+
+    final messenger = ScaffoldMessenger.of(context);
+    setState(() {
+      _reviewingRequestId = request.id;
+    });
+
+    try {
+      await _labMembershipService.rejectJoinRequest(
+        requestId: request.id,
+        labId: widget.appState.selectedLabId,
+        reviewerUid: widget.appState.authenticatedUserId,
+        reviewerName: widget.appState.authenticatedUserName,
+      );
+      await _refreshMembers();
+
+      if (!mounted) return;
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Join request rejected.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text('Could not reject request: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _reviewingRequestId = '';
+        });
+      }
+    }
   }
 
   Future<void> _showRoleEditor(_LabMemberDetails member) async {
@@ -482,6 +788,76 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
     );
   }
 
+  Widget _buildPendingJoinRequestsCard(
+    List<LabJoinRequestModel> pendingRequests,
+  ) {
+    if (pendingRequests.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colorScheme.primary.withValues(alpha: 0.24)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.person_add_alt_1_rounded, color: colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Pending Join Requests',
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              _MemberBadge(
+                label: pendingRequests.length.toString(),
+                accentColor: colorScheme.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Only the Principal Investigator can approve or reject lab access requests.',
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 13,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          for (var index = 0; index < pendingRequests.length; index++) ...[
+            _JoinRequestTile(
+              request: pendingRequests[index],
+              requestedAtLabel: _formatDateTime(
+                pendingRequests[index].requestedAt,
+              ),
+              isBusy: _reviewingRequestId == pendingRequests[index].id,
+              onApprove: () => _approveJoinRequest(pendingRequests[index]),
+              onReject: () => _rejectJoinRequest(pendingRequests[index]),
+            ),
+            if (index != pendingRequests.length - 1)
+              Divider(height: 18, color: palette.border),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedLabId = widget.appState.selectedLabId.trim();
@@ -505,7 +881,10 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    final members = snapshot.data?.members ?? [];
+                    final data =
+                        snapshot.data ?? const _LabMembersData(members: []);
+                    final members = data.members;
+                    final pendingRequests = data.pendingRequests;
                     final canCurrentUserClaimPi = _canCurrentUserClaimPi(
                       members,
                     );
@@ -519,6 +898,10 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                             _buildHeaderCard(
                               'Roles are shown from the current lab membership records.',
                             ),
+                            if (pendingRequests.isNotEmpty) ...[
+                              const SizedBox(height: 12),
+                              _buildPendingJoinRequestsCard(pendingRequests),
+                            ],
                             const SizedBox(height: 12),
                             _buildEmptyMembersCard(),
                           ],
@@ -546,6 +929,12 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                                   const SizedBox(height: 12),
                                   _buildPiAssignmentCard(),
                                 ],
+                                if (pendingRequests.isNotEmpty) ...[
+                                  const SizedBox(height: 12),
+                                  _buildPendingJoinRequestsCard(
+                                    pendingRequests,
+                                  ),
+                                ],
                               ],
                             );
                           }
@@ -571,11 +960,15 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                             contactNumber: showMobile
                                 ? profile?.contactNumber.trim() ?? ''
                                 : 'Hidden',
+                            tenureLabel: _membershipTenureLabel(membership),
+                            isExpired: membership.effectiveStatus == 'expired',
                             profileCompleted:
                                 profile?.profileCompleted == true ||
                                 profile?.isComplete == true,
                             isCurrentUser: isCurrentUser,
-                            canEditRole: widget.appState.isPiOrAdmin,
+                            canEditRole:
+                                widget.appState.isPiOrAdmin &&
+                                membership.effectiveStatus != 'expired',
                             isUpdating:
                                 _updatingMemberUserId ==
                                 membership.userId.trim(),
@@ -596,8 +989,12 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
 
 class _LabMembersData {
   final List<_LabMemberDetails> members;
+  final List<LabJoinRequestModel> pendingRequests;
 
-  const _LabMembersData({required this.members});
+  const _LabMembersData({
+    required this.members,
+    this.pendingRequests = const [],
+  });
 }
 
 class _LabMemberDetails {
@@ -615,6 +1012,8 @@ class _MemberTile extends StatelessWidget {
   final String designation;
   final String researchArea;
   final String contactNumber;
+  final String tenureLabel;
+  final bool isExpired;
   final bool profileCompleted;
   final bool isCurrentUser;
   final bool canEditRole;
@@ -629,6 +1028,8 @@ class _MemberTile extends StatelessWidget {
     required this.designation,
     required this.researchArea,
     required this.contactNumber,
+    this.tenureLabel = '',
+    this.isExpired = false,
     required this.profileCompleted,
     required this.isCurrentUser,
     required this.canEditRole,
@@ -701,6 +1102,7 @@ class _MemberTile extends StatelessWidget {
                   profileRole.trim().isEmpty ? 'Not set' : profileRole,
                 ),
                 _buildDetail(context, 'Lab Access', roleLabel),
+                _buildDetail(context, 'Tenure', tenureLabel),
                 _buildDetail(context, 'Designation', designation),
                 _buildDetail(context, 'Research area', researchArea),
                 _buildDetail(context, 'Contact', contactNumber),
@@ -721,6 +1123,11 @@ class _MemberTile extends StatelessWidget {
                       const _MemberBadge(
                         label: 'You',
                         accentColor: Color(0xFF14B8A6),
+                      ),
+                    if (isExpired)
+                      _MemberBadge(
+                        label: 'Expired',
+                        accentColor: colorScheme.error,
                       ),
                   ],
                 ),
@@ -746,6 +1153,170 @@ class _MemberTile extends StatelessWidget {
       ),
     );
   }
+}
+
+class _JoinRequestTile extends StatelessWidget {
+  final LabJoinRequestModel request;
+  final String requestedAtLabel;
+  final bool isBusy;
+  final VoidCallback onApprove;
+  final VoidCallback onReject;
+
+  const _JoinRequestTile({
+    required this.request,
+    required this.requestedAtLabel,
+    required this.isBusy,
+    required this.onApprove,
+    required this.onReject,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+    final displayName = request.userName.trim().isEmpty
+        ? request.userEmail.trim()
+        : request.userName.trim();
+    final displayEmail = request.userEmail.trim().isEmpty
+        ? request.userId.trim()
+        : request.userEmail.trim();
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            height: 40,
+            width: 40,
+            decoration: BoxDecoration(
+              color: palette.panelAlt,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.person_outline_rounded,
+              color: colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayName.isEmpty ? 'Member request' : displayName,
+                  style: TextStyle(
+                    color: colorScheme.onSurface,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  displayEmail,
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 12.6,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  'Requested: $requestedAtLabel',
+                  style: TextStyle(
+                    color: palette.mutedText,
+                    fontSize: 12.4,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.end,
+            children: [
+              OutlinedButton(
+                onPressed: isBusy ? null : onReject,
+                child: const Text('Reject'),
+              ),
+              FilledButton(
+                onPressed: isBusy ? null : onApprove,
+                child: isBusy
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Approve'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TenureDateButton extends StatelessWidget {
+  final String label;
+  final String value;
+  final VoidCallback onPressed;
+
+  const _TenureDateButton({
+    required this.label,
+    required this.value,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton(
+        onPressed: onPressed,
+        style: OutlinedButton.styleFrom(
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: palette.mutedText,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontSize: 14,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TenureSelection {
+  final DateTime startAt;
+  final DateTime endAt;
+
+  const _TenureSelection({required this.startAt, required this.endAt});
 }
 
 class _MemberBadge extends StatelessWidget {

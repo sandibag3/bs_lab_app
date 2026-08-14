@@ -5,7 +5,6 @@ import '../services/firestore_access_guard.dart';
 import '../services/lab_service.dart';
 import '../services/lab_membership_service.dart';
 import '../theme/labmate_theme.dart';
-import 'home_screen.dart';
 
 class JoinLabScreen extends StatefulWidget {
   final AppState appState;
@@ -21,7 +20,6 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
   final LabService _labService = LabService();
   final LabMembershipService _labMembershipService = LabMembershipService();
   final TextEditingController _identifierController = TextEditingController();
-  final String _selectedRoleName = LabAccessRole.member.name;
 
   bool isJoining = false;
 
@@ -29,10 +27,6 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
   void dispose() {
     _identifierController.dispose();
     super.dispose();
-  }
-
-  String _roleLabel(String roleName) {
-    return widget.appState.roleLabelFor(roleName);
   }
 
   InputDecoration _inputDecoration(String label) {
@@ -59,8 +53,16 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
     try {
       final identifier = _identifierController.text.trim();
       final currentUserId = widget.appState.authenticatedUserId;
-      final selectedRoleName = _selectedRoleName;
       LabContextModel? foundLab;
+
+      if (currentUserId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Sign in before requesting access to a lab.'),
+          ),
+        );
+        return;
+      }
 
       try {
         foundLab = await _labService.findLabByIdentifier(identifier);
@@ -74,62 +76,28 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
         foundLab = null;
       }
 
-      final LabContextModel selectedContext;
-      final String statusMessage;
-
-      if (foundLab != null) {
-        selectedContext = foundLab;
-
-        String localRoleName = '';
-        if (currentUserId.isNotEmpty) {
-          try {
-            await _labMembershipService.upsertMembership(
-              userId: currentUserId,
-              labId: foundLab.selectedLabId,
-              role: selectedRoleName,
-              userName: widget.appState.authenticatedUserName,
-              userEmail: widget.appState.authenticatedUserEmail,
-              labName: foundLab.selectedLabName,
-            );
-          } catch (_) {
-            localRoleName = selectedRoleName;
-          }
-        } else {
-          localRoleName = selectedRoleName;
-        }
-
-        await widget.appState.saveSelectedLabContextWithRole(
-          selectedContext,
-          localRoleName: localRoleName,
+      if (foundLab == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No lab found for this code.')),
         );
-
-        if (localRoleName.isEmpty) {
-          statusMessage =
-              'Joined ${foundLab.selectedLabName} as ${_roleLabel(selectedRoleName)}';
-        } else {
-          statusMessage =
-              'Joined ${foundLab.selectedLabName}. ${_roleLabel(selectedRoleName)} access is stored locally for now.';
-        }
-      } else {
-        selectedContext = _labService.buildLocalLabContext(identifier);
-        await widget.appState.saveSelectedLabContextWithRole(
-          selectedContext,
-          localRoleName: selectedRoleName,
-        );
-        statusMessage =
-            'No shared lab found. Using a local lab context for "$identifier".';
+        return;
       }
+
+      await _labMembershipService.createJoinRequest(
+        labId: foundLab.selectedLabId,
+        labName: foundLab.selectedLabName,
+        userId: currentUserId,
+        userName: _requesterName(),
+        userEmail: widget.appState.authenticatedUserEmail,
+      );
 
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(statusMessage)));
-
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => HomeScreen(appState: widget.appState),
+      _identifierController.clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Join request sent. Waiting for PI approval.'),
         ),
       );
     } catch (e) {
@@ -145,6 +113,15 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
         });
       }
     }
+  }
+
+  String _requesterName() {
+    final profileName = widget.appState.profile.name.trim();
+    if (profileName.isNotEmpty && profileName != 'Your Name') {
+      return profileName;
+    }
+
+    return widget.appState.authenticatedUserName;
   }
 
   @override
@@ -169,7 +146,7 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
                   border: Border.all(color: palette.border),
                 ),
                 child: Text(
-                  'Enter a shared lab code from Create Lab, an existing lab document id, or a mock identifier for a temporary local lab context on this device.',
+                  'Enter a shared lab code from the PI. Your request will be sent for PI approval before lab access is enabled.',
                   style: TextStyle(
                     color: palette.mutedText,
                     fontSize: 13.5,
@@ -181,10 +158,10 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
               TextFormField(
                 controller: _identifierController,
                 style: TextStyle(color: colorScheme.onSurface),
-                decoration: _inputDecoration('Lab Code or Identifier'),
+                decoration: _inputDecoration('Lab Code'),
                 validator: (value) {
                   if (value == null || value.trim().isEmpty) {
-                    return 'Enter a lab code or identifier';
+                    return 'Enter a lab code';
                   }
                   return null;
                 },
@@ -199,7 +176,7 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
                   border: Border.all(color: palette.border),
                 ),
                 child: Text(
-                  'New join requests are added as Lab Access: Member. A PI or Admin can adjust access later from Lab Members.',
+                  'New users are added as Lab Access: Member only after the PI approves the request and sets the membership tenure.',
                   style: TextStyle(
                     color: palette.mutedText,
                     fontSize: 13.2,
