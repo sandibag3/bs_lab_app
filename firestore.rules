@@ -340,6 +340,96 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read, write: if isSignedIn() && request.auth.uid == userId;
+
+      match /notifications/{notificationId} {
+        function isValidNotificationShape() {
+          return request.resource.data.type is string &&
+              request.resource.data.title is string &&
+              request.resource.data.message is string &&
+              request.resource.data.labId is string &&
+              request.resource.data.createdAt is timestamp &&
+              request.resource.data.isRead == false &&
+              request.resource.data.readAt == null &&
+              request.resource.data.entityId is string &&
+              request.resource.data.entityType is string &&
+              request.resource.data.createdByUid is string &&
+              request.resource.data.createdByName is string;
+        }
+
+        function isLabPiUid(labId, candidateUid) {
+          return exists(/databases/$(database)/documents/labs/$(labId)) &&
+              (
+                labData(labId).piUid == candidateUid ||
+                labData(labId).principalInvestigatorUid == candidateUid ||
+                labData(labId).principalInvestigatorId == candidateUid ||
+                labData(labId).ownerUid == candidateUid ||
+                labData(labId).ownerId == candidateUid ||
+                labData(labId).createdByUid == candidateUid
+              );
+        }
+
+        function joinRequestDocument(requestId) {
+          return /databases/$(database)/documents/labJoinRequests/$(requestId);
+        }
+
+        function isJoinRequestNotification() {
+          return isSignedIn() &&
+              request.resource.data.type == 'join_request' &&
+              request.resource.data.entityType == 'labJoinRequest' &&
+              request.resource.data.labId is string &&
+              request.resource.data.labId != '' &&
+              request.resource.data.entityId ==
+                  membershipDocId(request.resource.data.labId, request.auth.uid) &&
+              request.resource.data.createdByUid == request.auth.uid &&
+              isLabPiUid(request.resource.data.labId, userId) &&
+              exists(joinRequestDocument(request.resource.data.entityId)) &&
+              get(joinRequestDocument(request.resource.data.entityId)).data.labId ==
+                  request.resource.data.labId &&
+              get(joinRequestDocument(request.resource.data.entityId)).data.userId ==
+                  request.auth.uid &&
+              get(joinRequestDocument(request.resource.data.entityId)).data.status ==
+                  'pending';
+        }
+
+        function isJoinDecisionNotification() {
+          return isSignedIn() &&
+              request.resource.data.type in ['join_approved', 'join_rejected'] &&
+              request.resource.data.entityType == 'labJoinRequest' &&
+              request.resource.data.labId is string &&
+              request.resource.data.labId != '' &&
+              isPi(request.resource.data.labId) &&
+              request.resource.data.createdByUid == request.auth.uid &&
+              exists(joinRequestDocument(request.resource.data.entityId)) &&
+              get(joinRequestDocument(request.resource.data.entityId)).data.labId ==
+                  request.resource.data.labId &&
+              get(joinRequestDocument(request.resource.data.entityId)).data.userId ==
+                  userId &&
+              get(joinRequestDocument(request.resource.data.entityId)).data.reviewedByUid ==
+                  request.auth.uid &&
+              get(joinRequestDocument(request.resource.data.entityId)).data.status ==
+                  (request.resource.data.type == 'join_approved'
+                      ? 'approved'
+                      : 'rejected');
+        }
+
+        allow read: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isValidNotificationShape() &&
+            (
+              isJoinRequestNotification() || isJoinDecisionNotification()
+            );
+
+        allow update: if isSignedIn() &&
+            request.auth.uid == userId &&
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'isRead',
+              'readAt'
+            ]) &&
+            request.resource.data.isRead == true &&
+            request.resource.data.readAt is timestamp;
+
+        allow delete: if false;
+      }
     }
 
     match /labJoinRequests/{requestId} {

@@ -33,6 +33,24 @@ class LabService {
     return 'LAB-$suffix';
   }
 
+  String _trustedPrincipalInvestigatorUid(Map<String, dynamic> data) {
+    const fields = [
+      'piUid',
+      'principalInvestigatorUid',
+      'principalInvestigatorId',
+      'ownerUid',
+      'ownerId',
+      'createdByUid',
+    ];
+    for (final field in fields) {
+      final value = data[field]?.toString().trim() ?? '';
+      if (value.isNotEmpty) {
+        return value;
+      }
+    }
+    return '';
+  }
+
   bool _matchesCleanupMarker(String value) {
     final normalized = value.trim().toLowerCase();
     if (normalized.isEmpty) {
@@ -121,6 +139,7 @@ class LabService {
         return LabContextModel(
           selectedLabId: doc.id,
           selectedLabName: name.isEmpty ? rawIdentifier : name,
+          principalInvestigatorUid: _trustedPrincipalInvestigatorUid(data),
         );
       }
 
@@ -143,6 +162,7 @@ class LabService {
       return LabContextModel(
         selectedLabId: directDoc.id,
         selectedLabName: name.isEmpty ? rawIdentifier : name,
+        principalInvestigatorUid: _trustedPrincipalInvestigatorUid(data),
       );
     });
   }

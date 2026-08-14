@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/lab_join_request_model.dart';
 import '../models/lab_membership_model.dart';
+import 'notification_service.dart';
 
 class LabMembershipException implements Exception {
   final String message;
@@ -69,6 +70,7 @@ class LabMembershipService {
       .collection('users');
   final CollectionReference<Map<String, dynamic>> _joinRequestsRef =
       FirebaseFirestore.instance.collection('labJoinRequests');
+  final NotificationService _notificationService = NotificationService();
 
   static String membershipIdFor({
     required String userId,
@@ -201,6 +203,7 @@ class LabMembershipService {
     required String userId,
     required String userName,
     required String userEmail,
+    String piUid = '',
   }) async {
     final cleanLabId = labId.trim();
     final cleanLabName = labName.trim();
@@ -263,6 +266,19 @@ class LabMembershipService {
         'membershipEndAt': null,
       });
     });
+
+    try {
+      await _notificationService.notifyJoinRequest(
+        targetPiUid: piUid,
+        labId: cleanLabId,
+        labName: cleanLabName,
+        requestId: requestRef.id,
+        requesterName: cleanUserName,
+        requesterUid: cleanUserId,
+      );
+    } catch (_) {
+      // Notification delivery must not undo a successfully submitted request.
+    }
 
     return LabJoinRequestResult(
       requestId: requestRef.id,
@@ -334,6 +350,8 @@ class LabMembershipService {
 
     final requestRef = _joinRequestsRef.doc(cleanRequestId);
     final labRef = _labsRef.doc(cleanLabId);
+    var approvedUserId = '';
+    var approvedLabName = '';
 
     await FirebaseFirestore.instance.runTransaction((transaction) async {
       final requestSnapshot = await transaction.get(requestRef);
@@ -378,6 +396,8 @@ class LabMembershipService {
           : labNameFromLab.isNotEmpty
           ? labNameFromLab
           : cleanLabId;
+      approvedUserId = requestUserId;
+      approvedLabName = resolvedLabName;
 
       final membershipData = {
         'userId': requestUserId,
@@ -410,6 +430,20 @@ class LabMembershipService {
         'membershipEndAt': Timestamp.fromDate(endAt),
       });
     });
+
+    try {
+      await _notificationService.notifyJoinDecision(
+        targetUserId: approvedUserId,
+        labId: cleanLabId,
+        labName: approvedLabName,
+        requestId: cleanRequestId,
+        approved: true,
+        reviewerUid: cleanReviewerUid,
+        reviewerName: cleanReviewerName,
+      );
+    } catch (_) {
+      // Notification delivery must not undo a completed approval.
+    }
   }
 
   Future<void> rejectJoinRequest({
@@ -433,6 +467,8 @@ class LabMembershipService {
 
     final requestRef = _joinRequestsRef.doc(cleanRequestId);
     final labRef = _labsRef.doc(cleanLabId);
+    var rejectedUserId = '';
+    var rejectedLabName = '';
 
     await FirebaseFirestore.instance.runTransaction((transaction) async {
       final requestSnapshot = await transaction.get(requestRef);
@@ -454,6 +490,9 @@ class LabMembershipService {
       }
 
       _verifyReviewerIsPi(labSnapshot.data() ?? {}, cleanReviewerUid);
+      rejectedUserId = request.userId.trim();
+      rejectedLabName =
+          requestSnapshot.data()?['labName']?.toString().trim() ?? '';
 
       transaction.update(requestRef, {
         'status': LabJoinRequestModel.statusRejected,
@@ -462,6 +501,20 @@ class LabMembershipService {
         'reviewedAt': FieldValue.serverTimestamp(),
       });
     });
+
+    try {
+      await _notificationService.notifyJoinDecision(
+        targetUserId: rejectedUserId,
+        labId: cleanLabId,
+        labName: rejectedLabName,
+        requestId: cleanRequestId,
+        approved: false,
+        reviewerUid: cleanReviewerUid,
+        reviewerName: cleanReviewerName,
+      );
+    } catch (_) {
+      // Notification delivery must not undo a completed rejection.
+    }
   }
 
   Future<LabMembershipModel?> getMembership({

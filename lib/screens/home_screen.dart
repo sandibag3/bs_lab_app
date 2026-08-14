@@ -7,6 +7,7 @@ import '../theme/labmate_theme.dart';
 import '../widgets/add_action_sheet.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/responsive_page_container.dart';
+import '../widgets/notification_bell.dart';
 import 'add_event_screen.dart';
 import 'add_new_chemical_screen.dart';
 import 'add_requirement_screen.dart';
@@ -329,6 +330,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             actions: [
+              NotificationBell(appState: widget.appState),
               PopupMenuButton<_HomeOverflowAction>(
                 tooltip: 'More options',
                 icon: const Icon(Icons.more_vert_rounded),

@@ -87,6 +87,7 @@ class _JoinLabScreenState extends State<JoinLabScreen> {
       await _labMembershipService.createJoinRequest(
         labId: foundLab.selectedLabId,
         labName: foundLab.selectedLabName,
+        piUid: foundLab.principalInvestigatorUid,
         userId: currentUserId,
         userName: _requesterName(),
         userEmail: widget.appState.authenticatedUserEmail,
