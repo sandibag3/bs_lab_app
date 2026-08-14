@@ -3,6 +3,9 @@ import '../app_state.dart';
 import '../models/notification_model.dart';
 import '../services/notification_service.dart';
 import 'lab_members_screen.dart';
+import 'cart_screen.dart';
+import 'events_screen.dart';
+import 'orders_screen.dart';
 
 class NotificationCenterScreen extends StatelessWidget {
   final AppState appState;
@@ -93,17 +96,30 @@ class NotificationCenterScreen extends StatelessWidget {
       return;
     }
 
-    final isJoinRequest =
-        notification.type == NotificationModel.typeJoinRequest &&
+    final sameLab = appState.selectedLabId.trim() == notification.labId.trim();
+    Widget? destination;
+    if (notification.type == NotificationModel.typeJoinRequest &&
         appState.isPi &&
-        appState.selectedLabId.trim() == notification.labId.trim();
-    if (isJoinRequest) {
-      final navigator = Navigator.of(context);
-      navigator.pop();
-      navigator.push(
-        MaterialPageRoute(builder: (_) => LabMembersScreen(appState: appState)),
-      );
+        sameLab) {
+      destination = LabMembersScreen(appState: appState);
+    } else if (sameLab &&
+        (notification.type == NotificationModel.typeRequirementApproved ||
+            notification.type == NotificationModel.typeRequirementRejected)) {
+      destination = const CartScreen();
+    } else if (sameLab &&
+        notification.type == NotificationModel.typeOrderDelivered) {
+      destination = const OrdersScreen();
+    } else if (sameLab && notification.type == NotificationModel.typeBirthday) {
+      destination = const EventsScreen();
     }
+
+    if (destination == null) {
+      return;
+    }
+
+    final navigator = Navigator.of(context);
+    navigator.pop();
+    navigator.push(MaterialPageRoute(builder: (_) => destination!));
   }
 }
 

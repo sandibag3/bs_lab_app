@@ -162,6 +162,174 @@ class NotificationService {
     );
   }
 
+  Future<void> notifyRequirementDecision({
+    required String targetUserId,
+    required String labId,
+    required String requirementId,
+    required String itemName,
+    required bool approved,
+    required String actorUid,
+    required String actorName,
+  }) async {
+    final cleanTargetUid = targetUserId.trim();
+    final cleanLabId = labId.trim();
+    final cleanRequirementId = requirementId.trim();
+    final cleanActorUid = actorUid.trim();
+    if (cleanTargetUid.isEmpty ||
+        cleanLabId.isEmpty ||
+        cleanRequirementId.isEmpty ||
+        cleanActorUid.isEmpty ||
+        cleanTargetUid == cleanActorUid) {
+      return;
+    }
+
+    final status = approved ? 'approved' : 'rejected';
+    final type = approved
+        ? NotificationModel.typeRequirementApproved
+        : NotificationModel.typeRequirementRejected;
+    final cleanItemName = itemName.trim().isEmpty ? 'item' : itemName.trim();
+    final cleanActorName = actorName.trim().isEmpty
+        ? cleanActorUid
+        : actorName.trim();
+
+    await _createIfMissing(
+      targetUserId: cleanTargetUid,
+      notificationId: _workflowNotificationId(
+        'requirement_$status',
+        cleanRequirementId,
+      ),
+      type: type,
+      title: approved ? 'Requirement approved' : 'Requirement rejected',
+      message: 'Your requirement for $cleanItemName was $status.',
+      labId: cleanLabId,
+      entityId: cleanRequirementId,
+      entityType: 'requirement',
+      route: 'cart',
+      actionKey: 'requirement_$status',
+      createdByUid: cleanActorUid,
+      createdByName: cleanActorName,
+    );
+  }
+
+  Future<void> notifyOrderDelivered({
+    required String targetUserId,
+    required String labId,
+    required String orderId,
+    required String itemName,
+    required String actorUid,
+    required String actorName,
+  }) async {
+    final cleanTargetUid = targetUserId.trim();
+    final cleanLabId = labId.trim();
+    final cleanOrderId = orderId.trim();
+    final cleanActorUid = actorUid.trim();
+    if (cleanTargetUid.isEmpty ||
+        cleanLabId.isEmpty ||
+        cleanOrderId.isEmpty ||
+        cleanActorUid.isEmpty ||
+        cleanTargetUid == cleanActorUid) {
+      return;
+    }
+
+    final cleanItemName = itemName.trim().isEmpty ? 'item' : itemName.trim();
+    final cleanActorName = actorName.trim().isEmpty
+        ? cleanActorUid
+        : actorName.trim();
+
+    await _createIfMissing(
+      targetUserId: cleanTargetUid,
+      notificationId: _workflowNotificationId('order_delivered', cleanOrderId),
+      type: NotificationModel.typeOrderDelivered,
+      title: 'Order delivered',
+      message: 'Your ordered item $cleanItemName has been marked as delivered.',
+      labId: cleanLabId,
+      entityId: cleanOrderId,
+      entityType: 'order',
+      route: 'orders',
+      actionKey: 'order_delivered',
+      createdByUid: cleanActorUid,
+      createdByName: cleanActorName,
+    );
+  }
+
+  Future<void> notifyBirthdayEvent({
+    required Iterable<String> targetUserIds,
+    required String labId,
+    required String eventId,
+    required String birthdayUserId,
+    required int birthdayYear,
+    required String birthdayName,
+    required String birthdayLabel,
+    required String actorUid,
+  }) async {
+    final cleanLabId = labId.trim();
+    final cleanEventId = eventId.trim();
+    final cleanBirthdayUserId = birthdayUserId.trim();
+    final cleanActorUid = actorUid.trim();
+    final recipients = targetUserIds
+        .map((userId) => userId.trim())
+        .where((userId) => userId.isNotEmpty)
+        .toSet()
+        .toList();
+    if (cleanLabId.isEmpty ||
+        cleanEventId.isEmpty ||
+        cleanBirthdayUserId.isEmpty ||
+        cleanActorUid.isEmpty ||
+        recipients.isEmpty) {
+      return;
+    }
+
+    final cleanBirthdayName = birthdayName.trim().isEmpty
+        ? 'a lab member'
+        : birthdayName.trim();
+    final cleanBirthdayLabel = birthdayLabel.trim().isEmpty
+        ? 'their birthday'
+        : birthdayLabel.trim();
+    final references = recipients.map((recipientId) {
+      final notificationId = _birthdayNotificationId(
+        labId: cleanLabId,
+        birthdayUserId: cleanBirthdayUserId,
+        birthdayYear: birthdayYear,
+        recipientUserId: recipientId,
+      );
+      return _notificationsRef(recipientId).doc(notificationId);
+    }).toList();
+
+    final existingSnapshots = await Future.wait(
+      references.map((reference) => reference.get()),
+    );
+    final missing = <DocumentReference<Map<String, dynamic>>>[];
+    for (var index = 0; index < references.length; index++) {
+      if (!existingSnapshots[index].exists) {
+        missing.add(references[index]);
+      }
+    }
+
+    for (var start = 0; start < missing.length; start += 400) {
+      final end = (start + 400) > missing.length ? missing.length : start + 400;
+      final batch = _firestore.batch();
+      for (final reference in missing.sublist(start, end)) {
+        batch.set(reference, {
+          'type': NotificationModel.typeBirthday,
+          'title': 'Upcoming birthday 🎉',
+          'message':
+              'Get ready to celebrate $cleanBirthdayName\'s birthday on $cleanBirthdayLabel.',
+          'labId': cleanLabId,
+          'createdAt': FieldValue.serverTimestamp(),
+          'readAt': null,
+          'isRead': false,
+          'entityId': cleanEventId,
+          'entityType': 'event',
+          'route': 'events',
+          'actionKey': 'birthday',
+          'createdByUid': cleanActorUid,
+          'createdByName': 'Labmate',
+        });
+      }
+      await batch.commit();
+    }
+  }
+
   Future<void> _createIfMissing({
     required String targetUserId,
     required String notificationId,
@@ -216,5 +384,23 @@ class NotificationService {
 
   String _joinNotificationId(String type, String requestId) {
     return '${type}_${requestId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_')}';
+  }
+
+  String _workflowNotificationId(String type, String entityId) {
+    return '${type}_${entityId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_')}';
+  }
+
+  String _birthdayNotificationId({
+    required String labId,
+    required String birthdayUserId,
+    required int birthdayYear,
+    required String recipientUserId,
+  }) {
+    return 'birthday_${_safeIdPart(labId)}_${_safeIdPart(birthdayUserId)}_'
+        '${birthdayYear}_${_safeIdPart(recipientUserId)}';
+  }
+
+  String _safeIdPart(String value) {
+    return value.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
   }
 }

@@ -4,12 +4,14 @@ import '../models/event_model.dart';
 import 'firestore_access_guard.dart';
 import 'lab_membership_service.dart';
 import 'person_display_resolver.dart';
+import 'notification_service.dart';
 
 class EventService {
   static final Set<String> _birthdayCheckKeys = <String>{};
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final LabMembershipService _labMembershipService = LabMembershipService();
+  final NotificationService _notificationService = NotificationService();
 
   bool _matchesCurrentLab(Map<String, dynamic> data) {
     final labId = (data['labId'] ?? '').toString().trim();
@@ -113,6 +115,9 @@ class EventService {
           userId: userId,
           displayName: displayName,
           birthday: birthday,
+          recipientUserIds: eligibleMemberships.map(
+            (membership) => membership.userId,
+          ),
         );
       }
     } catch (_) {
@@ -158,11 +163,12 @@ class EventService {
     await _firestore.collection('events').doc(docId).delete();
   }
 
-  Future<void> _createBirthdayCelebrationIfMissing({
+  Future<bool> _createBirthdayCelebrationIfMissing({
     required String labId,
     required String userId,
     required String displayName,
     required DateTime birthday,
+    required Iterable<String> recipientUserIds,
   }) async {
     final eventId = _birthdayEventId(
       labId: labId,
@@ -172,10 +178,10 @@ class EventService {
     final eventRef = _firestore.collection('events').doc(eventId);
     final birthdayLabel = _formatBirthdayDayMonth(birthday);
 
-    await _firestore.runTransaction((transaction) async {
+    final created = await _firestore.runTransaction<bool>((transaction) async {
       final existing = await transaction.get(eventRef);
       if (existing.exists) {
-        return;
+        return false;
       }
 
       transaction.set(eventRef, {
@@ -196,7 +202,28 @@ class EventService {
         'birthdayUserId': userId,
         'birthdayYear': birthday.year,
       });
+      return true;
     });
+
+    if (!created) {
+      return false;
+    }
+
+    try {
+      await _notificationService.notifyBirthdayEvent(
+        targetUserIds: recipientUserIds,
+        labId: labId,
+        eventId: eventId,
+        birthdayUserId: userId,
+        birthdayYear: birthday.year,
+        birthdayName: displayName,
+        birthdayLabel: birthdayLabel,
+        actorUid: AppState.instance.authenticatedUserId,
+      );
+    } catch (_) {
+      // Notification failures must not block birthday event creation.
+    }
+    return true;
   }
 
   String _birthdayEventId({

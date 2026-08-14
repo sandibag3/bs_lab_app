@@ -1,12 +1,15 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../app_state.dart';
 import '../models/fund_model.dart';
 import '../models/fund_transaction_model.dart';
 import '../models/requirement_model.dart';
 import 'firestore_access_guard.dart';
+import 'notification_service.dart';
 
 class RequirementService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final NotificationService _notificationService = NotificationService();
   static const double _amountTolerance = 0.000001;
   static const String _statusChangedDeleteMessage =
       'This requirement can no longer be deleted because its status has changed.';
@@ -92,11 +95,31 @@ class RequirementService {
     required String status,
     required String approvedBy,
   }) async {
+    final requirementSnapshot = await _firestore
+        .collection('requirements')
+        .doc(docId)
+        .get();
+    if (!requirementSnapshot.exists || requirementSnapshot.data() == null) {
+      throw StateError('Requirement could not be found.');
+    }
+
+    final requirement = RequirementModel.fromFirestore(requirementSnapshot);
     await _firestore.collection('requirements').doc(docId).update({
       'status': status,
       'approvedBy': approvedBy,
       'approvedAt': Timestamp.now(),
     });
+
+    final normalizedStatus = status.trim().toLowerCase();
+    if (normalizedStatus == 'approved' || normalizedStatus == 'rejected') {
+      unawaited(
+        _notifyRequirementDecision(
+          requirement: requirement,
+          approved: normalizedStatus == 'approved',
+          actorName: approvedBy,
+        ),
+      );
+    }
   }
 
   Future<void> cancelPendingRequirement({
@@ -199,6 +222,7 @@ class RequirementService {
         .collection('funds')
         .doc(cleanFundId);
     final transactionRef = fundRef.collection('transactions').doc();
+    RequirementModel? approvedRequirement;
 
     await _firestore.runTransaction((transaction) async {
       final requirementSnapshot = await transaction.get(requirementRef);
@@ -207,6 +231,7 @@ class RequirementService {
       }
 
       final requirement = RequirementModel.fromFirestore(requirementSnapshot);
+      approvedRequirement = requirement;
       if (requirement.labId.trim() != cleanLabId) {
         throw StateError('Requirement does not belong to the active lab.');
       }
@@ -289,6 +314,17 @@ class RequirementService {
         'notes': null,
       });
     });
+
+    final approved = approvedRequirement;
+    if (approved != null) {
+      unawaited(
+        _notifyRequirementDecision(
+          requirement: approved,
+          approved: true,
+          actorName: cleanApprovedBy,
+        ),
+      );
+    }
   }
 
   Future<void> markRequirementOrdered({
@@ -300,6 +336,32 @@ class RequirementService {
       'approvedBy': updatedBy,
       'approvedAt': Timestamp.now(),
     });
+  }
+
+  Future<void> _notifyRequirementDecision({
+    required RequirementModel requirement,
+    required bool approved,
+    required String actorName,
+  }) async {
+    try {
+      final targetUserId = requirement.createdBy.trim();
+      final actorUid = AppState.instance.authenticatedUserId.trim();
+      if (targetUserId.isEmpty || actorUid.isEmpty) {
+        return;
+      }
+
+      await _notificationService.notifyRequirementDecision(
+        targetUserId: targetUserId,
+        labId: requirement.labId,
+        requirementId: requirement.id,
+        itemName: _buildRequirementItemSnapshot(requirement),
+        approved: approved,
+        actorUid: actorUid,
+        actorName: actorName,
+      );
+    } catch (_) {
+      // Notification failures must not change requirement workflow results.
+    }
   }
 
   static String _normalizedStatus(String value) {

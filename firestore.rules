@@ -412,11 +412,95 @@ service cloud.firestore {
                       : 'rejected');
         }
 
+        function requirementDocument(requirementId) {
+          return /databases/$(database)/documents/requirements/$(requirementId);
+        }
+
+        function orderDocument(orderId) {
+          return /databases/$(database)/documents/orders/$(orderId);
+        }
+
+        function eventDocument(eventId) {
+          return /databases/$(database)/documents/events/$(eventId);
+        }
+
+        function isRequirementDecisionNotification() {
+          return isSignedIn() &&
+              request.resource.data.type in [
+                'requirement_approved',
+                'requirement_rejected'
+              ] &&
+              request.resource.data.entityType == 'requirement' &&
+              request.resource.data.labId is string &&
+              request.resource.data.labId != '' &&
+              isPiOrAdmin(request.resource.data.labId) &&
+              request.resource.data.createdByUid == request.auth.uid &&
+              exists(requirementDocument(request.resource.data.entityId)) &&
+              get(requirementDocument(request.resource.data.entityId)).data.labId ==
+                  request.resource.data.labId &&
+              get(requirementDocument(request.resource.data.entityId)).data.createdBy ==
+                  userId &&
+              get(requirementDocument(request.resource.data.entityId)).data.status ==
+                  (request.resource.data.type == 'requirement_approved'
+                      ? 'approved'
+                      : 'rejected');
+        }
+
+        function isOrderDeliveredNotification() {
+          return isSignedIn() &&
+              request.resource.data.type == 'order_delivered' &&
+              request.resource.data.entityType == 'order' &&
+              request.resource.data.labId is string &&
+              request.resource.data.labId != '' &&
+              hasActiveMembership(request.resource.data.labId) &&
+              request.resource.data.createdByUid == request.auth.uid &&
+              exists(orderDocument(request.resource.data.entityId)) &&
+              get(orderDocument(request.resource.data.entityId)).data.labId ==
+                  request.resource.data.labId &&
+              get(orderDocument(request.resource.data.entityId)).data.status ==
+                  'delivered' &&
+              get(orderDocument(request.resource.data.entityId)).data.requirementId is string &&
+              exists(requirementDocument(
+                get(orderDocument(request.resource.data.entityId)).data.requirementId
+              )) &&
+              get(requirementDocument(
+                get(orderDocument(request.resource.data.entityId)).data.requirementId
+              )).data.createdBy == userId;
+        }
+
+        function isBirthdayNotification() {
+          return isSignedIn() &&
+              request.resource.data.type == 'birthday' &&
+              request.resource.data.entityType == 'event' &&
+              request.resource.data.labId is string &&
+              request.resource.data.labId != '' &&
+              hasActiveMembership(request.resource.data.labId) &&
+              hasActiveMembershipFor(request.resource.data.labId, userId) &&
+              request.resource.data.createdByUid == request.auth.uid &&
+              exists(eventDocument(request.resource.data.entityId)) &&
+              get(eventDocument(request.resource.data.entityId)).data.labId ==
+                  request.resource.data.labId &&
+              get(eventDocument(request.resource.data.entityId)).data.eventType ==
+                  'Celebration' &&
+              get(eventDocument(request.resource.data.entityId)).data.createdBy ==
+                  'Labmate' &&
+              get(eventDocument(request.resource.data.entityId)).data.createdById ==
+                  'labmate' &&
+              get(eventDocument(request.resource.data.entityId)).data.isCompleted ==
+                  false &&
+              get(eventDocument(request.resource.data.entityId)).data.birthdayUserId is string &&
+              get(eventDocument(request.resource.data.entityId)).data.birthdayUserId != '';
+        }
+
         allow read: if isSignedIn() && request.auth.uid == userId;
 
         allow create: if isValidNotificationShape() &&
             (
-              isJoinRequestNotification() || isJoinDecisionNotification()
+              isJoinRequestNotification() ||
+              isJoinDecisionNotification() ||
+              isRequirementDecisionNotification() ||
+              isOrderDeliveredNotification() ||
+              isBirthdayNotification()
             );
 
         allow update: if isSignedIn() &&

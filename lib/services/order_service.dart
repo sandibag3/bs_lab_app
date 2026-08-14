@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../app_state.dart';
 import '../models/order_model.dart';
 import '../models/requirement_model.dart';
 import 'firestore_access_guard.dart';
+import 'notification_service.dart';
 
 class OrderFinancialBackfillResult {
   const OrderFinancialBackfillResult({
@@ -49,6 +51,7 @@ class OrderService {
   static const int _backfillBatchChunkSize = 400;
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final NotificationService _notificationService = NotificationService();
 
   bool _matchesCurrentLab(Map<String, dynamic> data) {
     final labId = (data['labId'] ?? '').toString().trim();
@@ -343,6 +346,7 @@ class OrderService {
         docId: docId,
         receivedBy: receivedBy,
       );
+      unawaited(_notifyOrderDelivered(docId: docId, receivedBy: receivedBy));
       return;
     }
 
@@ -351,6 +355,55 @@ class OrderService {
       'receivedBy': receivedBy,
       'deliveredAt': Timestamp.now(),
     });
+  }
+
+  Future<void> _notifyOrderDelivered({
+    required String docId,
+    required String receivedBy,
+  }) async {
+    try {
+      final orderSnapshot = await _firestore
+          .collection('orders')
+          .doc(docId)
+          .get();
+      if (!orderSnapshot.exists || orderSnapshot.data() == null) {
+        return;
+      }
+
+      final order = OrderModel.fromFirestore(orderSnapshot);
+      final requirementId = order.requirementId.trim();
+      if (requirementId.isEmpty) {
+        return;
+      }
+
+      final requirementSnapshot = await _firestore
+          .collection('requirements')
+          .doc(requirementId)
+          .get();
+      if (!requirementSnapshot.exists || requirementSnapshot.data() == null) {
+        return;
+      }
+
+      final requirement = RequirementModel.fromFirestore(requirementSnapshot);
+      final targetUserId = requirement.createdBy.trim();
+      final actorUid = AppState.instance.authenticatedUserId.trim();
+      if (targetUserId.isEmpty ||
+          targetUserId.contains('@') ||
+          actorUid.isEmpty) {
+        return;
+      }
+
+      await _notificationService.notifyOrderDelivered(
+        targetUserId: targetUserId,
+        labId: order.labId,
+        orderId: order.id,
+        itemName: order.displayName,
+        actorUid: actorUid,
+        actorName: receivedBy,
+      );
+    } catch (_) {
+      // Notification failures must not change delivery results.
+    }
   }
 
   Future<void> _markOrderDeliveredTransactionally({
