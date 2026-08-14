@@ -350,12 +350,34 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  String? _dateOfBirthValidationMessage() {
+    final parsed = UserProfile.dateOfBirthFromString(dobController.text);
+    if (parsed == null) {
+      return 'Date of birth is required';
+    }
+
+    if (parsed.isAfter(_dateOnly(DateTime.now()))) {
+      return 'Date of birth cannot be in the future';
+    }
+
+    return null;
+  }
+
   Future<void> _selectDate() async {
+    final today = _dateOnly(DateTime.now());
+    final currentDob = UserProfile.dateOfBirthFromString(dobController.text);
+    final initialDate = currentDob == null || currentDob.isAfter(today)
+        ? DateTime(2000)
+        : currentDob;
     final DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: DateTime(2000),
-      firstDate: DateTime(1940),
-      lastDate: DateTime.now(),
+      initialDate: initialDate,
+      firstDate: DateTime(1900),
+      lastDate: today,
       builder: (context, child) {
         return Theme(data: Theme.of(context), child: child!);
       },
@@ -363,7 +385,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     if (picked != null) {
       setState(() {
-        dobController.text = '${picked.day}/${picked.month}/${picked.year}';
+        dobController.text = UserProfile.dateOfBirthStorageValue(picked);
       });
     }
   }
@@ -396,6 +418,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Future<void> _saveProfile() async {
+    if (isSaving) {
+      return;
+    }
+
+    final dateOfBirthError = _dateOfBirthValidationMessage();
+    if (dateOfBirthError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(dateOfBirthError)));
+      return;
+    }
+
     setState(() {
       isSaving = true;
     });

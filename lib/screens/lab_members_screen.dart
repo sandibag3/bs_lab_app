@@ -69,16 +69,30 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
               labId: labId,
             )
           : <LabJoinRequestModel>[];
-      final profiles = await _userProfileService.getUserProfilesByIds(
-        memberships.map((membership) => membership.userId),
-      );
+      final currentUserId = widget.appState.authenticatedUserId.trim();
+      final profileUserIds = widget.appState.isPi
+          ? memberships.map((membership) => membership.userId)
+          : memberships
+                .where(
+                  (membership) => membership.userId.trim() == currentUserId,
+                )
+                .map((membership) => membership.userId);
+      var profiles = <String, UserProfile>{};
+      try {
+        profiles = await _userProfileService.getUserProfilesByIds(
+          profileUserIds,
+        );
+      } catch (_) {
+        profiles = <String, UserProfile>{};
+      }
 
       return _LabMembersData(
         pendingRequests: pendingRequests,
         members: memberships.map((membership) {
+          final userId = membership.userId.trim();
           return _LabMemberDetails(
             membership: membership,
-            profile: profiles[membership.userId.trim()],
+            profile: profiles[userId],
           );
         }).toList(),
       );
@@ -119,6 +133,21 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
     return member.membership.userId.trim();
   }
 
+  String _profileFullName(_LabMemberDetails member) {
+    final profile = member.profile;
+    final parts = [profile?.prefix.trim() ?? '', profile?.name.trim() ?? '']
+        .where((part) {
+          return part.isNotEmpty && part.toLowerCase() != 'your name';
+        })
+        .toList();
+
+    if (parts.isNotEmpty) {
+      return parts.join(' ');
+    }
+
+    return _memberName(member);
+  }
+
   String _formatDate(DateTime value) {
     final day = value.day.toString().padLeft(2, '0');
     final month = _monthLabels[value.month - 1];
@@ -145,6 +174,260 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
     final startLabel = startAt == null ? 'Start not set' : _formatDate(startAt);
     final endLabel = endAt == null ? 'End not set' : _formatDate(endAt);
     return '$startLabel -> $endLabel';
+  }
+
+  String _membershipStatusLabel(LabMembershipModel membership) {
+    final status = membership.effectiveStatus.trim();
+    if (status.isEmpty) {
+      return 'Active';
+    }
+
+    return status[0].toUpperCase() + status.substring(1);
+  }
+
+  Widget _buildProfileDetailLine(
+    BuildContext context,
+    String label,
+    String value,
+  ) {
+    final cleanValue = value.trim();
+    if (cleanValue.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final palette = context.labmate;
+    final colorScheme = context.colorScheme;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: palette.mutedText,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            cleanValue,
+            style: TextStyle(
+              color: colorScheme.onSurface,
+              fontSize: 13.5,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _basicProfileDetails(
+    BuildContext context,
+    _LabMemberDetails member,
+  ) {
+    final profile = member.profile;
+    final membership = member.membership;
+    final isCurrentUser =
+        membership.userId.trim() == widget.appState.authenticatedUserId.trim();
+    final showEmail = isCurrentUser || profile?.showEmailToLabMembers == true;
+    final showMobile = isCurrentUser || profile?.showMobileToLabMembers == true;
+    final profileComplete = profile == null
+        ? ''
+        : (profile.profileCompleted || profile.isComplete)
+        ? 'Complete'
+        : 'Incomplete';
+
+    return [
+      _buildProfileDetailLine(context, 'Display name', _memberName(member)),
+      _buildProfileDetailLine(
+        context,
+        'Lab Access',
+        _accessRoleLabel(membership),
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Profile Role',
+        profile?.joinAs.trim() ?? '',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Designation',
+        profile?.designation?.trim() ?? '',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Research area',
+        profile?.researchArea?.trim() ?? '',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Email',
+        showEmail ? _memberEmail(member) : 'Hidden',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Contact',
+        showMobile ? profile?.contactNumber.trim() ?? '' : 'Hidden',
+      ),
+      _buildProfileDetailLine(context, 'Profile status', profileComplete),
+    ];
+  }
+
+  List<Widget> _piDetailedProfileDetails(
+    BuildContext context,
+    _LabMemberDetails member,
+  ) {
+    final profile = member.profile;
+    final membership = member.membership;
+    final dob = profile?.dob.trim() ?? '';
+
+    return [
+      _buildProfileDetailLine(context, 'Full name', _profileFullName(member)),
+      _buildProfileDetailLine(
+        context,
+        'Lab Access',
+        _accessRoleLabel(membership),
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Membership status',
+        _membershipStatusLabel(membership),
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Membership start',
+        membership.membershipStartAt == null
+            ? ''
+            : _formatDate(membership.membershipStartAt!),
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Membership end',
+        membership.membershipEndAt == null
+            ? ''
+            : _formatDate(membership.membershipEndAt!),
+      ),
+      _buildProfileDetailLine(context, 'Email', _memberEmail(member)),
+      _buildProfileDetailLine(
+        context,
+        'Contact number',
+        profile?.contactNumber.trim() ?? '',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Date of birth',
+        dob.isEmpty ? '' : UserProfile.formatDateOfBirthForDisplay(dob),
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Profile Role',
+        profile?.joinAs.trim() ?? '',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Designation',
+        profile?.designation?.trim() ?? '',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Research area',
+        profile?.researchArea?.trim() ?? '',
+      ),
+      _buildProfileDetailLine(context, 'Roll number', profile?.rollNo ?? ''),
+      _buildProfileDetailLine(context, 'Batch', profile?.batch ?? ''),
+      _buildProfileDetailLine(
+        context,
+        'Present address',
+        profile?.presentAddress.trim() ?? '',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Permanent address',
+        profile?.permanentAddress.trim() ?? '',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Emergency contact',
+        profile?.emergencyContactPerson.trim() ?? '',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Emergency relationship',
+        profile?.emergencyRelationship.trim() ?? '',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Emergency phone',
+        profile?.emergencyContactNumber.trim() ?? '',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Blood group',
+        profile?.bloodGroup.trim() ?? '',
+      ),
+      _buildProfileDetailLine(
+        context,
+        'Hobbies',
+        profile?.hobbies.trim() ?? '',
+      ),
+      _buildProfileDetailLine(context, 'About', profile?.about.trim() ?? ''),
+      _buildProfileDetailLine(
+        context,
+        'Profile status',
+        profile == null
+            ? 'Not available'
+            : (profile.profileCompleted || profile.isComplete)
+            ? 'Complete'
+            : 'Incomplete',
+      ),
+    ];
+  }
+
+  Future<void> _showMemberProfile(_LabMemberDetails member) async {
+    final isPi = widget.appState.isPi;
+
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        final palette = context.labmate;
+        final colorScheme = context.colorScheme;
+        final details = isPi
+            ? _piDetailedProfileDetails(context, member)
+            : _basicProfileDetails(context, member);
+
+        return AlertDialog(
+          backgroundColor: palette.panel,
+          title: Text(
+            isPi ? 'Member Profile' : 'Basic Profile',
+            style: TextStyle(color: colorScheme.onSurface),
+          ),
+          content: SizedBox(
+            width: 420,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: details,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Close',
+                style: TextStyle(color: colorScheme.primary),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<_TenureSelection?> _showApprovalDialog(
@@ -942,13 +1225,17 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                           final member = members[index - 1];
                           final membership = member.membership;
                           final profile = member.profile;
-                          final showEmail =
-                              profile?.showEmailToLabMembers ?? true;
-                          final showMobile =
-                              profile?.showMobileToLabMembers ?? false;
                           final isCurrentUser =
                               membership.userId.trim() ==
-                              widget.appState.authenticatedUserId;
+                              widget.appState.authenticatedUserId.trim();
+                          final showEmail =
+                              widget.appState.isPi ||
+                              isCurrentUser ||
+                              profile?.showEmailToLabMembers == true;
+                          final showMobile =
+                              widget.appState.isPi ||
+                              isCurrentUser ||
+                              profile?.showMobileToLabMembers == true;
 
                           return _MemberTile(
                             name: _memberName(member),
@@ -972,6 +1259,7 @@ class _LabMembersScreenState extends State<LabMembersScreen> {
                             isUpdating:
                                 _updatingMemberUserId ==
                                 membership.userId.trim(),
+                            onTap: () => _showMemberProfile(member),
                             onEditRole: widget.appState.isPiOrAdmin
                                 ? () => _showRoleEditor(member)
                                 : null,
@@ -1018,6 +1306,7 @@ class _MemberTile extends StatelessWidget {
   final bool isCurrentUser;
   final bool canEditRole;
   final bool isUpdating;
+  final VoidCallback? onTap;
   final VoidCallback? onEditRole;
 
   const _MemberTile({
@@ -1034,6 +1323,7 @@ class _MemberTile extends StatelessWidget {
     required this.isCurrentUser,
     required this.canEditRole,
     required this.isUpdating,
+    this.onTap,
     required this.onEditRole,
   });
 
@@ -1062,94 +1352,101 @@ class _MemberTile extends StatelessWidget {
     final palette = context.labmate;
     final colorScheme = context.colorScheme;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: palette.panel,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: palette.border),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            height: 44,
-            width: 44,
-            decoration: BoxDecoration(
-              color: palette.panelAlt,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(Icons.person_rounded, color: colorScheme.primary),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: palette.panel,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: palette.border),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: TextStyle(
-                    color: colorScheme.onSurface,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                  ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                height: 44,
+                width: 44,
+                decoration: BoxDecoration(
+                  color: palette.panelAlt,
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                _buildDetail(context, 'Email', email),
-                _buildDetail(
-                  context,
-                  'Profile Role',
-                  profileRole.trim().isEmpty ? 'Not set' : profileRole,
-                ),
-                _buildDetail(context, 'Lab Access', roleLabel),
-                _buildDetail(context, 'Tenure', tenureLabel),
-                _buildDetail(context, 'Designation', designation),
-                _buildDetail(context, 'Research area', researchArea),
-                _buildDetail(context, 'Contact', contactNumber),
-                const SizedBox(height: 10),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
+                child: Icon(Icons.person_rounded, color: colorScheme.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    _MemberBadge(
-                      label: profileCompleted
-                          ? 'Profile Complete'
-                          : 'Profile Incomplete',
-                      accentColor: profileCompleted
-                          ? colorScheme.primary
-                          : null,
+                    Text(
+                      name,
+                      style: TextStyle(
+                        color: colorScheme.onSurface,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                    if (isCurrentUser)
-                      const _MemberBadge(
-                        label: 'You',
-                        accentColor: Color(0xFF14B8A6),
-                      ),
-                    if (isExpired)
-                      _MemberBadge(
-                        label: 'Expired',
-                        accentColor: colorScheme.error,
-                      ),
+                    _buildDetail(context, 'Email', email),
+                    _buildDetail(
+                      context,
+                      'Profile Role',
+                      profileRole.trim().isEmpty ? 'Not set' : profileRole,
+                    ),
+                    _buildDetail(context, 'Lab Access', roleLabel),
+                    _buildDetail(context, 'Tenure', tenureLabel),
+                    _buildDetail(context, 'Designation', designation),
+                    _buildDetail(context, 'Research area', researchArea),
+                    _buildDetail(context, 'Contact', contactNumber),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _MemberBadge(
+                          label: profileCompleted
+                              ? 'Profile Complete'
+                              : 'Profile Incomplete',
+                          accentColor: profileCompleted
+                              ? colorScheme.primary
+                              : null,
+                        ),
+                        if (isCurrentUser)
+                          const _MemberBadge(
+                            label: 'You',
+                            accentColor: Color(0xFF14B8A6),
+                          ),
+                        if (isExpired)
+                          _MemberBadge(
+                            label: 'Expired',
+                            accentColor: colorScheme.error,
+                          ),
+                      ],
+                    ),
                   ],
                 ),
+              ),
+              if (canEditRole) ...[
+                const SizedBox(width: 10),
+                IconButton(
+                  tooltip: 'Edit role',
+                  onPressed: isUpdating ? null : onEditRole,
+                  icon: isUpdating
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.manage_accounts_rounded),
+                  color: const Color(0xFF14B8A6),
+                ),
               ],
-            ),
+            ],
           ),
-          if (canEditRole) ...[
-            const SizedBox(width: 10),
-            IconButton(
-              tooltip: 'Edit role',
-              onPressed: isUpdating ? null : onEditRole,
-              icon: isUpdating
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.manage_accounts_rounded),
-              color: const Color(0xFF14B8A6),
-            ),
-          ],
-        ],
+        ),
       ),
     );
   }

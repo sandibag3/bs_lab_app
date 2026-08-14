@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../app_state.dart';
+import '../models/user_profile.dart';
 import '../services/user_profile_service.dart';
 import '../theme/labmate_theme.dart';
 import '../widgets/add_action_sheet.dart';
@@ -435,6 +436,7 @@ class _ProfileCompletionDialogState extends State<_ProfileCompletionDialog> {
 
   late final TextEditingController _nameController;
   late final TextEditingController _contactController;
+  late final TextEditingController _dobController;
   late final TextEditingController _designationController;
   late final TextEditingController _researchAreaController;
 
@@ -452,6 +454,7 @@ class _ProfileCompletionDialogState extends State<_ProfileCompletionDialog> {
       text: profileName == 'Your Name' ? '' : profileName,
     );
     _contactController = TextEditingController(text: profile.contactNumber);
+    _dobController = TextEditingController(text: profile.dob);
     _designationController = TextEditingController(
       text: profile.designation ?? '',
     );
@@ -466,6 +469,7 @@ class _ProfileCompletionDialogState extends State<_ProfileCompletionDialog> {
   void dispose() {
     _nameController.dispose();
     _contactController.dispose();
+    _dobController.dispose();
     _designationController.dispose();
     _researchAreaController.dispose();
     super.dispose();
@@ -489,8 +493,56 @@ class _ProfileCompletionDialogState extends State<_ProfileCompletionDialog> {
     );
   }
 
+  DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
+
+  String? _dateOfBirthValidationMessage() {
+    final parsed = UserProfile.dateOfBirthFromString(_dobController.text);
+    if (parsed == null) {
+      return 'Date of birth is required';
+    }
+
+    if (parsed.isAfter(_dateOnly(DateTime.now()))) {
+      return 'Date of birth cannot be in the future';
+    }
+
+    return null;
+  }
+
+  Future<void> _selectDateOfBirth() async {
+    final today = _dateOnly(DateTime.now());
+    final currentDob = UserProfile.dateOfBirthFromString(_dobController.text);
+    final initialDate = currentDob == null || currentDob.isAfter(today)
+        ? DateTime(2000)
+        : currentDob;
+
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(1900),
+      lastDate: today,
+    );
+
+    if (picked == null) {
+      return;
+    }
+
+    setState(() {
+      _dobController.text = UserProfile.dateOfBirthStorageValue(picked);
+    });
+  }
+
   Future<void> _saveProfile() async {
     if (_isSaving || !_formKey.currentState!.validate()) {
+      return;
+    }
+
+    final dateOfBirthError = _dateOfBirthValidationMessage();
+    if (dateOfBirthError != null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(dateOfBirthError)));
       return;
     }
 
@@ -503,6 +555,7 @@ class _ProfileCompletionDialogState extends State<_ProfileCompletionDialog> {
         uid: widget.appState.authenticatedUserId,
         name: _nameController.text,
         contactNumber: _contactController.text,
+        dateOfBirth: _dobController.text,
         designation: _designationController.text,
         researchArea: _researchAreaController.text,
         showEmailToLabMembers: _showEmailToLabMembers,
@@ -622,6 +675,14 @@ class _ProfileCompletionDialogState extends State<_ProfileCompletionDialog> {
                     decoration: _inputDecoration('Contact number (optional)'),
                     keyboardType: TextInputType.phone,
                     textInputAction: TextInputAction.next,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: _dobController,
+                    readOnly: true,
+                    onTap: _isSaving ? null : _selectDateOfBirth,
+                    decoration: _inputDecoration('Date of birth'),
+                    validator: (_) => _dateOfBirthValidationMessage(),
                   ),
                   const SizedBox(height: 12),
                   TextFormField(

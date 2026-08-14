@@ -323,6 +323,10 @@ service cloud.firestore {
           isLazyExpiryWrite();
     }
 
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+    }
+
     match /labJoinRequests/{requestId} {
       allow create: if isSignedIn() &&
           requestId == membershipDocId(request.resource.data.labId, request.auth.uid) &&

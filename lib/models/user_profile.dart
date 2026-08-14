@@ -17,6 +17,20 @@ class UserProfileScientificAvatar {
 
 class UserProfile {
   static const String scientificAvatarPrefix = 'avatar:';
+  static const List<String> _fullMonthLabels = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
   static const List<UserProfileScientificAvatar> scientificAvatarOptions = [
     UserProfileScientificAvatar(
       id: 'flask',
@@ -325,6 +339,64 @@ class UserProfile {
     }
 
     return null;
+  }
+
+  static DateTime? dateOfBirthFromString(String value) {
+    final cleanValue = value.trim();
+    if (cleanValue.isEmpty) {
+      return null;
+    }
+
+    final parts = cleanValue.split(RegExp(r'[/\-.]'));
+    if (parts.length != 3) {
+      return null;
+    }
+
+    int? day;
+    int? month;
+    int? year;
+
+    final first = int.tryParse(parts[0]);
+    final second = int.tryParse(parts[1]);
+    final third = int.tryParse(parts[2]);
+    if (first == null || second == null || third == null) {
+      return null;
+    }
+
+    if (parts[0].length == 4) {
+      year = first;
+      month = second;
+      day = third;
+    } else {
+      day = first;
+      month = second;
+      year = third;
+    }
+
+    if (year < 1900 || month < 1 || month > 12 || day < 1 || day > 31) {
+      return null;
+    }
+
+    final parsed = DateTime(year, month, day);
+    if (parsed.year != year || parsed.month != month || parsed.day != day) {
+      return null;
+    }
+
+    return parsed;
+  }
+
+  static String dateOfBirthStorageValue(DateTime value) {
+    return '${value.day}/${value.month}/${value.year}';
+  }
+
+  static String formatDateOfBirthForDisplay(String value) {
+    final parsed = dateOfBirthFromString(value);
+    if (parsed == null) {
+      return value.trim();
+    }
+
+    return '${parsed.day.toString().padLeft(2, '0')} '
+        '${_fullMonthLabels[parsed.month - 1]} ${parsed.year}';
   }
 
   static DateTime? _dateTimeFromValue(dynamic value) {

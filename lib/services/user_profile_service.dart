@@ -79,6 +79,7 @@ class UserProfileService {
     required String uid,
     required String name,
     required String contactNumber,
+    required String dateOfBirth,
     String? designation,
     String? researchArea,
     required bool showEmailToLabMembers,
@@ -92,6 +93,7 @@ class UserProfileService {
     await _usersRef.doc(cleanUid).set({
       'name': name.trim(),
       'contactNumber': contactNumber.trim(),
+      'dateOfBirth': dateOfBirth.trim(),
       'designation': _nullableTrimmedString(designation),
       'researchArea': _nullableTrimmedString(researchArea),
       'showEmailToLabMembers': showEmailToLabMembers,
